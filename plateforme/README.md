@@ -3,7 +3,7 @@
 Éditeur de cartes de jeu de rôle pour la campagne **La Forêt Noire** (Knight JDR).
 Application entièrement statique : aucun serveur, aucun compte, aucun abonnement.
 
-Projet autonome : `C:/Projet/cartographe-knight/` — volontairement séparé du dossier de
+Projet autonome : `C:/Projet/jdr créateur de carte/` — volontairement séparé du dossier de
 campagne `C:/Projet/jdr/`, avec son propre dépôt git. L'outil et le contenu de jeu
 évoluent chacun de leur côté.
 
@@ -125,7 +125,7 @@ C'est le principe : **git est la base de données**. Gratuit, versionné, sans s
 **Le dépôt git local existe déjà** (premier commit fait). Il reste à créer un dépôt vide
 sur GitHub, puis :
 ```bash
-cd "C:/Projet/cartographe-knight"
+cd "C:/Projet/jdr créateur de carte"
 git remote add origin https://github.com/<utilisateur>/cartographe-knight.git
 git push -u origin master
 ```

@@ -52,7 +52,7 @@ et les portails, jamais les jetons ni les pings.
 ## Vérification obligatoire — ne jamais livrer sans avoir regardé
 
 ```bash
-cd "C:/Projet/cartographe-knight/plateforme" && python -m http.server 8777
+cd "C:/Projet/jdr créateur de carte/plateforme" && python -m http.server 8777
 # IndexedDB et cartes/index.json sont bridés en file:// : toujours passer par http
 "/c/Program Files/Google/Chrome/Application/chrome.exe" --headless --disable-gpu \
   --window-size=1500,950 --user-data-dir="<profil unique>" --virtual-time-budget=8000 \
