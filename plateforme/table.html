@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Table de jeu — Cartographe Knight</title>
+<link rel="stylesheet" href="css/commun.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#221b11">
+<style>
+  /* ---------- table de jeu ---------- */
+  #scene{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;background:#0a0806;cursor:grab}
+  #scene.o-reveal,#scene.o-hide{cursor:crosshair}
+  #scene.o-mesure{cursor:cell}
+  #monde{position:absolute;left:0;top:0;transform-origin:0 0}
+  #monde > *{position:absolute;left:0;top:0}
+  #plan{display:block}
+  /* côté MJ, le voile reste transparent pour travailler ; côté joueurs il est opaque */
+  #fog{pointer-events:none;opacity:.58}
+  body[data-vue="joueurs"] #fog{opacity:1}
+  body[data-vue="joueurs"] .mj-only{display:none !important}
+  /* les deux barres s'excluent : ne jamais mettre de display en style inline,
+     il gagnerait contre ces règles */
+  #barre-mj{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+  #barre-joueurs{display:flex;gap:6px}
+  body[data-vue="joueurs"] #barre-mj{display:none}
+  body[data-vue="mj"] #barre-joueurs{display:none}
+
+  #pins{pointer-events:none;width:100%;height:100%}
+  .pin{position:absolute;width:0;height:0;pointer-events:auto;cursor:pointer}
+  .pin .los{position:absolute;left:-9px;top:-9px;width:18px;height:18px;background:var(--or);
+    transform:rotate(45deg);border:2px solid #0d0a07;box-shadow:0 0 10px rgba(201,162,39,.5)}
+  .pin.inerte .los{background:#5a5348;box-shadow:none}
+  .pin .lab{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(13,10,7,.85);
+    color:var(--or);padding:1px 7px;border-radius:3px;font:600 11px var(--ui);white-space:nowrap}
+  .pin.inerte .lab{color:#8d8474}
+  body[data-vue="joueurs"] .pin{cursor:default}
+  /* fenêtre projetée : rien n'y est manipulable */
+  body[data-vue="joueurs"] #choix-carte{pointer-events:none;opacity:.75}
+
+  #jetons{width:100%;height:100%;pointer-events:none}
+  .jeton{position:absolute;width:32px;height:32px;margin:-16px 0 0 -16px;border-radius:50%;
+    border:2.5px solid #0d0a07;pointer-events:auto;display:flex;align-items:center;justify-content:center;
+    cursor:grab;font:700 15px var(--ui);color:#100d08;background-size:cover;background-position:center;
+    box-shadow:0 2px 6px rgba(0,0,0,.6),inset 0 0 0 1.5px rgba(255,255,255,.35);touch-action:none}
+  .jeton.drag{cursor:grabbing;box-shadow:0 6px 14px rgba(0,0,0,.8);z-index:5}
+  body[data-vue="joueurs"] .jeton{pointer-events:none}
+
+  #sur{pointer-events:none;width:100%;height:100%}
+  .ping{position:absolute;width:0;height:0}
+  .ping span{position:absolute;left:0;top:0;width:12px;height:12px;margin:-6px 0 0 -6px;
+    border:2.5px solid var(--or);border-radius:50%;opacity:0;animation:ping 1.6s ease-out forwards}
+  .ping span:nth-child(2){animation-delay:.25s}
+  .ping span:nth-child(3){animation-delay:.5s}
+  @keyframes ping{0%{transform:scale(.4);opacity:1}100%{transform:scale(6);opacity:0}}
+  #regle{overflow:visible}
+  #regle line{stroke:var(--or);stroke-width:2;stroke-dasharray:6 4}
+  #etiquette{position:absolute;background:#0d0a07;color:var(--or);font:600 12px var(--ui);
+    padding:2px 7px;border-radius:3px;white-space:nowrap;transform:translate(10px,-24px);
+    border:1px solid var(--or)}
+  #aide-jeu{position:fixed;bottom:8px;left:8px;z-index:10;font:italic 11.5px var(--serif);opacity:.6;
+    background:rgba(13,10,7,.8);padding:5px 9px;border-radius:5px;max-width:78vw}
+  body[data-vue="joueurs"] #aide-jeu{display:none}
+
+  /* Téléphone / tablette : la barre d'outils défile horizontalement au lieu de
+     s'empiler sur trois lignes et de manger la carte. */
+  @media (max-width:820px){
+    #aide-jeu{display:none}
+    header{flex-wrap:nowrap;gap:6px;padding:5px 6px}
+    header .marque{display:none}
+    #choix-carte{flex:0 1 40vw;min-width:0;font-size:12px}
+    #barre-mj{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+    #barre-mj::-webkit-scrollbar{display:none}
+    #barre-mj button, #barre-mj .btn{flex:0 0 auto;padding:5px 7px;font-size:11px;min-height:34px}
+    #barre-mj .sep{flex:0 0 1px}
+    #scene{min-height:0}
+  }
+</style>
+</head>
+<body data-vue="mj">
+
+<header>
+  <div class="marque">Table <span>de jeu</span></div>
+  <select id="choix-carte" title="Carte affichée"></select>
+  <div class="esp"></div>
+  <span id="barre-mj">
+    <button data-o="deplacer" class="actif" title="Déplacer les jetons et la vue">✥</button>
+    <button data-o="reveal" title="Révéler le terrain au pinceau">☀ Révéler</button>
+    <button data-o="hide" title="Recouvrir de brouillard">☁ Cacher</button>
+    <button data-o="mesure" title="Mesurer une distance">⟷</button>
+    <button id="b-annuler-fog" title="Annuler le dernier geste de brouillard (Ctrl+Z)">↶</button>
+    <span class="sep"></span>
+    <button id="b-couvrir" title="Recouvrir toute la carte">Tout couvrir</button>
+    <button id="b-decouvrir" title="Tout révéler">Tout révéler</button>
+    <span class="sep"></span>
+    <button id="b-jeton" title="Ajouter un jeton">+ Jeton</button>
+    <button id="b-amener" title="Amener les jetons des PJ sur cette carte">⇄ PJ</button>
+    <span class="sep"></span>
+    <button id="b-vue" title="Prévisualiser ce que voient les joueurs (G)">Vue joueurs</button>
+    <button id="b-cadrer" title="Recadrer">⤢</button>
+    <a class="btn" id="b-editer" href="editeur.html" title="Modifier cette carte">✎ Éditer</a>
+    <a class="btn" href="index.html">☰ Cartes</a>
+  </span>
+  <span id="barre-joueurs">
+    <button id="b-suivre" class="actif">Suivre le MJ</button>
+  </span>
+</header>
+<div id="toast"></div>
+
+<div id="scene">
+  <div id="monde">
+    <svg id="plan"></svg>
+    <!-- les portails font partie du décor : sous le brouillard, donc invisibles
+         tant que la zone n'est pas révélée. Les jetons, eux, restent au-dessus. -->
+    <div id="pins"></div>
+    <canvas id="fog"></canvas>
+    <div id="jetons"></div>
+    <div id="sur"><svg id="regle"></svg></div>
+  </div>
+</div>
+
+<div id="aide-jeu">molette : zoom · glisser le fond : déplacer · <b>clic sur un losange doré : changer de carte</b> ·
+double-clic : ping · Ctrl+Z : annuler le dernier geste de brouillard · clic droit sur un jeton : le retirer ·
+fenêtre pour la TV : ajouter <b>?vue=joueurs</b> à l’adresse</div>
+
+<script src="js/modele.js"></script>
+<script src="js/rendu.js"></script>
+<script src="js/stockage.js"></script>
+<script src="js/table.js"></script>
+</body>
+</html>

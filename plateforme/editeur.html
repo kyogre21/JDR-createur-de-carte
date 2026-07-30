@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Éditeur — Cartographe Knight</title>
+<link rel="stylesheet" href="css/commun.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#221b11">
+</head>
+<body>
+
+<header>
+  <div class="marque">Cartographe <span>Knight</span></div>
+  <input id="nom-carte" placeholder="Nom de la carte">
+  <div class="esp"></div>
+  <button id="b-enregistrer" title="Enregistrer dans la bibliothèque (Ctrl+S)">💾 Enregistrer</button>
+  <button id="b-undo" title="Annuler (Ctrl+Z)">↶</button>
+  <button id="b-redo" title="Refaire (Ctrl+Y)">↷</button>
+  <span class="sep"></span>
+  <button id="b-vue" class="actif" title="Basculer vue MJ / vue joueurs">Vue MJ</button>
+  <button id="b-cadrer" title="Recadrer la vue">⤢</button>
+  <button id="b-panneau" title="Replier / déplier le panneau">▤</button>
+  <span class="sep"></span>
+  <button id="b-json" title="Exporter le fichier .json (à versionner dans le dépôt)">↓ JSON</button>
+  <button id="b-svg" title="Exporter le SVG (pour les PDF de Codex)">↓ SVG</button>
+  <button id="b-scene" title="Copier le bloc de scène (pour une page de table externe)">⧉ Scène</button>
+  <span class="sep"></span>
+  <a class="btn" id="b-jouer" href="table.html" title="Ouvrir cette carte en mode Jeu (brouillard, jetons)">▶ Jouer</a>
+  <a class="btn" href="index.html" title="Bibliothèque de cartes">☰ Cartes</a>
+</header>
+<div id="toast"></div>
+
+<div id="app">
+  <div id="outils"></div>
+  <div id="canevas">
+    <div id="monde">
+      <svg id="plan"></svg>
+      <svg id="edition"></svg>
+    </div>
+  </div>
+  <div id="panneau">
+    <h3 id="t-props">Élément</h3>
+    <div id="props"></div>
+    <h3>Calques</h3>
+    <div id="calques"></div>
+    <h3>Carte</h3>
+    <div id="carte-props"></div>
+    <h3>Clé numérotée</h3>
+    <div id="cle"></div>
+  </div>
+</div>
+
+<footer><span id="etat">Prêt.</span></footer>
+
+<script src="js/modele.js"></script>
+<script src="js/rendu.js"></script>
+<script src="js/stockage.js"></script>
+<script src="js/editeur.js"></script>
+</body>
+</html>

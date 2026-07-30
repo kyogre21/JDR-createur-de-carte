@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cartographe Knight</title>
+<link rel="stylesheet" href="css/commun.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#221b11">
+</head>
+<body>
+
+<header>
+  <div class="marque">Cartographe <span>Knight</span></div>
+  <div class="esp"></div>
+  <a class="btn" href="table.html" title="Ouvrir la table de jeu">▶ Table de jeu</a>
+  <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
+  <button id="b-importer">↑ Importer un .json</button>
+  <input type="file" id="fichier" accept=".json,application/json" hidden>
+</header>
+
+<div id="alerte-fichier"></div>
+<div id="app">
+  <div id="biblio">
+    <h2 class="titre-page">Mes cartes</h2>
+    <div id="liste" style="display:contents"></div>
+    <h2 class="titre-page" id="t-depot" hidden>Cartes de la campagne</h2>
+    <div id="liste-depot" style="display:contents"></div>
+  </div>
+</div>
+
+<script src="js/modele.js"></script>
+<script src="js/rendu.js"></script>
+<script src="js/stockage.js"></script>
+<script>
+(function () {
+  const M = KJ.modele, R = KJ.rendu, S = KJ.stockage;
+  const $ = (id) => document.getElementById(id);
+
+  function apercu(carte) {
+    // miniature : rendu sans grain (plus léger) et sans les secrets
+    return R.svgString(carte, { grain: false, vueMJ: false, grille: true })
+      .replace('<svg ', '<svg preserveAspectRatio="xMidYMid meet" ');
+  }
+
+  function fiche(carte, opts) {
+    opts = opts || {};
+    const d = document.createElement('div'); d.className = 'fiche';
+    const nb = carte.elements.length;
+    const dim = carte.grille.cell
+      ? `${(carte.taille.w / carte.grille.cell * carte.grille.metres).toFixed(0)} × ${(carte.taille.h / carte.grille.cell * carte.grille.metres).toFixed(0)} m`
+      : `${carte.taille.w} × ${carte.taille.h} px`;
+    const maj = carte.maj ? new Date(carte.maj).toLocaleDateString('fr-FR') : '';
+    d.innerHTML = `<div class="apercu-img">${apercu(carte)}</div>`
+      + `<div class="txt"><b>${carte.nom}</b><div>${dim} · ${nb} élément${nb > 1 ? 's' : ''}${maj ? ' · ' + maj : ''}</div></div>`;
+    const act = document.createElement('div'); act.className = 'actions';
+    const lien = document.createElement('button');
+    lien.textContent = 'Ouvrir';
+    lien.title = opts.depot
+      ? 'Ouvre cette carte de campagne dans ta bibliothèque de travail (même identifiant, donc les liaisons entre cartes restent valides)'
+      : 'Ouvrir dans l’éditeur';
+    lien.addEventListener('click', () => {
+      if (opts.depot) {
+        // on garde l'identifiant : la carte locale REMPLACE celle du dépôt,
+        // elle n'en crée pas un doublon aux liaisons cassées.
+        const c = M.depuisJSON(JSON.parse(JSON.stringify(carte)));
+        S.enregistrer(c).then(() => location.href = 'editeur.html?id=' + c.id);
+      } else location.href = 'editeur.html?id=' + carte.id;
+    });
+    act.appendChild(lien);
+    const jouer = document.createElement('button');
+    jouer.textContent = '▶ Jouer';
+    jouer.title = 'Ouvrir en mode Jeu (brouillard, jetons)';
+    jouer.addEventListener('click', () => location.href = 'table.html?carte=' + encodeURIComponent(carte.id));
+    act.appendChild(jouer);
+    const svg = document.createElement('button');
+    svg.textContent = '↓ SVG';
+    svg.addEventListener('click', () => S.exporterSVG(carte));
+    act.appendChild(svg);
+    if (!opts.depot) {
+      const js = document.createElement('button');
+      js.textContent = '↓ JSON';
+      js.addEventListener('click', () => S.exporterJSON(carte));
+      act.appendChild(js);
+      const sup = document.createElement('button');
+      sup.textContent = '✕'; sup.className = 'danger'; sup.title = 'Supprimer';
+      sup.addEventListener('click', () => {
+        if (confirm('Supprimer « ' + carte.nom + ' » de ta bibliothèque locale ?\n(Le fichier .json exporté, lui, reste intact.)'))
+          S.supprimer(carte.id).then(charger);
+      });
+      act.appendChild(sup);
+    }
+    d.appendChild(act);
+    d.querySelector('.apercu-img').addEventListener('click', () => lien.click());
+    return d;
+  }
+
+  /* Une ancienne version du bouton « Ouvrir une copie » attribuait un nouvel
+     identifiant aux cartes du dépôt : les liaisons entre cartes (les portails
+     des escaliers) ne les retrouvaient plus. On répare en rendant à chaque copie
+     l'identifiant de la carte de campagne dont elle porte le nom. */
+  /* Diagnostic : pour chaque nom de carte, on veut UN seul exemplaire local,
+     portant l'identifiant de la carte de campagne correspondante. On garde la
+     version la plus récemment modifiée et on supprime les autres. */
+  function aReparer(locales, depot) {
+    const groupes = {};
+    for (const l of locales) {
+      const k = S.slug(l.nom);
+      (groupes[k] = groupes[k] || []).push(l);
+    }
+    const plan = { garder: [], supprimer: [], renommer: [], doublons: 0 };
+    for (const k of Object.keys(groupes)) {
+      const g = groupes[k].slice().sort((a, b) => (b.maj || 0) - (a.maj || 0));
+      const chef = g[0];
+      const ref = depot.find(x => S.slug(x.nom) === k);
+      if (g.length > 1) plan.doublons += g.length - 1;
+      g.slice(1).forEach(x => plan.supprimer.push({ id: x.id, nom: x.nom }));
+      if (ref && ref.id !== chef.id) plan.renommer.push({ ancien: chef.id, nouveau: ref.id, nom: chef.nom });
+      plan.garder.push(chef);
+    }
+    return plan;
+  }
+  function reparer(plan) {
+    let p = Promise.resolve();
+    // supprimer les exemplaires en trop
+    for (const s of plan.supprimer) p = p.then(() => S.supprimer(s.id));
+    // rendre son identifiant d'origine à l'exemplaire conservé
+    for (const r of plan.renommer)
+      p = p.then(() => S.charger(r.ancien).then(c => {
+        if (!c) return;
+        c.id = r.nouveau;
+        return S.enregistrer(c).then(() => S.supprimer(r.ancien));
+      }));
+    return p;
+  }
+
+  function alerte(html) {
+    const a = $('alerte-fichier');
+    a.className = 'alerte'; a.innerHTML = html;
+    return a;
+  }
+
+  function charger() {
+    const pLocales = S.avecDelai(S.lister(), 1500, []);
+    const pDepot = S.avecDelai(S.catalogueDepot(), 2500, [])
+      .then(cat => Promise.all(cat.map(e => S.chargerDepot(e.fichier).catch(() => null))))
+      .then(l => l.filter(Boolean));
+
+    pLocales.then(l => {
+      const c = $('liste'); c.innerHTML = '';
+      if (!l.length) {
+        c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
+          + 'Aucune carte pour l’instant. Crée-en une, ou importe un fichier .json.</p>';
+      } else for (const carte of l) c.appendChild(fiche(M.depuisJSON(carte)));
+    });
+
+    pDepot.then(cartes => {
+      if (!cartes.length) return;
+      $('t-depot').hidden = false;
+      const c = $('liste-depot'); c.innerHTML = '';
+      cartes.forEach(carte => c.appendChild(fiche(carte, { depot: true })));
+    });
+
+    // doublons et liaisons cassées : diagnostic + réparation en un clic
+    Promise.all([pLocales, pDepot]).then(([locales, depot]) => {
+      const plan = aReparer(locales, depot);
+      if (!plan.doublons && !plan.renommer.length) return;
+      const bouts = [];
+      if (plan.doublons) bouts.push(plan.doublons + ' exemplaire(s) en double à supprimer');
+      if (plan.renommer.length) bouts.push(plan.renommer.length
+        + ' identifiant(s) à rétablir (' + plan.renommer.map(r => '« ' + r.nom + ' »').join(', ') + ')');
+      const a = alerte('<b>Bibliothèque à nettoyer.</b> ' + bouts.join(', ')
+        + '. Sans cela, les portails des escaliers peuvent viser la mauvaise version d’une carte. '
+        + 'La version la plus récemment modifiée est conservée. ');
+      const b = document.createElement('button');
+      b.textContent = '⟳ Nettoyer et réparer';
+      b.style.marginLeft = '6px';
+      b.addEventListener('click', () => {
+        b.disabled = true; b.textContent = 'Nettoyage…';
+        reparer(plan).then(() => location.reload())
+          .catch(e => { b.disabled = false; b.textContent = '⟳ Réessayer'; alert('Échec : ' + e); });
+      });
+      a.appendChild(b);
+    });
+  }
+
+  $('b-importer').addEventListener('click', () => $('fichier').click());
+  $('fichier').addEventListener('change', (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    S.importerFichier(f)
+      .then(c => S.enregistrer(c).then(() => location.href = 'editeur.html?id=' + c.id))
+      .catch(err => alert('Import impossible : ' + err.message));
+  });
+
+  if (location.protocol === 'file:') {
+    document.getElementById('alerte-fichier').className = 'alerte';
+    document.getElementById('alerte-fichier').innerHTML =
+      '<b>Ouvre la plateforme par le lanceur.</b> En accès direct au fichier, le navigateur '
+      + 'refuse de charger les cartes de la campagne et le stockage local peut être bridé. '
+      + 'Double-clique sur <code>Lancer la plateforme.bat</code>, puis va sur '
+      + '<code>http://127.0.0.1:8777/</code>.';
+  }
+  charger();
+  KJ.stockage.gererServiceWorker();
+})();
+</script>
+</body>
+</html>

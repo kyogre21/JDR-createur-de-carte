@@ -1,0 +1,663 @@
+{
+  "format": 1,
+  "id": "manoir-cygnus-etage",
+  "nom": "Manoir Cygnus — Étage",
+  "campagne": "Forêt Noire",
+  "taille": {
+    "w": 560,
+    "h": 466
+  },
+  "grille": {
+    "cell": 40,
+    "metres": 1.5
+  },
+  "elements": [
+    {
+      "id": "p1",
+      "type": "piece",
+      "x": 40,
+      "y": 40,
+      "w": 480,
+      "h": 120,
+      "nom": ""
+    },
+    {
+      "id": "p2",
+      "type": "piece",
+      "x": 40,
+      "y": 160,
+      "w": 160,
+      "h": 80,
+      "nom": ""
+    },
+    {
+      "id": "p3",
+      "type": "piece",
+      "x": 40,
+      "y": 240,
+      "w": 160,
+      "h": 80,
+      "nom": ""
+    },
+    {
+      "id": "p4",
+      "type": "piece",
+      "x": 40,
+      "y": 320,
+      "w": 160,
+      "h": 80,
+      "nom": ""
+    },
+    {
+      "id": "p5",
+      "type": "piece",
+      "x": 200,
+      "y": 160,
+      "w": 200,
+      "h": 240,
+      "nom": ""
+    },
+    {
+      "id": "p6",
+      "type": "piece",
+      "x": 400,
+      "y": 160,
+      "w": 120,
+      "h": 120,
+      "nom": ""
+    },
+    {
+      "id": "p7",
+      "type": "piece",
+      "x": 400,
+      "y": 280,
+      "w": 120,
+      "h": 120,
+      "nom": ""
+    },
+    {
+      "id": "p8",
+      "type": "piece",
+      "x": 240,
+      "y": 200,
+      "w": 120,
+      "h": 120,
+      "nom": "",
+      "ep": 11
+    },
+    {
+      "id": "d1",
+      "type": "porte",
+      "x": 300,
+      "y": 160,
+      "o": "h",
+      "l": 60,
+      "style": "double",
+      "sens": -1
+    },
+    {
+      "id": "d2",
+      "type": "porte",
+      "x": 300,
+      "y": 200,
+      "o": "h",
+      "l": 32,
+      "style": "simple",
+      "sens": 1
+    },
+    {
+      "id": "d3",
+      "type": "porte",
+      "x": 200,
+      "y": 220,
+      "o": "v",
+      "l": 32,
+      "style": "simple",
+      "sens": -1
+    },
+    {
+      "id": "d4",
+      "type": "porte",
+      "x": 200,
+      "y": 280,
+      "o": "v",
+      "l": 32,
+      "style": "simple",
+      "sens": -1
+    },
+    {
+      "id": "d5",
+      "type": "porte",
+      "x": 200,
+      "y": 360,
+      "o": "v",
+      "l": 32,
+      "style": "simple",
+      "sens": -1
+    },
+    {
+      "id": "d6",
+      "type": "porte",
+      "x": 400,
+      "y": 180,
+      "o": "v",
+      "l": 32,
+      "style": "simple",
+      "sens": 1
+    },
+    {
+      "id": "d7",
+      "type": "porte",
+      "x": 400,
+      "y": 356,
+      "o": "v",
+      "l": 32,
+      "style": "simple",
+      "sens": 1
+    },
+    {
+      "id": "w1",
+      "type": "fenetre",
+      "x": 100,
+      "y": 40,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w2",
+      "type": "fenetre",
+      "x": 220,
+      "y": 40,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w3",
+      "type": "fenetre",
+      "x": 340,
+      "y": 40,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w4",
+      "type": "fenetre",
+      "x": 460,
+      "y": 40,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w5",
+      "type": "fenetre",
+      "x": 40,
+      "y": 206,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "w6",
+      "type": "fenetre",
+      "x": 40,
+      "y": 286,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "w7",
+      "type": "fenetre",
+      "x": 40,
+      "y": 366,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "w8",
+      "type": "fenetre",
+      "x": 520,
+      "y": 96,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "w9",
+      "type": "fenetre",
+      "x": 520,
+      "y": 220,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "w10",
+      "type": "fenetre",
+      "x": 520,
+      "y": 340,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "o1",
+      "type": "objet",
+      "sym": "lit",
+      "x": 300,
+      "y": 77,
+      "w": 70,
+      "h": 62,
+      "rot": 0
+    },
+    {
+      "id": "o2",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 155,
+      "y": 56,
+      "w": 30,
+      "h": 16,
+      "rot": 0
+    },
+    {
+      "id": "o3",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 375,
+      "y": 56,
+      "w": 30,
+      "h": 16,
+      "rot": 0
+    },
+    {
+      "id": "o4",
+      "type": "objet",
+      "sym": "armoire",
+      "x": 487,
+      "y": 61,
+      "w": 34,
+      "h": 26,
+      "rot": 0
+    },
+    {
+      "id": "o5",
+      "type": "objet",
+      "sym": "table",
+      "x": 450,
+      "y": 133,
+      "w": 40,
+      "h": 22,
+      "rot": 0
+    },
+    {
+      "id": "o6",
+      "type": "objet",
+      "sym": "athre",
+      "x": 49,
+      "y": 95,
+      "w": 18,
+      "h": 50,
+      "rot": 0
+    },
+    {
+      "id": "o7",
+      "type": "objet",
+      "sym": "paillasse",
+      "x": 261,
+      "y": 272,
+      "w": 26,
+      "h": 64,
+      "rot": 0
+    },
+    {
+      "id": "o8",
+      "type": "objet",
+      "sym": "etagere",
+      "x": 347,
+      "y": 236,
+      "w": 10,
+      "h": 48,
+      "rot": 0
+    },
+    {
+      "id": "o9",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 327,
+      "y": 295,
+      "w": 22,
+      "h": 22,
+      "rot": 0
+    },
+    {
+      "id": "o10",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 304,
+      "y": 302,
+      "w": 20,
+      "h": 20,
+      "rot": 0
+    },
+    {
+      "id": "o11",
+      "type": "objet",
+      "sym": "tonneau",
+      "x": 283,
+      "y": 308,
+      "w": 18,
+      "h": 18,
+      "rot": 0
+    },
+    {
+      "id": "o12",
+      "type": "objet",
+      "sym": "lit",
+      "x": 64,
+      "y": 198,
+      "w": 28,
+      "h": 52,
+      "rot": 0
+    },
+    {
+      "id": "o13",
+      "type": "objet",
+      "sym": "lit",
+      "x": 64,
+      "y": 278,
+      "w": 28,
+      "h": 52,
+      "rot": 0
+    },
+    {
+      "id": "o14",
+      "type": "objet",
+      "sym": "lit",
+      "x": 64,
+      "y": 358,
+      "w": 28,
+      "h": 52,
+      "rot": 0
+    },
+    {
+      "id": "o15",
+      "type": "objet",
+      "sym": "lit",
+      "x": 480,
+      "y": 198,
+      "w": 28,
+      "h": 52,
+      "rot": 0
+    },
+    {
+      "id": "o16",
+      "type": "objet",
+      "sym": "lit",
+      "x": 480,
+      "y": 318,
+      "w": 28,
+      "h": 52,
+      "rot": 0
+    },
+    {
+      "id": "o17",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 131,
+      "y": 197,
+      "w": 22,
+      "h": 14,
+      "rot": 0
+    },
+    {
+      "id": "o18",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 131,
+      "y": 277,
+      "w": 22,
+      "h": 14,
+      "rot": 0
+    },
+    {
+      "id": "o19",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 131,
+      "y": 357,
+      "w": 22,
+      "h": 14,
+      "rot": 0
+    },
+    {
+      "id": "o20",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 451,
+      "y": 255,
+      "w": 22,
+      "h": 14,
+      "rot": 0
+    },
+    {
+      "id": "o21",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 451,
+      "y": 375,
+      "w": 22,
+      "h": 14,
+      "rot": 0
+    },
+    {
+      "id": "o22",
+      "type": "objet",
+      "sym": "escalierdemi",
+      "x": 250,
+      "y": 400,
+      "w": 72,
+      "h": 72,
+      "rot": 270
+    },
+    {
+      "id": "o23",
+      "type": "objet",
+      "sym": "escalierdemi",
+      "x": 350,
+      "y": 400,
+      "w": 72,
+      "h": 72,
+      "rot": 270
+    },
+    {
+      "id": "o24",
+      "type": "objet",
+      "sym": "tableau",
+      "x": 300,
+      "y": 320,
+      "w": 32,
+      "h": 12,
+      "rot": 0
+    },
+    {
+      "id": "n5",
+      "type": "numero",
+      "x": 300,
+      "y": 372,
+      "num": 5
+    },
+    {
+      "id": "n6",
+      "type": "numero",
+      "x": 106,
+      "y": 178,
+      "num": 6
+    },
+    {
+      "id": "n7",
+      "type": "numero",
+      "x": 106,
+      "y": 258,
+      "num": 7
+    },
+    {
+      "id": "n8",
+      "type": "numero",
+      "x": 106,
+      "y": 338,
+      "num": 8
+    },
+    {
+      "id": "n9",
+      "type": "numero",
+      "x": 448,
+      "y": 186,
+      "num": 9
+    },
+    {
+      "id": "n10",
+      "type": "numero",
+      "x": 448,
+      "y": 306,
+      "num": 10
+    },
+    {
+      "id": "n11",
+      "type": "numero",
+      "x": 300,
+      "y": 252,
+      "num": 11
+    },
+    {
+      "id": "n12",
+      "type": "numero",
+      "x": 205,
+      "y": 85,
+      "num": 12
+    },
+    {
+      "id": "t1",
+      "type": "texte",
+      "x": 205,
+      "y": 110,
+      "texte": "Chambre du maître",
+      "style": "lbl",
+      "rot": 0
+    },
+    {
+      "id": "t2",
+      "type": "texte",
+      "x": 300,
+      "y": 272,
+      "texte": "Laboratoire",
+      "style": "lbl",
+      "rot": 0
+    },
+    {
+      "id": "t3",
+      "type": "texte",
+      "x": 220,
+      "y": 302,
+      "texte": "couloir",
+      "style": "tiny",
+      "rot": -90
+    },
+    {
+      "id": "t4",
+      "type": "texte",
+      "x": 300,
+      "y": 352,
+      "texte": "le tableau",
+      "style": "tiny",
+      "rot": 0
+    },
+    {
+      "id": "l1",
+      "type": "lumiere",
+      "x": 220,
+      "y": 244
+    },
+    {
+      "id": "l2",
+      "type": "lumiere",
+      "x": 380,
+      "y": 244
+    },
+    {
+      "id": "l3",
+      "type": "lumiere",
+      "x": 274,
+      "y": 224
+    },
+    {
+      "id": "l4",
+      "type": "lumiere",
+      "x": 52,
+      "y": 95
+    },
+    {
+      "id": "s1",
+      "type": "secret",
+      "x": 288,
+      "y": 314,
+      "w": 24,
+      "h": 10,
+      "nature": "trappe → cave"
+    },
+    {
+      "id": "pt1",
+      "type": "portail",
+      "x": 250,
+      "y": 384,
+      "vers": "manoir-cygnus-rdc",
+      "label": "RDC"
+    },
+    {
+      "id": "pt2",
+      "type": "portail",
+      "x": 350,
+      "y": 384,
+      "vers": "manoir-cygnus-rdc",
+      "label": "RDC"
+    }
+  ],
+  "cle": [
+    {
+      "num": 5,
+      "titre": "Haut des escaliers jumeaux",
+      "desc": "Les deux volées débouchent sur le palier sud ; face aux PJ pendant toute la montée, le grand tableau familial accroché au mur épais du laboratoire. Secret : il recouvre la trappe percée dans le mur — accès dérobé au laboratoire, et c'est par là que l'on rejoint l'escalier caché qui descend à la cave. Le couloir n'a aucune fenêtre."
+    },
+    {
+      "num": 6,
+      "titre": "Chambre d'enfant (ouest)",
+      "desc": "Première des trois chambres ouest, rigoureusement identiques : lit, coffre."
+    },
+    {
+      "num": 7,
+      "titre": "Chambre d'enfant (ouest)",
+      "desc": "Deuxième chambre ouest, identique à la précédente."
+    },
+    {
+      "num": 8,
+      "titre": "Chambre d'enfant (ouest)",
+      "desc": "Troisième chambre ouest, identique aux précédentes."
+    },
+    {
+      "num": 9,
+      "titre": "Chambre d'enfant (est)",
+      "desc": "Quatrième chambre des quintuplés, mêmes meubles, même disposition."
+    },
+    {
+      "num": 10,
+      "titre": "Chambre d'enfant (est)",
+      "desc": "Cinquième chambre. Un seul détail devrait différer d'une chambre à l'autre — au MJ de choisir lequel, et pourquoi."
+    },
+    {
+      "num": 11,
+      "titre": "Laboratoire & débarras",
+      "desc": "Pièce aveugle au cœur de l'étage, aux murs anormalement épais ; une seule porte, à l'arrière, face à la chambre du maître. On y prépare les remèdes des quintuplés… et c'est ici que le somnifère a été fabriqué. Fioles, mortier taché, notes de dosage."
+    },
+    {
+      "num": 12,
+      "titre": "Chambre du maître",
+      "desc": "Belle double porte ouvragée, lit à baldaquin, cheminée, armoire et écritoire."
+    }
+  ],
+  "pins": []
+}

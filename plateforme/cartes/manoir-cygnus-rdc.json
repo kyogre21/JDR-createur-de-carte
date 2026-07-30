@@ -1,0 +1,520 @@
+{
+  "format": 1,
+  "id": "manoir-cygnus-rdc",
+  "nom": "Manoir Cygnus — Rez-de-chaussée",
+  "campagne": "Forêt Noire",
+  "taille": {
+    "w": 560,
+    "h": 466
+  },
+  "grille": {
+    "cell": 40,
+    "metres": 1.5
+  },
+  "elements": [
+    {
+      "id": "p1",
+      "type": "piece",
+      "x": 40,
+      "y": 40,
+      "w": 480,
+      "h": 120,
+      "nom": "Salle à manger"
+    },
+    {
+      "id": "p2",
+      "type": "piece",
+      "x": 40,
+      "y": 160,
+      "w": 160,
+      "h": 240,
+      "nom": ""
+    },
+    {
+      "id": "p3",
+      "type": "piece",
+      "x": 200,
+      "y": 160,
+      "w": 200,
+      "h": 240,
+      "nom": ""
+    },
+    {
+      "id": "p4",
+      "type": "piece",
+      "x": 400,
+      "y": 160,
+      "w": 120,
+      "h": 240,
+      "nom": ""
+    },
+    {
+      "id": "d1",
+      "type": "porte",
+      "x": 300,
+      "y": 400,
+      "o": "h",
+      "l": 60,
+      "style": "double",
+      "sens": -1
+    },
+    {
+      "id": "d2",
+      "type": "porte",
+      "x": 300,
+      "y": 160,
+      "o": "h",
+      "l": 60,
+      "style": "double",
+      "sens": -1
+    },
+    {
+      "id": "d3",
+      "type": "porte",
+      "x": 104,
+      "y": 160,
+      "o": "h",
+      "l": 32,
+      "style": "simple",
+      "sens": -1
+    },
+    {
+      "id": "d4",
+      "type": "porte",
+      "x": 200,
+      "y": 256,
+      "o": "v",
+      "l": 32,
+      "style": "simple",
+      "sens": -1
+    },
+    {
+      "id": "d5",
+      "type": "porte",
+      "x": 400,
+      "y": 256,
+      "o": "v",
+      "l": 32,
+      "style": "simple",
+      "sens": 1
+    },
+    {
+      "id": "w1",
+      "type": "fenetre",
+      "x": 100,
+      "y": 40,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w2",
+      "type": "fenetre",
+      "x": 220,
+      "y": 40,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w3",
+      "type": "fenetre",
+      "x": 340,
+      "y": 40,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w4",
+      "type": "fenetre",
+      "x": 460,
+      "y": 40,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w5",
+      "type": "fenetre",
+      "x": 40,
+      "y": 206,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "w6",
+      "type": "fenetre",
+      "x": 520,
+      "y": 216,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "w7",
+      "type": "fenetre",
+      "x": 520,
+      "y": 326,
+      "o": "v",
+      "l": 32
+    },
+    {
+      "id": "w8",
+      "type": "fenetre",
+      "x": 228,
+      "y": 400,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "w9",
+      "type": "fenetre",
+      "x": 116,
+      "y": 400,
+      "o": "h",
+      "l": 32
+    },
+    {
+      "id": "o1",
+      "type": "objet",
+      "sym": "tapis",
+      "x": 300,
+      "y": 270,
+      "w": 32,
+      "h": 196,
+      "rot": 0
+    },
+    {
+      "id": "o2",
+      "type": "objet",
+      "sym": "tablelongue",
+      "x": 280,
+      "y": 100,
+      "w": 280,
+      "h": 40,
+      "rot": 0
+    },
+    {
+      "id": "o3",
+      "type": "objet",
+      "sym": "chaise",
+      "x": 156,
+      "y": 70,
+      "w": 12,
+      "h": 12,
+      "rot": 0
+    },
+    {
+      "id": "o4",
+      "type": "objet",
+      "sym": "chaise",
+      "x": 236,
+      "y": 70,
+      "w": 12,
+      "h": 12,
+      "rot": 0
+    },
+    {
+      "id": "o5",
+      "type": "objet",
+      "sym": "chaise",
+      "x": 316,
+      "y": 70,
+      "w": 12,
+      "h": 12,
+      "rot": 0
+    },
+    {
+      "id": "o6",
+      "type": "objet",
+      "sym": "chaise",
+      "x": 396,
+      "y": 70,
+      "w": 12,
+      "h": 12,
+      "rot": 0
+    },
+    {
+      "id": "o7",
+      "type": "objet",
+      "sym": "chaise",
+      "x": 156,
+      "y": 130,
+      "w": 12,
+      "h": 12,
+      "rot": 0
+    },
+    {
+      "id": "o8",
+      "type": "objet",
+      "sym": "chaise",
+      "x": 236,
+      "y": 130,
+      "w": 12,
+      "h": 12,
+      "rot": 0
+    },
+    {
+      "id": "o9",
+      "type": "objet",
+      "sym": "chaise",
+      "x": 396,
+      "y": 130,
+      "w": 12,
+      "h": 12,
+      "rot": 0
+    },
+    {
+      "id": "o10",
+      "type": "objet",
+      "sym": "athre",
+      "x": 51,
+      "y": 312,
+      "w": 22,
+      "h": 64,
+      "rot": 0
+    },
+    {
+      "id": "o11",
+      "type": "objet",
+      "sym": "table",
+      "x": 125,
+      "y": 246,
+      "w": 70,
+      "h": 32,
+      "rot": 0
+    },
+    {
+      "id": "o12",
+      "type": "objet",
+      "sym": "tonneau",
+      "x": 70,
+      "y": 368,
+      "w": 18,
+      "h": 18,
+      "rot": 0
+    },
+    {
+      "id": "o13",
+      "type": "objet",
+      "sym": "tonneau",
+      "x": 92,
+      "y": 376,
+      "w": 18,
+      "h": 18,
+      "rot": 0
+    },
+    {
+      "id": "o14",
+      "type": "objet",
+      "sym": "tonneau",
+      "x": 68,
+      "y": 388,
+      "w": 16,
+      "h": 16,
+      "rot": 0
+    },
+    {
+      "id": "o15",
+      "type": "objet",
+      "sym": "escalierdemi",
+      "x": 229,
+      "y": 330,
+      "w": 116,
+      "h": 116,
+      "rot": 180
+    },
+    {
+      "id": "o16",
+      "type": "objet",
+      "sym": "escalierdemi",
+      "x": 371,
+      "y": 330,
+      "w": 116,
+      "h": 116,
+      "rot": 0
+    },
+    {
+      "id": "o17",
+      "type": "objet",
+      "sym": "lit",
+      "x": 484,
+      "y": 194,
+      "w": 28,
+      "h": 52,
+      "rot": 0
+    },
+    {
+      "id": "o18",
+      "type": "objet",
+      "sym": "coffre",
+      "x": 481,
+      "y": 235,
+      "w": 22,
+      "h": 14,
+      "rot": 0
+    },
+    {
+      "id": "o19",
+      "type": "objet",
+      "sym": "armoire",
+      "x": 503,
+      "y": 376,
+      "w": 22,
+      "h": 32,
+      "rot": 0
+    },
+    {
+      "id": "o20",
+      "type": "objet",
+      "sym": "table",
+      "x": 425,
+      "y": 178,
+      "w": 26,
+      "h": 20,
+      "rot": 0
+    },
+    {
+      "id": "n1",
+      "type": "numero",
+      "x": 300,
+      "y": 186,
+      "num": 1
+    },
+    {
+      "id": "n2",
+      "type": "numero",
+      "x": 120,
+      "y": 190,
+      "num": 2
+    },
+    {
+      "id": "n3",
+      "type": "numero",
+      "x": 425,
+      "y": 220,
+      "num": 3
+    },
+    {
+      "id": "n4",
+      "type": "numero",
+      "x": 65,
+      "y": 135,
+      "num": 4
+    },
+    {
+      "id": "t1",
+      "type": "texte",
+      "x": 300,
+      "y": 322,
+      "texte": "Grand hall",
+      "style": "lbl"
+    },
+    {
+      "id": "t2",
+      "type": "texte",
+      "x": 300,
+      "y": 444,
+      "texte": "entrée",
+      "style": "tiny"
+    },
+    {
+      "id": "t3",
+      "type": "texte",
+      "x": 258,
+      "y": 264,
+      "texte": "montée",
+      "style": "tiny"
+    },
+    {
+      "id": "t4",
+      "type": "texte",
+      "x": 342,
+      "y": 264,
+      "texte": "montée",
+      "style": "tiny"
+    },
+    {
+      "id": "l1",
+      "type": "lumiere",
+      "x": 210,
+      "y": 388
+    },
+    {
+      "id": "l2",
+      "type": "lumiere",
+      "x": 390,
+      "y": 388
+    },
+    {
+      "id": "l3",
+      "type": "lumiere",
+      "x": 54,
+      "y": 312
+    },
+    {
+      "id": "l4",
+      "type": "lumiere",
+      "x": 240,
+      "y": 100
+    },
+    {
+      "id": "l5",
+      "type": "lumiere",
+      "x": 340,
+      "y": 100
+    },
+    {
+      "id": "s1",
+      "type": "secret",
+      "x": 286,
+      "y": 250,
+      "w": 28,
+      "h": 40,
+      "nature": "trappe sous le tapis ?"
+    },
+    {
+      "id": "pt1",
+      "type": "portail",
+      "x": 300,
+      "y": 436,
+      "vers": "village",
+      "label": "Village"
+    },
+    {
+      "id": "pt2",
+      "type": "portail",
+      "x": 258,
+      "y": 330,
+      "vers": "manoir-cygnus-etage",
+      "label": "Étage"
+    },
+    {
+      "id": "pt3",
+      "type": "portail",
+      "x": 342,
+      "y": 330,
+      "vers": "manoir-cygnus-etage",
+      "label": "Étage"
+    }
+  ],
+  "cle": [
+    {
+      "num": 1,
+      "titre": "Grand hall",
+      "desc": "Long tapis épais menant à la salle à manger ; deux escaliers en demi-cercle s'élèvent de part et d'autre, visibles dès l'entrée."
+    },
+    {
+      "num": 2,
+      "titre": "Cuisine",
+      "desc": "Âtre imposant, tonneaux et réserve ; porte de service donnant sur la salle à manger."
+    },
+    {
+      "num": 3,
+      "titre": "Chambre d'invité",
+      "desc": "Lit, coffre, écritoire, armoire."
+    },
+    {
+      "num": 4,
+      "titre": "Salle à manger",
+      "desc": "Toute la longueur du bâtiment ; table de 14 couverts, chandeliers."
+    }
+  ],
+  "pins": []
+}
