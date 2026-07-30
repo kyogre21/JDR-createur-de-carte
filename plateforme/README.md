@@ -3,10 +3,9 @@
 Éditeur de cartes de jeu de rôle pour la campagne **La Forêt Noire** (Knight JDR).
 Application entièrement statique : aucun serveur, aucun compte, aucun abonnement.
 
-Emplacement : `C:/Projet/jdr/Créateur de carte/plateforme/` — l'outil est volontairement
-séparé du dépôt de campagne `knight-foret-noire`. Pour le publier (voir plus bas), ce
-dossier doit être suivi par git : soit en initialisant un dépôt dans
-`Créateur de carte/`, soit en le déplaçant dans un dépôt existant.
+Projet autonome : `C:/Projet/cartographe-knight/` — volontairement séparé du dossier de
+campagne `C:/Projet/jdr/`, avec son propre dépôt git. L'outil et le contenu de jeu
+évoluent chacun de leur côté.
 
 ```
 plateforme/
@@ -123,12 +122,17 @@ C'est le principe : **git est la base de données**. Gratuit, versionné, sans s
 
 ## Publier gratuitement (et l'installer sur mobile)
 
-**Prérequis : un dépôt git.** Depuis `Créateur de carte/` :
+**Le dépôt git local existe déjà** (premier commit fait). Il reste à créer un dépôt vide
+sur GitHub, puis :
 ```bash
-git init
-git add . && git commit -m "Cartographe Knight — éditeur de cartes"
-gh repo create cartographe-knight --private --source=. --push   # ou via l'interface GitHub
+cd "C:/Projet/cartographe-knight"
+git remote add origin https://github.com/<utilisateur>/cartographe-knight.git
+git push -u origin master
 ```
+
+**Encore plus simple, sans git :** l'archive `cartographe-knight-a-deposer.zip` (à la racine
+du projet, régénérable) se glisse directement sur [app.netlify.com/drop](https://app.netlify.com/drop)
+— mise en ligne immédiate, sans compte. Il faut redéposer l'archive à chaque mise à jour.
 
 ### Cloudflare Pages — recommandé
 Fonctionne avec un dépôt **privé**, bande passante illimitée.
