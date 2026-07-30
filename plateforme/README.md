@@ -122,12 +122,11 @@ C'est le principe : **git est la base de données**. Gratuit, versionné, sans s
 
 ## Publier gratuitement (et l'installer sur mobile)
 
-**Le dépôt git local existe déjà** (premier commit fait). Il reste à créer un dépôt vide
-sur GitHub, puis :
+**Le dépôt est en place** : <https://github.com/kyogre21/JDR-createur-de-carte> (privé),
+branche `main`. Pour publier une mise à jour :
 ```bash
 cd "C:/Projet/jdr créateur de carte"
-git remote add origin https://github.com/<utilisateur>/cartographe-knight.git
-git push -u origin master
+git add -A && git commit -m "…" && git push
 ```
 
 **Encore plus simple, sans git :** l'archive `cartographe-knight-a-deposer.zip` (à la racine
