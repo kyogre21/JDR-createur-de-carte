@@ -34,6 +34,7 @@
 
   /* Cartes disponibles comme destinations de portail (bibliothèque + campagne). */
   let destinations = [];
+  let campagnesConnues = [];
   function chargerDestinations() {
     return Promise.all([
       S.avecDelai(S.lister(), 1500, []),
@@ -41,13 +42,16 @@
         .then(cat => Promise.all(cat.map(e => S.chargerDepot(e.fichier).catch(() => null))))
         .then(l => l.filter(Boolean)),
     ]).then(([loc, dep]) => {
+      const toutes = loc.concat(dep);
+      campagnesConnues = M.listeCampagnes(toutes.concat([carte]));
       const vus = new Set();
       destinations = [];
-      for (const c of loc.concat(dep)) {
+      for (const c of toutes) {
         if (vus.has(c.id) || c.id === carte.id) continue;
         vus.add(c.id);
-        destinations.push({ id: c.id, nom: c.nom });
+        destinations.push({ id: c.id, nom: c.nom, campagne: M.campagneDe(c) });
       }
+      majCartePanneau();
     });
   }
 
@@ -515,6 +519,23 @@
 
   function majCartePanneau() {
     const c = $('carte-props'); c.innerHTML = '';
+    /* La campagne sert de dossier : les cartes en sont regroupées partout
+       (bibliothèque, sélecteur de la table de jeu). */
+    const camp = document.createElement('input');
+    camp.type = 'text'; camp.value = carte.campagne || '';
+    camp.placeholder = M.SANS_CAMPAGNE;
+    camp.setAttribute('list', 'liste-campagnes');
+    camp.addEventListener('change', () => {
+      carte.campagne = camp.value.trim();
+      apresModif(); dessiner();
+      toast(carte.campagne ? 'Carte rangée dans « ' + carte.campagne + ' ».'
+                           : 'Carte sans campagne.');
+    });
+    let dl = $('liste-campagnes');
+    if (!dl) { dl = document.createElement('datalist'); dl.id = 'liste-campagnes'; document.body.appendChild(dl); }
+    dl.innerHTML = campagnesConnues.filter(x => x !== M.SANS_CAMPAGNE)
+      .map(x => '<option value="' + x.replace(/"/g, '&quot;') + '">').join('');
+    c.appendChild(champ('Campagne', camp));
     c.appendChild(champ('Largeur', inputNum(carte.taille.w, v => carte.taille.w = Math.max(100, v))));
     c.appendChild(champ('Hauteur', inputNum(carte.taille.h, v => carte.taille.h = Math.max(100, v))));
     c.appendChild(champ('Case (px)', inputNum(carte.grille.cell, v => carte.grille.cell = Math.max(0, v))));

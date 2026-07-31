@@ -120,6 +120,14 @@ footer{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:4px 10px;b
 .fiche .actions button{padding:4px 6px;font-size:10.5px;min-height:26px}
 .titre-page{font-family:var(--serif);font-variant:small-caps;letter-spacing:.08em;font-size:20px;
   padding:14px 18px 0;grid-column:1/-1;margin:0}
+/* un « dossier » de campagne dans la bibliothèque */
+.titre-campagne{grid-column:1/-1;margin:10px 0 0;padding:0 18px 5px;display:flex;align-items:baseline;
+  gap:10px;border-bottom:1px solid var(--bord)}
+.titre-campagne span{font-family:var(--serif);font-size:15px;font-variant:small-caps;letter-spacing:.06em;
+  color:var(--or)}
+.titre-campagne em{font-size:11px;opacity:.55;font-style:italic}
+#filtre-campagne{background:#241d14;border:1px solid var(--bord-clair);border-radius:5px;
+  color:var(--encre);padding:5px 8px;font:600 12px var(--ui);max-width:40vw}
 
 /* ---------- mobile ---------- */
 @media (max-width:820px){

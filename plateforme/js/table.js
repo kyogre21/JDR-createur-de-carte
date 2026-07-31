@@ -148,7 +148,7 @@
       S.avecDelai(S.lister(), 1500, []),          // ne jamais rester bloqué sur le stockage local
       S.avecDelai(S.catalogueDepot(), 2500, []),
     ]).then(([locales, depot]) => {
-      catalogue = locales.map(c => ({ id: c.id, nom: c.nom, source: 'locale' }));
+      catalogue = locales.map(c => ({ id: c.id, nom: c.nom, campagne: c.campagne, source: 'locale' }));
       const vus = new Set(catalogue.map(c => c.id));
       const noms = new Set(catalogue.map(c => S.slug(c.nom)));
       return Promise.all(depot.map(e => S.chargerDepot(e.fichier).catch(() => null)))
@@ -157,14 +157,22 @@
             // une carte de travail locale masque celle du dépôt (même identifiant
             // OU même nom) : jamais deux entrées pour un même lieu dans le sélecteur
             if (!vus.has(c.id) && !noms.has(S.slug(c.nom)))
-              catalogue.push({ id: c.id, nom: c.nom, source: 'depot', fichier: c.id, carte: c });
+              catalogue.push({ id: c.id, nom: c.nom, campagne: c.campagne, source: 'depot', fichier: c.id, carte: c });
           });
+          /* Sélecteur groupé par campagne : le MJ retrouve ses lieux par aventure. */
           const sel = $('choix-carte'); sel.innerHTML = '';
-          for (const c of catalogue) {
-            const o = document.createElement('option');
-            o.value = c.id;
-            o.textContent = c.nom + (c.source === 'depot' ? ' (campagne)' : '');
-            sel.appendChild(o);
+          const groupes = M.parCampagne(catalogue.map(c => ({ campagne: c.campagne, _ref: c })));
+          for (const nom of M.listeCampagnes(catalogue)) {
+            const g = document.createElement('optgroup');
+            g.label = nom;
+            for (const item of groupes[nom]) {
+              const c = item._ref;
+              const o = document.createElement('option');
+              o.value = c.id;
+              o.textContent = c.nom;
+              g.appendChild(o);
+            }
+            sel.appendChild(g);
           }
         });
     });

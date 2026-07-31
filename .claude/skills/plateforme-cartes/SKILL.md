@@ -41,6 +41,12 @@ plateforme/
 
 Scripts **classiques** (pas de modules ES : ils sont bloqués en `file://`), namespace global `KJ`.
 
+**Rangement** : le champ `carte.campagne` est le « dossier ». Helpers dans `modele.js` :
+`campagneDe()`, `parCampagne()`, `listeCampagnes()` (« Sans campagne » toujours en dernier).
+Le groupement est appliqué dans la bibliothèque (titres + filtre persisté dans
+`kj-filtre-campagne`) et dans le sélecteur de la table (`<optgroup>`). Ne pas confondre avec
+la section « Cartes fournies avec l'application », qui désigne le dépôt et non une campagne.
+
 **Séparation des données** : une carte est une *donnée* (`cartes/*.json`, IndexedDB) ; le brouillard
 et les jetons sont une *session de partie* (`localStorage`, clé `kj-partie`). Modifier une carte ne
 doit jamais réinitialiser une partie en cours.

@@ -12,6 +12,7 @@
 
 <header>
   <div class="marque">Cartographe <span>Knight</span></div>
+  <select id="filtre-campagne" title="Afficher une seule campagne"></select>
   <div class="esp"></div>
   <a class="btn" href="table.html" title="Ouvrir la table de jeu">▶ Table de jeu</a>
   <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
@@ -24,7 +25,7 @@
   <div id="biblio">
     <h2 class="titre-page">Mes cartes</h2>
     <div id="liste" style="display:contents"></div>
-    <h2 class="titre-page" id="t-depot" hidden>Cartes de la campagne</h2>
+    <h2 class="titre-page" id="t-depot" hidden>Cartes fournies avec l’application</h2>
     <div id="liste-depot" style="display:contents"></div>
   </div>
 </div>
@@ -140,25 +141,73 @@
     return a;
   }
 
+  /* Filtre de campagne, mémorisé d'une visite à l'autre. */
+  let filtre = '*';
+  try { filtre = localStorage.getItem('kj-filtre-campagne') || '*'; } catch (e) {}
+  let campLocales = [], campDepot = [];
+  function majFiltre(locales, depot) {
+    if (locales) campLocales = locales;
+    if (depot) campDepot = depot;
+    const toutes = campLocales.concat(campDepot);
+    const noms = M.listeCampagnes(toutes);
+    const sel = $('filtre-campagne');
+    if (noms.length < 2) { sel.style.display = 'none'; return; }   // inutile s'il n'y en a qu'une
+    sel.style.display = '';
+    const avant = sel.value;
+    sel.innerHTML = '<option value="*">Toutes les campagnes</option>'
+      + noms.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
+    sel.value = noms.includes(filtre) ? filtre : (avant || '*');
+  }
+  $('filtre-campagne').addEventListener('change', (e) => {
+    filtre = e.target.value;
+    try { localStorage.setItem('kj-filtre-campagne', filtre); } catch (err) {}
+    charger();
+  });
+
   function charger() {
     const pLocales = S.avecDelai(S.lister(), 1500, []);
     const pDepot = S.avecDelai(S.catalogueDepot(), 2500, [])
       .then(cat => Promise.all(cat.map(e => S.chargerDepot(e.fichier).catch(() => null))))
       .then(l => l.filter(Boolean));
 
+    /* Rendu groupé par campagne : chaque campagne est un « dossier ». */
+    function afficherGroupe(conteneur, cartes, opts) {
+      conteneur.innerHTML = '';
+      const groupes = M.parCampagne(cartes);
+      const noms = M.listeCampagnes(cartes).filter(n => filtre === '*' || n === filtre);
+      if (!noms.length) {
+        conteneur.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
+          + 'Aucune carte dans cette campagne.</p>';
+        return;
+      }
+      for (const nom of noms) {
+        // un seul groupe affiché : le titre de campagne serait redondant
+        if (noms.length > 1 || filtre === '*') {
+          const t = document.createElement('h3');
+          t.className = 'titre-campagne';
+          t.innerHTML = '<span>' + nom + '</span><em>' + groupes[nom].length + ' carte'
+            + (groupes[nom].length > 1 ? 's' : '') + '</em>';
+          conteneur.appendChild(t);
+        }
+        for (const carte of groupes[nom]) conteneur.appendChild(fiche(carte, opts));
+      }
+    }
+
     pLocales.then(l => {
-      const c = $('liste'); c.innerHTML = '';
-      if (!l.length) {
+      const cartes = l.map(x => M.depuisJSON(x));
+      const c = $('liste');
+      if (!cartes.length) {
         c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
           + 'Aucune carte pour l’instant. Crée-en une, ou importe un fichier .json.</p>';
-      } else for (const carte of l) c.appendChild(fiche(M.depuisJSON(carte)));
+      } else afficherGroupe(c, cartes, {});
+      majFiltre(cartes);
     });
 
     pDepot.then(cartes => {
       if (!cartes.length) return;
       $('t-depot').hidden = false;
-      const c = $('liste-depot'); c.innerHTML = '';
-      cartes.forEach(carte => c.appendChild(fiche(carte, { depot: true })));
+      afficherGroupe($('liste-depot'), cartes, { depot: true });
+      majFiltre(null, cartes);
     });
 
     // doublons et liaisons cassées : diagnostic + réparation en un clic

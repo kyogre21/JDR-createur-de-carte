@@ -168,6 +168,32 @@ KJ.modele = (function () {
     return c;
   }
 
+  /* ---------- campagnes ----------
+     La campagne est le « dossier » d'une carte. Une carte sans campagne tombe
+     dans un groupe nommé plutôt que de disparaître de l'affichage. */
+  const SANS_CAMPAGNE = 'Sans campagne';
+  function campagneDe(carte) {
+    const c = ((carte && carte.campagne) || '').trim();
+    return c || SANS_CAMPAGNE;
+  }
+  /* { "Forêt Noire": [carte, carte], "Autre": [carte] } */
+  function parCampagne(cartes) {
+    const g = {};
+    for (const c of cartes) {
+      const k = campagneDe(c);
+      (g[k] = g[k] || []).push(c);
+    }
+    return g;
+  }
+  /* Noms de campagnes triés alphabétiquement, « Sans campagne » en dernier. */
+  function listeCampagnes(cartes) {
+    return Object.keys(parCampagne(cartes)).sort((a, b) => {
+      if (a === SANS_CAMPAGNE) return 1;
+      if (b === SANS_CAMPAGNE) return -1;
+      return a.localeCompare(b, 'fr', { sensitivity: 'base' });
+    });
+  }
+
   /* ---------- aimantation ---------- */
   function snap(v, cell, demi) {
     if (!cell) return Math.round(v);
@@ -180,5 +206,6 @@ KJ.modele = (function () {
     nouvelleCarte, nouvelElement, ajouter, supprimer, trouver,
     boite, deplacer, redimensionnable, parCalque,
     versJSON, depuisJSON, snap, uid,
+    SANS_CAMPAGNE, campagneDe, parCampagne, listeCampagnes,
   };
 })();

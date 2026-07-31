@@ -101,6 +101,19 @@ cd plateforme
 python -m http.server 8777
 ```
 
+## Ranger les cartes par campagne
+
+Chaque carte porte une **campagne**, qui lui sert de dossier. Le champ se saisit dans
+l'éditeur (panneau *Carte* → **Campagne**), avec suggestion des campagnes déjà utilisées ;
+le laisser vide range la carte dans « Sans campagne ».
+
+Ce classement se retrouve partout :
+- **bibliothèque** : les cartes sont groupées par campagne, avec le nombre de cartes, et un
+  sélecteur en en-tête permet de n'afficher qu'une campagne (choix mémorisé) ;
+- **table de jeu** : le sélecteur de carte est groupé par campagne.
+
+Le sélecteur de filtre n'apparaît qu'à partir de deux campagnes — inutile d'encombrer avant.
+
 ## Le format de carte
 
 Une carte est un fichier JSON. Le SVG n'est qu'un *rendu* : c'est ce qui rend les cartes
@@ -123,6 +136,8 @@ les trois usages — éditeur, table de jeu, PDF de Codex.
   "cle":  [ { "num": 1, "titre": "Grand hall", "desc": "…" } ]
 }
 ```
+
+Le champ `campagne` sert de dossier (voir plus haut).
 
 Types d'éléments : `piece`, `mur`, `porte`, `fenetre`, `objet`, `numero`, `texte`,
 `lumiere`, `portail`, `secret`. `grille.cell = 0` = carte d'extérieur (ni grille ni aimantation) ;
