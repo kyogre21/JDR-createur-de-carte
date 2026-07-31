@@ -117,6 +117,17 @@ le laisser vide range la carte dans « Sans campagne ».
 Ces actions ne concernent que *Mes cartes*. Une carte fournie avec l'application doit d'abord
 être ouverte (elle est alors copiée dans ta bibliothèque) pour devenir modifiable.
 
+**Pourquoi les cartes fournies n'ont pas de bouton de suppression** : elles ne sont pas dans ta
+bibliothèque, elles viennent de fichiers du dépôt (`cartes/*.json`) — les effacer n'aurait aucun
+effet durable, elles reviendraient au rechargement. Pour en retirer une définitivement, il faut
+supprimer son fichier et sa ligne dans `cartes/index.json`, puis commiter.
+
+**Pas de doublon à l'écran** : dès que tu possèdes une copie de travail d'une carte fournie
+(même identifiant ou même nom), l'originale disparaît de la section « Cartes fournies » — sinon
+la même carte apparaîtrait deux fois. Le filtre de campagne ne propose lui aussi que des
+campagnes réellement affichées. Supprimer ta copie fait réapparaître l'originale : rien n'est
+perdu, et le bouton de suppression le dit.
+
 Ce classement se retrouve partout :
 - **bibliothèque** : les cartes sont groupées par campagne, avec le nombre de cartes, et un
   sélecteur en en-tête permet de n'afficher qu'une campagne (choix mémorisé) ;

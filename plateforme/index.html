@@ -36,6 +36,7 @@
     <h2 class="titre-page">Mes cartes</h2>
     <div id="liste" style="display:contents"></div>
     <h2 class="titre-page" id="t-depot" hidden>Cartes fournies avec l’application</h2>
+    <p class="aide" id="note-depot" style="grid-column:1/-1;padding:0 18px;margin:4px 0 0" hidden></p>
     <div id="liste-depot" style="display:contents"></div>
   </div>
 </div>
@@ -101,10 +102,19 @@
       js.addEventListener('click', () => S.exporterJSON(carte));
       act.appendChild(js);
       const sup = document.createElement('button');
-      sup.textContent = '✕'; sup.className = 'danger'; sup.title = 'Supprimer';
+      sup.textContent = '✕'; sup.className = 'danger';
+      /* Si une carte d'origine du même nom existe dans le dépôt, la suppression de
+         ma version n'est pas définitive : l'originale réapparaîtra. Le dire. */
+      const origine = campDepot.some(x => x.id === carte.id || S.slug(x.nom) === S.slug(carte.nom));
+      sup.title = origine
+        ? 'Supprimer ma version (la carte d’origine réapparaîtra dans « Cartes fournies »)'
+        : 'Supprimer cette carte de ma bibliothèque';
       sup.addEventListener('click', () => {
-        if (confirm('Supprimer « ' + carte.nom + ' » de ta bibliothèque locale ?\n(Le fichier .json exporté, lui, reste intact.)'))
-          S.supprimer(carte.id).then(charger);
+        const msg = origine
+          ? 'Supprimer ta version de « ' + carte.nom + ' » ?\n\nLa carte d’origine, livrée avec '
+            + 'l’application, réapparaîtra dans « Cartes fournies » : rien n’est perdu définitivement.'
+          : 'Supprimer « ' + carte.nom + ' » de ta bibliothèque ?\n(Un fichier .json déjà exporté reste intact.)';
+        if (confirm(msg)) S.supprimer(carte.id).then(charger);
       });
       act.appendChild(sup);
     }
@@ -162,11 +172,11 @@
   let filtre = '*';
   try { filtre = localStorage.getItem('kj-filtre-campagne') || '*'; } catch (e) {}
   let campLocales = [], campDepot = [];
-  function majFiltre(locales, depot) {
-    if (locales) campLocales = locales;
-    if (depot) campDepot = depot;
-    const toutes = campLocales.concat(campDepot);
-    const noms = M.listeCampagnes(toutes);
+  /* Le filtre ne doit proposer que des campagnes réellement affichées : une campagne
+     qui ne vient que de cartes fournies masquées (car j'en ai une copie) n'existe plus
+     à l'écran, la proposer donnerait un filtre vide. */
+  function majFiltre(visibles) {
+    const noms = M.listeCampagnes(visibles || campLocales);
     const sel = $('filtre-campagne');
     if (noms.length < 2) { sel.style.display = 'none'; return; }   // inutile s'il n'y en a qu'une
     sel.style.display = '';
@@ -277,62 +287,75 @@
     });
   }
 
-  function charger() {
-    const pLocales = S.avecDelai(S.lister(), 1500, []);
-    const pDepot = S.avecDelai(S.catalogueDepot(), 2500, [])
-      .then(cat => Promise.all(cat.map(e => S.chargerDepot(e.fichier).catch(() => null))))
-      .then(l => l.filter(Boolean));
-
-    /* Rendu groupé par campagne : chaque campagne est un « dossier ». */
-    function afficherGroupe(conteneur, cartes, opts) {
-      conteneur.innerHTML = '';
-      const groupes = M.parCampagne(cartes);
-      const noms = M.listeCampagnes(cartes).filter(n => filtre === '*' || n === filtre);
-      if (!noms.length) {
-        conteneur.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
-          + 'Aucune carte dans cette campagne.</p>';
-        return;
-      }
-      for (const nom of noms) {
-        // un seul groupe affiché : le titre de campagne serait redondant
-        if (noms.length > 1 || filtre === '*') {
-          const t = document.createElement('h3');
-          t.className = 'titre-campagne';
-          t.innerHTML = '<span>' + nom + '</span><em>' + groupes[nom].length + ' carte'
-            + (groupes[nom].length > 1 ? 's' : '') + '</em><span class="esp-c"></span>';
-          if (!opts.depot) {   // les cartes fournies ne sont pas modifiables sur place
-            const b = document.createElement('button');
-            b.textContent = '✎ Renommer le dossier';
-            const lot = groupes[nom].slice();
-            b.addEventListener('click', () => dialogueCampagne(nom, lot));
-            t.appendChild(b);
-          }
-          conteneur.appendChild(t);
-        }
-        for (const carte of groupes[nom]) conteneur.appendChild(fiche(carte, opts));
-      }
+  /* Rendu groupé par campagne : chaque campagne est un « dossier ». */
+  function afficherGroupe(conteneur, cartes, opts) {
+    conteneur.innerHTML = '';
+    const groupes = M.parCampagne(cartes);
+    const noms = M.listeCampagnes(cartes).filter(n => filtre === '*' || n === filtre);
+    if (!noms.length) {
+      conteneur.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
+        + 'Aucune carte dans cette campagne.</p>';
+      return;
     }
+    for (const nom of noms) {
+      const t = document.createElement('h3');
+      t.className = 'titre-campagne';
+      t.innerHTML = '<span>' + nom + '</span><em>' + groupes[nom].length + ' carte'
+        + (groupes[nom].length > 1 ? 's' : '') + '</em><span class="esp-c"></span>';
+      if (!opts.depot) {   // les cartes fournies ne sont pas modifiables sur place
+        const b = document.createElement('button');
+        b.textContent = '✎ Renommer le dossier';
+        const lot = groupes[nom].slice();
+        b.addEventListener('click', () => dialogueCampagne(nom, lot));
+        t.appendChild(b);
+      }
+      conteneur.appendChild(t);
+      for (const carte of groupes[nom]) conteneur.appendChild(fiche(carte, opts));
+    }
+  }
 
-    pLocales.then(l => {
-      const cartes = l.map(x => M.depuisJSON(x));
+  function charger() {
+    /* Un seul point de rendu, après avoir les DEUX listes : l'affichage d'une carte
+       locale dépend de l'existence d'une carte d'origine du même nom (message du
+       bouton de suppression, masquage du doublon dans la section « fournies »). */
+    Promise.all([
+      S.avecDelai(S.lister(), 1500, []),
+      S.avecDelai(S.catalogueDepot(), 2500, [])
+        .then(cat => Promise.all(cat.map(e => S.chargerDepot(e.fichier).catch(() => null))))
+        .then(l => l.filter(Boolean)),
+    ]).then(([brutes, depot]) => {
+      const locales = brutes.map(x => M.depuisJSON(x));
+      campLocales = locales;
+      campDepot = depot;              // tout le dépôt : sert à savoir si une origine existe
+      const idsLoc = new Set(locales.map(x => x.id));
+      const nomsLoc = new Set(locales.map(x => S.slug(x.nom)));
+      const inedites = depot.filter(x => !idsLoc.has(x.id) && !nomsLoc.has(S.slug(x.nom)));
+      const masquees = depot.length - inedites.length;
+      majFiltre(locales.concat(inedites));
+
+      // ---- mes cartes ----
       const c = $('liste');
-      if (!cartes.length) {
+      if (!locales.length) {
         c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
           + 'Aucune carte pour l’instant. Crée-en une, ou importe un fichier .json.</p>';
-      } else afficherGroupe(c, cartes, {});
-      majFiltre(cartes);
-    });
+      } else afficherGroupe(c, locales, {});
 
-    pDepot.then(cartes => {
-      if (!cartes.length) return;
-      $('t-depot').hidden = false;
-      afficherGroupe($('liste-depot'), cartes, { depot: true });
-      majFiltre(null, cartes);
-    });
+      // ---- cartes fournies, privées de celles dont j'ai déjà une copie ----
+      $('t-depot').hidden = !inedites.length;
+      const note = $('note-depot');
+      if (inedites.length) {
+        afficherGroupe($('liste-depot'), inedites, { depot: true });
+        note.hidden = false;
+        note.innerHTML = 'Cartes livrées avec l’application. <b>Ouvrir</b> en crée une copie dans '
+          + 'ta bibliothèque, seule modifiable — c’est pourquoi elles n’ont pas de bouton de suppression.'
+          + (masquees ? ' <em>' + masquees + ' autre(s) ne sont pas listées ici : tu en as déjà une copie.</em>' : '');
+      } else {
+        $('liste-depot').innerHTML = '';
+        note.hidden = true;
+      }
 
-    // doublons et liaisons cassées : diagnostic + réparation en un clic
-    Promise.all([pLocales, pDepot]).then(([locales, depot]) => {
-      const plan = aReparer(locales, depot);
+      // ---- diagnostic doublons / liaisons ----
+      const plan = aReparer(brutes, depot);
       if (!plan.doublons && !plan.renommer.length) return;
       const bouts = [];
       if (plan.doublons) bouts.push(plan.doublons + ' exemplaire(s) en double à supprimer');

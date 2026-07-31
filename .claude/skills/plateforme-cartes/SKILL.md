@@ -104,6 +104,14 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
    fonctionnel doit être comblé dans l'outil, pas expliqué.
 4. **Fonctions inaccessibles** : les portails existaient dans le format mais aucun outil ne
    permettait d'en créer. Vérifier qu'une donnée du format a toujours son moyen d'édition.
+5. **Afficher deux fois la même carte** (copie de travail + originale du dépôt) : incompréhensible
+   côté utilisateur, qui croit à des doublons et cherche à supprimer ce qui n'est pas supprimable.
+   Règle : une copie locale **masque** l'originale (par identifiant ou par nom), et toute liste
+   dérivée — notamment le sélecteur de campagne — se construit sur ce qui est **réellement
+   affiché**, jamais sur les données brutes. Un filtre proposant une campagne dont aucune carte
+   n'est visible est un bug.
+6. **Rendre l'affichage en deux passes** (locales puis dépôt) : une fiche locale a besoin de savoir
+   si une originale existe. Un seul point de rendu, après `Promise.all` des deux sources.
 
 ## Style
 
