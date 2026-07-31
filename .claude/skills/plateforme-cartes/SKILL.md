@@ -115,7 +115,13 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
    dérivée — notamment le sélecteur de campagne — se construit sur ce qui est **réellement
    affiché**, jamais sur les données brutes. Un filtre proposant une campagne dont aucune carte
    n'est visible est un bug.
-6. **Rendre l'affichage en deux passes** (locales puis dépôt) : une fiche locale a besoin de savoir
+6. **Un filtre persistant sans garde-fou** : le filtre de campagne était mémorisé en
+   `localStorage`. Après masquage des cartes fournies, la campagne filtrée n'existait plus →
+   bibliothèque vide, et le sélecteur étant masqué quand il n'y a qu'une campagne, l'utilisateur
+   n'avait **aucun moyen de s'en sortir**. Règle : tout état persistant qui restreint un affichage
+   doit être **validé au chargement** contre les valeurs réellement disponibles et réinitialisé
+   sinon ; et tout état « vide » doit offrir une action de sortie visible.
+7. **Rendre l'affichage en deux passes** (locales puis dépôt) : une fiche locale a besoin de savoir
    si une originale existe. Un seul point de rendu, après `Promise.all` des deux sources.
 
 ## Style

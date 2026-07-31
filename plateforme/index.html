@@ -193,15 +193,20 @@
 
   function majFiltre(visibles) {
     const noms = M.listeCampagnes(visibles || campLocales);
-    S.campagnesDeclarees().forEach(function (d) { if (noms.indexOf(d) < 0) noms.push(d); });
+    (S.campagnesDeclarees ? S.campagnesDeclarees() : []).forEach(function (d) { if (noms.indexOf(d) < 0) noms.push(d); });
     noms.sort(trierCampagnes);
+    // garde-fou : un filtre pointant sur une campagne disparue (renommée, vidée,
+    // ou masquée) donnerait une bibliothèque vide sans raison visible.
+    if (filtre !== '*' && noms.indexOf(filtre) < 0) {
+      filtre = '*';
+      try { localStorage.setItem('kj-filtre-campagne', filtre); } catch (e) {}
+    }
     const sel = $('filtre-campagne');
     if (noms.length < 2) { sel.style.display = 'none'; return; }   // inutile s'il n'y en a qu'une
     sel.style.display = '';
-    const avant = sel.value;
     sel.innerHTML = '<option value="*">Toutes les campagnes</option>'
       + noms.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
-    sel.value = noms.includes(filtre) ? filtre : (avant || '*');
+    sel.value = filtre;
   }
   $('filtre-campagne').addEventListener('change', (e) => {
     filtre = e.target.value;
@@ -322,13 +327,24 @@
     let noms = M.listeCampagnes(cartes);
     // un dossier déclaré s'affiche même vide : il doit pouvoir recevoir des cartes
     if (!opts.depot) {
-      S.campagnesDeclarees().forEach(function (d) { if (noms.indexOf(d) < 0) noms.push(d); });
+      (S.campagnesDeclarees ? S.campagnesDeclarees() : []).forEach(function (d) { if (noms.indexOf(d) < 0) noms.push(d); });
       noms.sort(trierCampagnes);
     }
     noms = noms.filter(n => filtre === '*' || n === filtre);
     if (!noms.length) {
-      conteneur.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
-        + 'Aucune carte dans cette campagne.</p>';
+      const p = document.createElement('p');
+      p.className = 'vide';
+      p.style.cssText = 'grid-column:1/-1;padding:0 18px';
+      p.textContent = 'Aucune carte dans cette campagne. ';
+      const b = document.createElement('button');
+      b.textContent = 'Afficher toutes les campagnes';
+      b.addEventListener('click', function () {
+        filtre = '*';
+        try { localStorage.setItem('kj-filtre-campagne', filtre); } catch (e) {}
+        charger();
+      });
+      p.appendChild(b);
+      conteneur.appendChild(p);
       return;
     }
     for (const nom of noms) {
@@ -436,7 +452,7 @@
 
   $('b-campagne').addEventListener('click', function () {
     const connues = M.listeCampagnes(campLocales.concat(campDepot))
-      .filter(x => x !== M.SANS_CAMPAGNE).concat(S.campagnesDeclarees());
+      .filter(x => x !== M.SANS_CAMPAGNE).concat((S.campagnesDeclarees ? S.campagnesDeclarees() : []));
     ouvrirModale('Nouvelle campagne', function (corps) {
       const nom = champInput(corps, 'Nom', '');
       nom.placeholder = 'Les Cendres de Nox';
