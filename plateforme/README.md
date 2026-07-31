@@ -55,6 +55,26 @@ Une carte est une **donnée** ; le brouillard et les jetons sont une **session d
 stockés à part (`localStorage`). Modifier une carte dans l'éditeur ne remet donc pas à zéro
 une partie en cours.
 
+## Comment ouvrir l'application
+
+Il n'y a **aucun logiciel à installer**, ni sur l'ordinateur ni sur le téléphone : c'est un
+site web. On l'ouvre donc toujours par une adresse.
+
+| Depuis… | Adresse à ouvrir | Conditions |
+|---|---|---|
+| l'ordinateur | `http://127.0.0.1:8777/` | double-cliquer d'abord sur `Lancer la plateforme.bat` |
+| un téléphone, à la maison | `http://<IP du PC>:8777/` (affichée par le lanceur) | même Wi-Fi, PC allumé, fenêtre du lanceur ouverte |
+| un téléphone, n'importe où | l'adresse `https://….netlify.app` | rien d'autre — c'est la voie recommandée |
+
+**Le fichier `.bat` ne sert que sur Windows** : le copier sur un téléphone n'a aucun effet,
+un téléphone ne sait pas exécuter un script Windows. Il démarre seulement le serveur local
+sur l'ordinateur.
+
+**Pour que ça ressemble à une vraie application sur le téléphone** : ouvre l'adresse, puis
+menu du navigateur → *Ajouter à l'écran d'accueil* (Android/Chrome) ou *Partager → Sur l'écran
+d'accueil* (iPhone/Safari). Une icône apparaît ; l'application s'ouvre alors en plein écran,
+sans barre d'adresse, et fonctionne même **sans réseau** une fois visitée.
+
 ## Utiliser en local
 
 **Double-clique sur `Lancer la plateforme.bat`** (dans le dossier parent). Il démarre un

@@ -29,6 +29,9 @@ if defined IP (
   echo   [!] Adresse reseau introuvable : verifie que le Wi-Fi est connecte.
   echo.
 )
+echo   Ce fichier ne sert QUE sur ce PC. Sur un telephone, il n'y a rien
+echo   a installer : on ouvre simplement une adresse dans le navigateur.
+echo.
 echo   GARDE CETTE FENETRE OUVERTE pendant que tu joues.
 echo   Ferme-la pour arreter le serveur.
 echo.
