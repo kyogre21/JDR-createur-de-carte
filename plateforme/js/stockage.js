@@ -99,6 +99,29 @@ KJ.stockage = (function () {
       .then(r => r.json()).then(KJ.modele.depuisJSON);
   }
 
+  /* ---------- campagnes déclarées ----------
+     Les campagnes sont normalement déduites des cartes. Pour pouvoir créer un
+     dossier VIDE (et y déposer des cartes ensuite), on mémorise à part les noms
+     déclarés par l'utilisateur. */
+  const CLE_CAMPAGNES = 'kj-campagnes';
+  function campagnesDeclarees() {
+    try { return JSON.parse(localStorage.getItem(CLE_CAMPAGNES) || '[]'); } catch (e) { return []; }
+  }
+  function ecrireCampagnes(liste) {
+    const propre = [...new Set(liste.map(x => String(x).trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+    try { localStorage.setItem(CLE_CAMPAGNES, JSON.stringify(propre)); } catch (e) {}
+    return propre;
+  }
+  const declarerCampagne = (nom) => ecrireCampagnes(campagnesDeclarees().concat([nom]));
+  const oublierCampagne = (nom) =>
+    ecrireCampagnes(campagnesDeclarees().filter(x => x !== nom));
+  function renommerCampagneDeclaree(ancien, nouveau) {
+    const l = campagnesDeclarees().filter(x => x !== ancien);
+    if (nouveau) l.push(nouveau);
+    return ecrireCampagnes(l);
+  }
+
   /* ---------- service worker ----------
      Il sert à l'usage hors-ligne du site publié. En local il est nuisible :
      il peut resservir une version périmée de l'application (ancienne page sans
@@ -120,6 +143,7 @@ KJ.stockage = (function () {
   }
 
   return { enregistrer, charger, supprimer, lister, avecDelai, gererServiceWorker,
+           campagnesDeclarees, declarerCampagne, oublierCampagne, renommerCampagneDeclaree,
            exporterJSON, exporterSVG, importerFichier, telecharger, slug,
            catalogueDepot, chargerDepot };
 })();

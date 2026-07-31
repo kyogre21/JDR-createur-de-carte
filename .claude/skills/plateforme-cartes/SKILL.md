@@ -41,7 +41,12 @@ plateforme/
 
 Scripts **classiques** (pas de modules ES : ils sont bloqués en `file://`), namespace global `KJ`.
 
-**Rangement** : le champ `carte.campagne` est le « dossier ». Helpers dans `modele.js` :
+**Rangement** : le champ `carte.campagne` est le « dossier ». Les campagnes sont *déduites* des
+cartes ; pour permettre un dossier **vide**, les noms créés par l'utilisateur sont aussi mémorisés
+dans `localStorage` (`kj-campagnes`, API `S.campagnesDeclarees/declarerCampagne/oublierCampagne/
+renommerCampagneDeclaree`). Toute liste de dossiers = déduites ∪ déclarées. Déplacement par
+glisser-déposer HTML5 (fiche `draggable`, titre de dossier zone de dépôt) ; garder l'alternative
+par dialogue, le glisser-déposer n'existant pas sur mobile. Helpers dans `modele.js` :
 `campagneDe()`, `parCampagne()`, `listeCampagnes()` (« Sans campagne » toujours en dernier).
 Le groupement est appliqué dans la bibliothèque (titres + filtre persisté dans
 `kj-filtre-campagne`) et dans le sélecteur de la table (`<optgroup>`). Ne pas confondre avec

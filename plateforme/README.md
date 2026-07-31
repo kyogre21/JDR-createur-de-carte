@@ -107,6 +107,14 @@ Chaque carte porte une **campagne**, qui lui sert de dossier. Le champ se saisit
 l'éditeur (panneau *Carte* → **Campagne**), avec suggestion des campagnes déjà utilisées ;
 le laisser vide range la carte dans « Sans campagne ».
 
+**Créer un dossier** : bouton **🗀 Nouvelle campagne** dans l'en-tête. Le dossier apparaît
+vide, prêt à recevoir des cartes ; un bouton ✕ le supprime tant qu'il est vide (les cartes,
+elles, ne sont jamais supprimées par cette action).
+
+**Déposer des cartes dans un dossier** : **fais glisser une carte sur le titre du dossier**.
+Le titre s'éclaire quand le dépôt est possible. Sur mobile, où le glisser-déposer n'existe pas,
+passe par **✎ Renommer** sur la carte et choisis la campagne.
+
 **Gérer les dossiers depuis la bibliothèque** (sans ouvrir l'éditeur) :
 - sur une carte, **✎ Renommer** ouvre une boîte de dialogue : nom de la carte et campagne, avec
   suggestion des campagnes existantes. Saisir un nom inédit **crée** le dossier ; laisser vide

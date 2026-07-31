@@ -15,6 +15,7 @@
   <select id="filtre-campagne" title="Afficher une seule campagne"></select>
   <div class="esp"></div>
   <a class="btn" href="table.html" title="Ouvrir la table de jeu">▶ Table de jeu</a>
+  <button id="b-campagne" title="Créer un dossier de campagne">🗀 Nouvelle campagne</button>
   <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
   <button id="b-importer">↑ Importer un .json</button>
   <input type="file" id="fichier" accept=".json,application/json" hidden>
@@ -120,6 +121,15 @@
     }
     d.appendChild(act);
     d.querySelector('.apercu-img').addEventListener('click', () => lien.click());
+    if (!opts.depot) {   // une carte de ma bibliothèque se fait glisser vers un dossier
+      d.draggable = true;
+      d.addEventListener('dragstart', function (e) {
+        e.dataTransfer.setData('text/plain', carte.id);
+        e.dataTransfer.effectAllowed = 'move';
+        d.classList.add('en-vol');
+      });
+      d.addEventListener('dragend', function () { d.classList.remove('en-vol'); });
+    }
     return d;
   }
 
@@ -175,8 +185,16 @@
   /* Le filtre ne doit proposer que des campagnes réellement affichées : une campagne
      qui ne vient que de cartes fournies masquées (car j'en ai une copie) n'existe plus
      à l'écran, la proposer donnerait un filtre vide. */
+  function trierCampagnes(a, b) {
+    if (a === M.SANS_CAMPAGNE) return 1;
+    if (b === M.SANS_CAMPAGNE) return -1;
+    return a.localeCompare(b, 'fr', { sensitivity: 'base' });
+  }
+
   function majFiltre(visibles) {
     const noms = M.listeCampagnes(visibles || campLocales);
+    S.campagnesDeclarees().forEach(function (d) { if (noms.indexOf(d) < 0) noms.push(d); });
+    noms.sort(trierCampagnes);
     const sel = $('filtre-campagne');
     if (noms.length < 2) { sel.style.display = 'none'; return; }   // inutile s'il n'y en a qu'une
     sel.style.display = '';
@@ -277,6 +295,7 @@
           return S.enregistrer(c);
         }));
       p.then(() => {
+        S.renommerCampagneDeclaree(ancien, nouveau);
         // le filtre pointait peut-être sur l'ancien nom
         if (filtre === ancien) {
           filtre = nouveau || M.SANS_CAMPAGNE;
@@ -287,30 +306,69 @@
     });
   }
 
+  /* Déplace une carte dans une campagne (glisser-déposer ou dialogue). */
+  function rangerCarte(id, campagne) {
+    return S.charger(id).then(function (c) {
+      if (!c) return;
+      c.campagne = (campagne === M.SANS_CAMPAGNE) ? "" : campagne;
+      return S.enregistrer(c).then(charger);
+    });
+  }
+
   /* Rendu groupé par campagne : chaque campagne est un « dossier ». */
   function afficherGroupe(conteneur, cartes, opts) {
     conteneur.innerHTML = '';
     const groupes = M.parCampagne(cartes);
-    const noms = M.listeCampagnes(cartes).filter(n => filtre === '*' || n === filtre);
+    let noms = M.listeCampagnes(cartes);
+    // un dossier déclaré s'affiche même vide : il doit pouvoir recevoir des cartes
+    if (!opts.depot) {
+      S.campagnesDeclarees().forEach(function (d) { if (noms.indexOf(d) < 0) noms.push(d); });
+      noms.sort(trierCampagnes);
+    }
+    noms = noms.filter(n => filtre === '*' || n === filtre);
     if (!noms.length) {
       conteneur.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
         + 'Aucune carte dans cette campagne.</p>';
       return;
     }
     for (const nom of noms) {
+      const lot = groupes[nom] || [];
       const t = document.createElement('h3');
       t.className = 'titre-campagne';
-      t.innerHTML = '<span>' + nom + '</span><em>' + groupes[nom].length + ' carte'
-        + (groupes[nom].length > 1 ? 's' : '') + '</em><span class="esp-c"></span>';
-      if (!opts.depot) {   // les cartes fournies ne sont pas modifiables sur place
+      t.innerHTML = '<span>' + nom + '</span><em>'
+        + (lot.length ? lot.length + ' carte' + (lot.length > 1 ? 's' : '') : 'dossier vide')
+        + '</em><span class="esp-c"></span>';
+      if (!opts.depot) {
+        // zone de dépôt : faire glisser une fiche sur ce titre pour l'y ranger
+        t.addEventListener('dragover', function (e) { e.preventDefault(); t.classList.add('survol'); });
+        t.addEventListener('dragleave', function () { t.classList.remove('survol'); });
+        t.addEventListener('drop', function (e) {
+          e.preventDefault(); t.classList.remove('survol');
+          const id = e.dataTransfer.getData('text/plain');
+          if (id) rangerCarte(id, nom);
+        });
         const b = document.createElement('button');
-        b.textContent = '✎ Renommer le dossier';
-        const lot = groupes[nom].slice();
-        b.addEventListener('click', () => dialogueCampagne(nom, lot));
+        b.textContent = '✎ Renommer';
+        b.title = 'Renommer ce dossier (ses cartes suivent)';
+        const lotFige = lot.slice();
+        b.addEventListener('click', function () { dialogueCampagne(nom, lotFige); });
         t.appendChild(b);
+        if (!lot.length && nom !== M.SANS_CAMPAGNE) {
+          const x = document.createElement('button');
+          x.textContent = '✕'; x.className = 'danger';
+          x.title = 'Supprimer ce dossier vide';
+          x.addEventListener('click', function () { S.oublierCampagne(nom); charger(); });
+          t.appendChild(x);
+        }
       }
       conteneur.appendChild(t);
-      for (const carte of groupes[nom]) conteneur.appendChild(fiche(carte, opts));
+      if (!lot.length) {
+        const v = document.createElement('p');
+        v.className = 'vide depot-vide';
+        v.textContent = 'Dossier vide — fais glisser une carte sur son titre pour l’y ranger.';
+        conteneur.appendChild(v);
+      }
+      for (const carte of lot) conteneur.appendChild(fiche(carte, opts));
     }
   }
 
@@ -375,6 +433,26 @@
       a.appendChild(b);
     });
   }
+
+  $('b-campagne').addEventListener('click', function () {
+    const connues = M.listeCampagnes(campLocales.concat(campDepot))
+      .filter(x => x !== M.SANS_CAMPAGNE).concat(S.campagnesDeclarees());
+    ouvrirModale('Nouvelle campagne', function (corps) {
+      const nom = champInput(corps, 'Nom', '');
+      nom.placeholder = 'Les Cendres de Nox';
+      noteModale(corps, 'Le dossier apparaîtra vide dans ta bibliothèque. Fais ensuite glisser '
+        + 'des cartes sur son titre pour les y ranger.');
+      return { nom: nom, connues: connues };
+    }, function (ctx) {
+      const nom = ctx.nom.value.trim();
+      if (!nom) { alert('Donne un nom à la campagne.'); return false; }
+      if (ctx.connues.indexOf(nom) >= 0) { alert('Cette campagne existe déjà.'); return false; }
+      S.declarerCampagne(nom);
+      filtre = '*';
+      try { localStorage.setItem('kj-filtre-campagne', filtre); } catch (e) {}
+      charger();
+    });
+  });
 
   $('b-importer').addEventListener('click', () => $('fichier').click());
   $('fichier').addEventListener('change', (e) => {
