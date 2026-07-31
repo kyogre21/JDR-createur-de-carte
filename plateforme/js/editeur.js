@@ -120,6 +120,11 @@
     const el = sel && M.trouver(carte, sel);
     if (el) {
       const b = M.boite(el);
+      // le cadre et les poignées doivent tourner avec l'objet (même pivot, même angle
+      // que rendu.js), sinon ils restent axés sur le monde alors que l'objet est pivoté.
+      const rot = (el.type === 'objet' && el.rot) ? el.rot : 0;
+      const grp = rot ? ` transform="rotate(${rot} ${el.x} ${el.y})"` : '';
+      s += `<g${grp}>`;
       s += `<rect class="cadre" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" `
          + `style="stroke-width:${1.5 * k}"/>`;
       if (M.redimensionnable(el)) {
@@ -129,6 +134,7 @@
           s += `<circle class="poignee" data-coin="${c}" cx="${x}" cy="${y}" r="${r}" `
              + `style="stroke-width:${1.5 * k}"/>`;
       }
+      s += `</g>`;
     }
     if (apercu) s += apercu(k);
     if (accSurbrillance) s += accSurbrillance(k);
@@ -332,10 +338,22 @@
       majPanneau(); apresModif(); dessiner(); }
   });
 
+  /* Point monde → repère local d'un objet pivoté (rotation inverse autour de son
+     centre) : permet de redimensionner un objet tourné avec le même calcul
+     axis-aligned que les autres, sans que les poignées « répondent » dans le
+     mauvais sens dès que l'objet n'est plus à 0°. */
+  function versLocal(pt, deg, centre) {
+    if (!deg) return pt;
+    const a = deg * Math.PI / 180, cos = Math.cos(a), sin = Math.sin(a);
+    const dx = pt.x - centre.x, dy = pt.y - centre.y;
+    return { x: centre.x + dx * cos + dy * sin, y: centre.y - dx * sin + dy * cos };
+  }
+
   function redimensionner(el, coin, pt) {
     const b = depart.b;
     let x1 = b.x, y1 = b.y, x2 = b.x + b.w, y2 = b.y + b.h;
-    const px = acc(pt.x), py = acc(pt.y);
+    const p = (el.type === 'objet' && el.rot) ? versLocal(pt, el.rot, { x: el.x, y: el.y }) : pt;
+    const px = acc(p.x), py = acc(p.y);
     if (coin.includes('w')) x1 = px; else x2 = px;
     if (coin.includes('n')) y1 = py; else y2 = py;
     const x = Math.min(x1, x2), y = Math.min(y1, y2);
@@ -457,12 +475,18 @@
       p.appendChild(champ('Style', select(el.style, [['lbl', 'Libellé de salle'], ['tiny', 'Petite note']], v => el.style = v)));
       p.appendChild(champ('Rotation', inputNum(el.rot || 0, v => el.rot = v, 15)));
     } else if (el.type === 'portail') {
-      if (!destinations.length) {
+      // une valeur inconnue des destinations (carte pas encore créée, ou renommée) ne doit
+      // jamais faire retomber le <select> en silence sur une autre destination : on l'ajoute
+      // en option, visiblement marquée, pour que « Mène à » affiche toujours la vraie cible.
+      const options = destinations.map(d => [d.id, d.nom]);
+      const connue = destinations.some(d => d.id === el.vers);
+      if (el.vers && !connue) options.unshift([el.vers, '⚠ « ' + el.vers + ' » — carte introuvable']);
+      if (!options.length) {
         p.appendChild(document.createRange().createContextualFragment(
           '<p class="aide">Aucune autre carte disponible : crée d’abord la carte de destination, '
           + 'puis reviens poser le portail.</p>'));
       } else {
-        p.appendChild(champ('Mène à', select(el.vers, destinations.map(d => [d.id, d.nom]), v => {
+        p.appendChild(champ('Mène à', select(el.vers, options, v => {
           el.vers = v;
           const d = destinations.find(x => x.id === v);
           if (d && !el.label) el.label = d.nom.replace(/^.*—\s*/, '');
@@ -626,7 +650,7 @@
   function blocScene() {
     const svg = R.svgString(carte, { vueMJ: true, grille: true })
       .replace('<svg ', `<svg width="${carte.taille.w}" height="${carte.taille.h}" `);
-    return `<div class="scene" data-id="${S.slug(carte.nom)}" data-nom="${carte.nom}" `
+    return `<div class="scene" data-id="${S.slug(carte.nom)}" data-nom="${R.esc(carte.nom)}" `
       + `data-w="${carte.taille.w}" data-h="${carte.taille.h}" data-cell="${carte.grille.cell}">\n`
       + svg + `\n</div>`;
   }

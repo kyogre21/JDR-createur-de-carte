@@ -26,12 +26,17 @@ KJ.modele = (function () {
     { id: 'etagere',    nom: 'Étagère',        w: 12, h: 48 },
     { id: 'tapis',      nom: 'Tapis',          w: 60, h: 90 },
     { id: 'autel',      nom: 'Autel',          w: 40, h: 24 },
+    { id: 'ecritoire',  nom: 'Écritoire',      w: 50, h: 32 },
     { id: 'escalier',   nom: 'Escalier droit', w: 40, h: 120 },
     { id: 'escalierdemi', nom: 'Escalier en arc', w: 116, h: 116 },
     { id: 'puits',      nom: 'Puits',          w: 30, h: 30 },
+    { id: 'trappe',     nom: 'Trappe (visible)', w: 36, h: 36 },
     { id: 'arbre',      nom: 'Arbre',          w: 28, h: 28 },
     { id: 'maison',     nom: 'Maison (vue de dessus)', w: 44, h: 30 },
     { id: 'tableau',    nom: 'Tableau au mur', w: 32, h: 12 },
+    { id: 'miroir',     nom: 'Miroir',         w: 26, h: 14 },
+    { id: 'statue',     nom: 'Statue',         w: 26, h: 34 },
+    { id: 'tombe',      nom: 'Tombe',          w: 24, h: 30 },
   ];
   const symbole = (id) => SYMBOLES.find(s => s.id === id) || SYMBOLES[0];
 

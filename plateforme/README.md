@@ -25,7 +25,7 @@ plateforme/
 ## Les deux modes
 
 **Éditeur** (`editeur.html`) — on dessine : pièces (épaisseur de murs réglable), murs, portes
-et fenêtres qui s'accrochent au mur le plus proche, mobilier (17 symboles), numéros liés à la
+et fenêtres qui s'accrochent au mur le plus proche, mobilier (23 symboles), numéros liés à la
 clé du lieu, libellés, sources de lumière, secrets réservés au MJ, et portails vers les autres
 cartes. Enregistrement automatique, plus un bouton **💾 Enregistrer** qui force l'écriture et
 le confirme. La **clé numérotée** se remplit dans le panneau de droite (titre + description) et
@@ -261,8 +261,9 @@ Manques connus, par ordre d'utilité :
 4. **Les sources de lumière ne percent pas le brouillard** : les ✷ sont décoratives.
 5. **Les murs n'arrêtent pas la révélation** : le pinceau traverse les cloisons. Le vrai
    calcul de ligne de vue est volontairement hors périmètre (c'est le poste le plus coûteux).
-6. **Export PNG** (seuls JSON et SVG existent) ; **duplication** et **renommage** d'une
-   carte depuis la bibliothèque ; **grille hexagonale** pour les cartes de région.
+6. **Export PNG** (seuls JSON et SVG existent) ; **duplication** d'une carte depuis la
+   bibliothèque ; **grille hexagonale** pour les cartes de région. (Le renommage et le
+   rangement par campagne, eux, sont faits — bouton **✎ Renommer** dans la bibliothèque.)
 7. **Synchronisation multi-appareils** : la vue joueurs fonctionne entre fenêtres d'un même
    ordinateur, pas entre machines. Demanderait un serveur.
 8. **Hors périmètre assumé** : dés, fiches de personnage, ordre d'initiative — ce n'est pas

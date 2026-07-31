@@ -65,7 +65,7 @@
       : `${carte.taille.w} × ${carte.taille.h} px`;
     const maj = carte.maj ? new Date(carte.maj).toLocaleDateString('fr-FR') : '';
     d.innerHTML = `<div class="apercu-img">${apercu(carte)}</div>`
-      + `<div class="txt"><b>${carte.nom}</b><div>${dim} · ${nb} élément${nb > 1 ? 's' : ''}${maj ? ' · ' + maj : ''}</div></div>`;
+      + `<div class="txt"><b>${R.esc(carte.nom)}</b><div>${dim} · ${nb} élément${nb > 1 ? 's' : ''}${maj ? ' · ' + maj : ''}</div></div>`;
     const act = document.createElement('div'); act.className = 'actions';
     const lien = document.createElement('button');
     lien.textContent = 'Ouvrir';
@@ -351,7 +351,7 @@
       const lot = groupes[nom] || [];
       const t = document.createElement('h3');
       t.className = 'titre-campagne';
-      t.innerHTML = '<span>' + nom + '</span><em>'
+      t.innerHTML = '<span>' + R.esc(nom) + '</span><em>'
         + (lot.length ? lot.length + ' carte' + (lot.length > 1 ? 's' : '') : 'dossier vide')
         + '</em><span class="esp-c"></span>';
       if (!opts.depot) {
@@ -434,7 +434,7 @@
       const bouts = [];
       if (plan.doublons) bouts.push(plan.doublons + ' exemplaire(s) en double à supprimer');
       if (plan.renommer.length) bouts.push(plan.renommer.length
-        + ' identifiant(s) à rétablir (' + plan.renommer.map(r => '« ' + r.nom + ' »').join(', ') + ')');
+        + ' identifiant(s) à rétablir (' + plan.renommer.map(r => '« ' + R.esc(r.nom) + ' »').join(', ') + ')');
       const a = alerte('<b>Bibliothèque à nettoyer.</b> ' + bouts.join(', ')
         + '. Sans cela, les portails des escaliers peuvent viser la mauvaise version d’une carte. '
         + 'La version la plus récemment modifiée est conservée. ');

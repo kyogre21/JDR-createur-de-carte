@@ -133,7 +133,7 @@
       d.style.left = p.x + 'px'; d.style.top = p.y + 'px';
       if (dest) d.dataset.vers = dest.id;
       d.title = dest ? 'Aller à : ' + dest.nom : 'Carte « ' + p.vers + ' » absente de la bibliothèque';
-      d.innerHTML = `<span class="los"></span><span class="lab">${p.label || (dest ? dest.nom : p.vers)}</span>`;
+      d.innerHTML = `<span class="los"></span><span class="lab">${R.esc(p.label || (dest ? dest.nom : p.vers))}</span>`;
       pinsEl.appendChild(d);
     }
   }
@@ -379,20 +379,59 @@
       r: Math.max(carte.taille.w, carte.taille.h) }];
     dessinerFog(); sauverPartie(); toast('Terrain entièrement révélé.');
   });
+  /* Vignette carrée recadrée au centre, en data URL — un chemin de fichier local
+     (file:///…) ne se charge jamais depuis une page servie en http(s) : on lit
+     donc le fichier choisi et on l'embarque directement dans la session. */
+  function vignette(dataUrl, taille) {
+    return new Promise((res, rej) => {
+      const img = new Image();
+      img.onload = () => {
+        const t = taille || 96;
+        const c = document.createElement('canvas'); c.width = t; c.height = t;
+        const ctx = c.getContext('2d');
+        const s = Math.max(t / img.naturalWidth, t / img.naturalHeight);
+        const w = img.naturalWidth * s, h = img.naturalHeight * s;
+        ctx.drawImage(img, (t - w) / 2, (t - h) / 2, w, h);
+        res(c.toDataURL('image/jpeg', .85));
+      };
+      img.onerror = () => rej(new Error('Image illisible.'));
+      img.src = dataUrl;
+    });
+  }
+
   $('b-jeton').addEventListener('click', () => {
     const nom = (prompt('Étiquette du jeton (1-2 caractères) :', 'E') || '').trim().slice(0, 2);
     if (!nom) return;
-    const img = (prompt('Image du jeton (chemin ou URL, vide = disque coloré) :', '') || '').trim();
-    const pj = confirm('Est-ce un PJ ?\n\nOK = PJ (suivra le groupe de carte en carte)\nAnnuler = PNJ ou ennemi');
-    const r = scene.getBoundingClientRect();
-    const c = versMonde(r.left + r.width / 2, r.top + r.height / 2);
-    partie.jetons.push({
-      id: 'j' + Date.now(), nom: nom, pj: pj,
-      couleur: COULEURS[partie.jetons.length % COULEURS.length],
-      img: img ? (/^[A-Za-z]:[\\/]/.test(img) ? 'file:///' + encodeURI(img.replace(/\\/g, '/')) : img) : undefined,
-      x: Math.round(c.x), y: Math.round(c.y), carte: carte.id,
+    const creerJeton = (img) => {
+      const pj = confirm('Est-ce un PJ ?\n\nOK = PJ (suivra le groupe de carte en carte)\nAnnuler = PNJ ou ennemi');
+      const r = scene.getBoundingClientRect();
+      const c = versMonde(r.left + r.width / 2, r.top + r.height / 2);
+      partie.jetons.push({
+        id: 'j' + Date.now(), nom: nom, pj: pj,
+        couleur: COULEURS[partie.jetons.length % COULEURS.length],
+        img: img || undefined,
+        x: Math.round(c.x), y: Math.round(c.y), carte: carte.id,
+      });
+      dessinerJetons(); sauverPartie();
+    };
+    const url = (prompt('Image du jeton : colle une adresse http(s) (vide = choisir un fichier '
+      + 'sur cet appareil, ou passer) :', '') || '').trim();
+    if (/^https?:\/\//i.test(url)) { creerJeton(url); return; }
+    if (url) toast('Adresse ignorée : seule une adresse http(s) fonctionne ici, pas un chemin local.');
+    if (!confirm('Choisir une image sur cet appareil pour ce jeton ?\n\n'
+        + 'OK = ouvrir le sélecteur de fichier\nAnnuler = disque de couleur uni')) { creerJeton(''); return; }
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.addEventListener('change', () => {
+      const f = input.files[0];
+      if (!f) { creerJeton(''); return; }
+      const fr = new FileReader();
+      fr.onload = () => vignette(fr.result).then(creerJeton).catch(() => creerJeton(''));
+      fr.onerror = () => creerJeton('');
+      fr.readAsDataURL(f);
     });
-    dessinerJetons(); sauverPartie();
+    input.addEventListener('cancel', () => creerJeton(''));
+    input.click();
   });
   $('b-amener').addEventListener('click', () => {
     const pjs = partie.jetons.filter(j => j.pj);

@@ -25,6 +25,7 @@ KJ.rendu = (function () {
     etagere: `<rect x="10" y="4" width="80" height="92"/><line x1="10" y1="30" x2="90" y2="30"/><line x1="10" y1="58" x2="90" y2="58"/><line x1="10" y1="82" x2="90" y2="82"/>`,
     tapis: `<rect x="2" y="2" width="96" height="96" rx="3" class="tapis-ext"/><rect x="12" y="12" width="76" height="76" class="tapis-int"/>`,
     autel: `<rect x="6" y="14" width="88" height="72"/><line x1="20" y1="14" x2="20" y2="86"/><line x1="80" y1="14" x2="80" y2="86"/>`,
+    ecritoire: `<rect x="8" y="40" width="84" height="52"/><path d="M8 40 L50 10 L92 40 Z" fill="none"/><line x1="50" y1="10" x2="50" y2="40"/>`,
     escalier: `<rect x="6" y="2" width="88" height="96" fill="none"/>
       <line x1="6" y1="14" x2="94" y2="14"/><line x1="6" y1="26" x2="94" y2="26"/><line x1="6" y1="38" x2="94" y2="38"/>
       <line x1="6" y1="50" x2="94" y2="50"/><line x1="6" y1="62" x2="94" y2="62"/><line x1="6" y1="74" x2="94" y2="74"/>
@@ -36,9 +37,14 @@ KJ.rendu = (function () {
       <line x1="74.0" y1="59.9" x2="92.5" y2="67.6"/><line x1="68.4" y1="68.4" x2="82.5" y2="82.5"/>
       <line x1="59.9" y1="74.0" x2="67.6" y2="92.5"/>`,
     puits: `<circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="30"/><line x1="4" y1="50" x2="96" y2="50"/>`,
+    /* trappe visible (à distinguer du calque « secret », réservé au MJ) : une porte au sol */
+    trappe: `<rect x="8" y="8" width="84" height="84" rx="3"/><circle cx="50" cy="50" r="12" fill="none"/><line x1="50" y1="62" x2="50" y2="74"/>`,
     arbre: `<circle cx="50" cy="50" r="44"/><path d="M50 50 L50 96"/>`,
     maison: `<rect x="4" y="30" width="92" height="66"/><path d="M4 30 L50 4 L96 30"/>`,
     tableau: `<rect x="2" y="2" width="96" height="96"/><rect x="14" y="14" width="72" height="72"/>`,
+    miroir: `<rect x="2" y="2" width="96" height="96" rx="6"/><ellipse cx="50" cy="50" rx="38" ry="44"/>`,
+    statue: `<rect x="30" y="70" width="40" height="26"/><circle cx="50" cy="40" r="20"/><path d="M30 70 Q50 44 70 70" fill="none"/>`,
+    tombe: `<path d="M20 96 L20 40 A30 30 0 0 1 80 40 L80 96 Z"/><line x1="50" y1="50" x2="50" y2="76"/><line x1="38" y1="60" x2="62" y2="60"/>`,
   };
 
   /* Feuille de style embarquée : rend le SVG exporté autonome
@@ -108,6 +114,8 @@ KJ.rendu = (function () {
              + `x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}"/></g>`;
 
       case 'porte': {
+        // secrète : indiscernable d'un mur plein côté joueurs (le mur reste donc intact)
+        if (el.style === 'secrete' && opts.vueMJ === false) return '';
         const l = el.l, h = el.o === 'h';
         const a = h ? { x: el.x - l / 2, y: el.y } : { x: el.x, y: el.y - l / 2 };
         const b = h ? { x: el.x + l / 2, y: el.y } : { x: el.x, y: el.y + l / 2 };
@@ -140,7 +148,12 @@ KJ.rendu = (function () {
 
       case 'objet': {
         const rot = el.rot ? ` transform="rotate(${el.rot} ${el.x} ${el.y})"` : '';
-        return `<g${id} class="kj-el kj-obj"${rot}>`
+        // zone de clic invisible sur toute l'emprise : certains symboles (escaliers) ne
+        // sont que des traits sans remplissage, quasi impossibles à toucher sinon.
+        const prise = opts.ids
+          ? `<rect x="${el.x - el.w / 2}" y="${el.y - el.h / 2}" width="${el.w}" height="${el.h}" fill="transparent" pointer-events="all"/>`
+          : '';
+        return `<g${id} class="kj-el kj-obj"${rot}>` + prise
              + `<svg x="${el.x - el.w / 2}" y="${el.y - el.h / 2}" width="${el.w}" height="${el.h}" `
              + `viewBox="0 0 100 100" preserveAspectRatio="none" overflow="visible">`
              + (SYM[el.sym] || SYM.table) + `</svg></g>`;
@@ -232,5 +245,5 @@ KJ.rendu = (function () {
     svgEl.innerHTML = defs((opts || {}).theme) + corps(carte, opts);
   }
 
-  return { SYM, styles, defs, corps, svgString, dansSVG, unElement };
+  return { SYM, styles, defs, corps, svgString, dansSVG, unElement, esc };
 })();
