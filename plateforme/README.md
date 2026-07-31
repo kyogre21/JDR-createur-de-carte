@@ -107,6 +107,16 @@ Chaque carte porte une **campagne**, qui lui sert de dossier. Le champ se saisit
 l'éditeur (panneau *Carte* → **Campagne**), avec suggestion des campagnes déjà utilisées ;
 le laisser vide range la carte dans « Sans campagne ».
 
+**Gérer les dossiers depuis la bibliothèque** (sans ouvrir l'éditeur) :
+- sur une carte, **✎ Renommer** ouvre une boîte de dialogue : nom de la carte et campagne, avec
+  suggestion des campagnes existantes. Saisir un nom inédit **crée** le dossier ; laisser vide
+  range dans « Sans campagne » ;
+- sur un titre de dossier, **✎ Renommer le dossier** renomme la campagne et **déplace toutes ses
+  cartes** d'un coup.
+
+Ces actions ne concernent que *Mes cartes*. Une carte fournie avec l'application doit d'abord
+être ouverte (elle est alors copiée dans ta bibliothèque) pour devenir modifiable.
+
 Ce classement se retrouve partout :
 - **bibliothèque** : les cartes sont groupées par campagne, avec le nombre de cartes, et un
   sélecteur en en-tête permet de n'afficher qu'une campagne (choix mémorisé) ;

@@ -21,6 +21,16 @@
 </header>
 
 <div id="alerte-fichier"></div>
+<div id="modale" hidden>
+  <div class="boite">
+    <h3 id="modale-titre"></h3>
+    <div id="modale-corps"></div>
+    <div class="actions-modale">
+      <button id="modale-annuler">Annuler</button>
+      <button id="modale-ok" class="primaire">Enregistrer</button>
+    </div>
+  </div>
+</div>
 <div id="app">
   <div id="biblio">
     <h2 class="titre-page">Mes cartes</h2>
@@ -74,6 +84,13 @@
     jouer.title = 'Ouvrir en mode Jeu (brouillard, jetons)';
     jouer.addEventListener('click', () => location.href = 'table.html?carte=' + encodeURIComponent(carte.id));
     act.appendChild(jouer);
+    if (!opts.depot) {
+      const ren = document.createElement('button');
+      ren.textContent = '✎ Renommer';
+      ren.title = 'Renommer la carte ou la changer de dossier';
+      ren.addEventListener('click', () => dialogueCarte(carte));
+      act.appendChild(ren);
+    }
     const svg = document.createElement('button');
     svg.textContent = '↓ SVG';
     svg.addEventListener('click', () => S.exporterSVG(carte));
@@ -164,6 +181,102 @@
     charger();
   });
 
+
+  /* ---------- boîte de dialogue ---------- */
+  function ouvrirModale(titre, construire, valider) {
+    const m = $('modale'), corps = $('modale-corps');
+    $('modale-titre').textContent = titre;
+    corps.innerHTML = '';
+    const ctx = construire(corps);
+    m.hidden = false;
+    const premier = corps.querySelector('input');
+    if (premier) { premier.focus(); premier.select(); }
+    const fermer = () => { m.hidden = true; document.removeEventListener('keydown', touche); };
+    const ok = () => { const r = valider(ctx); if (r !== false) { fermer(); } };
+    function touche(e) {
+      if (e.key === 'Escape') fermer();
+      if (e.key === 'Enter' && e.target.tagName === 'INPUT') ok();
+    }
+    document.addEventListener('keydown', touche);
+    $('modale-ok').onclick = ok;
+    $('modale-annuler').onclick = fermer;
+    m.onclick = (e) => { if (e.target === m) fermer(); };
+  }
+  function champInput(parent, label, valeur, liste) {
+    const d = document.createElement('div'); d.className = 'champ';
+    const l = document.createElement('label'); l.textContent = label;
+    const i = document.createElement('input'); i.type = 'text'; i.value = valeur || '';
+    if (liste) {
+      i.setAttribute('list', liste.id);
+      if (!$(liste.id)) {
+        const dl = document.createElement('datalist'); dl.id = liste.id;
+        dl.innerHTML = liste.valeurs.map(v => '<option value="' + v.replace(/"/g, '&quot;') + '">').join('');
+        document.body.appendChild(dl);
+      } else {
+        $(liste.id).innerHTML = liste.valeurs.map(v => '<option value="' + v.replace(/"/g, '&quot;') + '">').join('');
+      }
+    }
+    d.appendChild(l); d.appendChild(i); parent.appendChild(d);
+    return i;
+  }
+  function noteModale(parent, html) {
+    const p = document.createElement('p'); p.className = 'aide'; p.innerHTML = html;
+    parent.appendChild(p);
+  }
+
+  /* ---------- renommer / ranger une carte ---------- */
+  function dialogueCarte(carte) {
+    const campagnes = M.listeCampagnes(campLocales.concat(campDepot))
+      .filter(x => x !== M.SANS_CAMPAGNE);
+    ouvrirModale('Renommer et ranger', (corps) => {
+      const nom = champInput(corps, 'Nom', carte.nom);
+      const camp = champInput(corps, 'Campagne', carte.campagne || '',
+        { id: 'dl-campagnes', valeurs: campagnes });
+      camp.placeholder = M.SANS_CAMPAGNE;
+      noteModale(corps, 'La campagne sert de dossier. Saisis un nom inédit pour créer un '
+        + 'nouveau dossier, ou laisse vide pour « ' + M.SANS_CAMPAGNE + ' ».');
+      return { nom, camp };
+    }, (ctx) => {
+      const nom = ctx.nom.value.trim();
+      if (!nom) { alert('Le nom ne peut pas être vide.'); return false; }
+      S.charger(carte.id).then(c => {
+        if (!c) return;
+        c.nom = nom;
+        c.campagne = ctx.camp.value.trim();
+        return S.enregistrer(c).then(charger);
+      });
+    });
+  }
+
+  /* ---------- renommer un dossier (toutes ses cartes suivent) ---------- */
+  function dialogueCampagne(ancien, cartes) {
+    ouvrirModale('Renommer le dossier', (corps) => {
+      const nom = champInput(corps, 'Campagne', ancien === M.SANS_CAMPAGNE ? '' : ancien);
+      nom.placeholder = M.SANS_CAMPAGNE;
+      noteModale(corps, 'Les <b>' + cartes.length + '</b> carte(s) de ce dossier seront déplacées. '
+        + 'Laisser vide les range dans « ' + M.SANS_CAMPAGNE + ' ».');
+      return { nom };
+    }, (ctx) => {
+      const nouveau = ctx.nom.value.trim();
+      if (nouveau === (ancien === M.SANS_CAMPAGNE ? '' : ancien)) return;   // rien à faire
+      let p = Promise.resolve();
+      for (const carte of cartes)
+        p = p.then(() => S.charger(carte.id).then(c => {
+          if (!c) return;
+          c.campagne = nouveau;
+          return S.enregistrer(c);
+        }));
+      p.then(() => {
+        // le filtre pointait peut-être sur l'ancien nom
+        if (filtre === ancien) {
+          filtre = nouveau || M.SANS_CAMPAGNE;
+          try { localStorage.setItem('kj-filtre-campagne', filtre); } catch (e) {}
+        }
+        charger();
+      });
+    });
+  }
+
   function charger() {
     const pLocales = S.avecDelai(S.lister(), 1500, []);
     const pDepot = S.avecDelai(S.catalogueDepot(), 2500, [])
@@ -186,7 +299,14 @@
           const t = document.createElement('h3');
           t.className = 'titre-campagne';
           t.innerHTML = '<span>' + nom + '</span><em>' + groupes[nom].length + ' carte'
-            + (groupes[nom].length > 1 ? 's' : '') + '</em>';
+            + (groupes[nom].length > 1 ? 's' : '') + '</em><span class="esp-c"></span>';
+          if (!opts.depot) {   // les cartes fournies ne sont pas modifiables sur place
+            const b = document.createElement('button');
+            b.textContent = '✎ Renommer le dossier';
+            const lot = groupes[nom].slice();
+            b.addEventListener('click', () => dialogueCampagne(nom, lot));
+            t.appendChild(b);
+          }
           conteneur.appendChild(t);
         }
         for (const carte of groupes[nom]) conteneur.appendChild(fiche(carte, opts));

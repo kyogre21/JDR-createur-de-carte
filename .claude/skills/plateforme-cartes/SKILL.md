@@ -76,9 +76,13 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
 - **Chrome headless impose une largeur minimale de ~500 px** : une capture demandée en 390 px est un
   recadrage trompeur d'une fenêtre plus large. Tester le mobile à 500 px, et mesurer
   `getBoundingClientRect()` avant de conclure à un bug de mise en page.
-- **IndexedDB ne répond pas sous `--virtual-time-budget`** : tout code qui l'attend semble figé.
-  D'où `S.avecDelai()` — et l'impossibilité de simuler la bibliothèque locale en headless. Tester
-  ces cas en exposant la logique (`window.KJ_TABLE`) et en lui injectant un état.
+- **IndexedDB ne répond pas en headless** (avec ou sans `--virtual-time-budget`, ancien mode ou
+  `--headless=new`) : tout code qui l'attend semble figé. D'où `S.avecDelai()`.
+  **Recette validée pour tester la bibliothèque locale** : copier `index.html` en page de banc
+  d'essai et insérer, entre `stockage.js` et le script de la page, un stub qui remplace
+  `S.lister/charger/enregistrer/supprimer` par une base en mémoire. Le produit n'est pas pollué,
+  et les parcours (renommer une carte, renommer un dossier et vérifier la propagation) deviennent
+  testables — un paramètre `?etape=N` permet d'enchaîner les scénarios dans des captures séparées.
 - Un `pointerdown` de test doit être émis **sur l'élément SVG visé** : sinon `closest('[data-id]')`
   ne trouve rien et la sélection échoue silencieusement.
 - L'historique enregistre l'état **après** modification, via l'unique point d'entrée `apresModif()`.
