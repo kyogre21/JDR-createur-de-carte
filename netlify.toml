@@ -1,0 +1,23 @@
+# Configuration de déploiement Netlify.
+#
+# Le site à publier n'est pas à la racine du dépôt mais dans « plateforme/ ».
+# Sans cette indication, Netlify sert la racine, n'y trouve aucun index.html
+# et affiche « Page not found ». Ce fichier évite tout réglage manuel dans
+# l'interface : il est lu automatiquement à chaque déploiement.
+
+[build]
+  publish = "plateforme"
+  command = ""
+
+# Le service worker ne doit jamais être servi depuis un cache intermédiaire,
+# sinon une ancienne version peut survivre à une mise en ligne.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Les cartes de campagne évoluent : on veut toujours la version fraîche.
+[[headers]]
+  for = "/cartes/*"
+  [headers.values]
+    Cache-Control = "no-cache"
