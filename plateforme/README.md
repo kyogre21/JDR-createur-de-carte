@@ -133,17 +133,23 @@ git add -A && git commit -m "…" && git push
 du projet, régénérable) se glisse directement sur [app.netlify.com/drop](https://app.netlify.com/drop)
 — mise en ligne immédiate, sans compte. Il faut redéposer l'archive à chaque mise à jour.
 
-### Cloudflare Pages — recommandé
-Fonctionne avec un dépôt **privé**, bande passante illimitée.
-1. [dash.cloudflare.com](https://dash.cloudflare.com) → *Workers & Pages* → *Create* → *Pages*
-   → *Connect to Git*, choisir le dépôt.
-2. Build command : **vide**. Build output directory : **`plateforme`**.
-3. Déployer → adresse en `https://<projet>.pages.dev`.
+### Netlify — recommandé
+Gratuit, accepte les dépôts **privés**, redéploie à chaque `git push`.
+1. [app.netlify.com](https://app.netlify.com) → **Add new site** → **Import an existing project**.
+2. **Deploy with GitHub**, autoriser, choisir `JDR-createur-de-carte`.
+3. Un seul réglage compte : **Publish directory** = `plateforme`.
+   Laisser *Build command* **vide** et *Base directory* vide.
+4. **Deploy** → adresse en `https://<nom>.netlify.app` (renommable dans *Site configuration*).
 
-### GitHub Pages — alternative
-Gratuit si le dépôt est **public** (sinon il faut un compte payant).
-*Settings → Pages → Source: main, dossier `/` (racine)* → adresse
-`https://<utilisateur>.<dépôt>.github.io/plateforme/`.
+### Sans aucun compte : Netlify Drop
+Glisser `cartographe-knight-a-deposer.zip` sur [app.netlify.com/drop](https://app.netlify.com/drop).
+En ligne immédiatement ; il faut redéposer l'archive à chaque mise à jour
+(`python creer-archive.py` la régénère).
+
+### Cloudflare — attention
+**Pages est déprécié depuis avril 2025** : l'entrée « Workers & Pages » a disparu du tableau de
+bord pour les nouveaux projets. Il faut passer par *Workers + static assets*, ce qui demande
+l'outil `wrangler` et un fichier de configuration — inutilement compliqué pour un site statique.
 
 ### Installer sur le téléphone
 Ouvrir l'adresse dans Chrome (Android) ou Safari (iOS) → menu → **Ajouter à l'écran
