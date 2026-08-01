@@ -61,6 +61,13 @@ touche plus qu'une correction locale, parcourir dans l'ordre :
 7. **Avant de livrer** : le protocole de vérification obligatoire, plus bas, n'est pas
    optionnel pour un gros changement — un rendu qui a l'air bon dans un cas peut casser
    silencieusement un des deux autres usages, ou la vue joueurs, ou le mobile.
+8. **Ça ajoute un bouton/contrôle, ou automatise un geste qui a un coût externe (déploiement,
+   appel API payant, message envoyé) ?** Deux réflexes, dans cet ordre : (a) chercher d'abord si
+   un bouton **déjà connu** de l'utilisateur peut simplement « faire mieux », avant de proposer un
+   bouton voisin — un concept d'interface en plus est un coût, pas un simple ajout gratuit ; (b) si
+   le geste a un coût externe, **demander la fréquence acceptable avant de concevoir**, ne jamais
+   supposer que « automatique » est le bon défaut. Voir point 17 des erreurs commises — deux
+   propositions rejetées coup sur coup pour ne pas avoir posé ces questions d'abord.
 
 ## Architecture
 
@@ -133,6 +140,37 @@ locale, ce n'était pas la peine de traiter les deux cas séparément ici, contr
 `sauverPartie(true)` sur la création, comme sur le déplacement (point 16) : un jeton créé côté
 joueur doit remonter jusqu'au MJ.
 
+**Enregistrement et publication (`js/stockage.js` + `js/editeur.js`)** : trois niveaux bien
+distincts, à ne pas confondre entre eux.
+1. **Bibliothèque du navigateur** (IndexedDB, `S.enregistrer/charger/supprimer/lister`) —
+   toujours actif, quel que soit le navigateur/appareil. **Jamais synchronisé entre deux
+   navigateurs ou deux appareils** : PC et téléphone ont chacun leur propre base, indépendante.
+2. **Disque, en direct** (`S.depotPrisEnCharge/lierDossierDepot/dossierDepotActif/
+   ecrireCarteDansDepot`, File System Access API — Chromium PC uniquement, pas Firefox/Safari/
+   mobile) : quand le dossier `plateforme/` est lié, chaque `ecrire()` (dans `editeur.js`) écrit
+   **aussi** `cartes/<id>.json` (convention : le nom de fichier est toujours `<id>.json`) et met à
+   jour `cartes/index.json` en conséquence, en plus de l'IndexedDB. La liaison se propose d'elle-
+   même au premier clic explicite sur **💾 Enregistrer** (`enregistrerMaintenant()`) — jamais
+   depuis l'enregistrement automatique (`enregistrerPlusTard()`), qui n'a pas de geste utilisateur
+   pour autoriser un sélecteur de fichier ; un refus n'est redemandé qu'à la prochaine visite de
+   la page (`depotDejaPropose`), pas à chaque clic. Poignée persistée dans IndexedDB (nouveau
+   store `parametres`, v2 du schéma) ; la permission peut être perdue entre deux sessions
+   (`queryPermission`), et ne peut être redemandée (`requestPermission`) que depuis un geste
+   utilisateur réel — jamais silencieusement.
+3. **Dépôt distant, en un clic** (bouton `📲 Vers ton téléphone`, `editeur.js`) : appelle
+   directement l'API GitHub (`PUT /repos/{owner}/{repo}/contents/{chemin}`) pour écrire
+   `plateforme/cartes/<id>.json` et, si besoin, `plateforme/cartes/index.json`, sur la branche
+   `main` — Netlify (connecté au dépôt GitHub, auto-publish sur `main`) redéploie tout seul
+   derrière, en 1-2 minutes. Jeton d'accès personnel GitHub (scope `repo` minimal) saisi une fois
+   via `prompt()` et stocké dans `localStorage` (`kj-gh-token`) — jamais transmis ailleurs qu'à
+   l'API GitHub. **Portée volontairement limitée** à la carte ouverte (+ `cartes/index.json` si
+   elle n'y figure pas encore ou si le nom a changé) : ce n'est pas un `git add -A` générique
+   (impossible depuis un navigateur), seulement ce que l'éditeur connaît. Se déclenche **seulement**
+   sur ce clic explicite — jamais depuis l'enregistrement automatique ni depuis le lien au disque
+   (point 2), pour ne jamais faire payer un déploiement Netlify à l'utilisateur sans qu'il l'ait
+   décidé. Voir point 17 des erreurs commises pour le contexte complet de cette conception (deux
+   propositions refusées avant celle-ci).
+
 **Ordre des couches en jeu** (non négociable, hérité de Foundry/Roll20) :
 `plan < portails < images < brouillard < jetons < pings/mesure < interface`. Le brouillard couvre
 le décor, les portails et les icônes d'image, jamais les jetons ni les pings. Les icônes d'image
@@ -163,12 +201,25 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
   recadrage trompeur d'une fenêtre plus large. Tester le mobile à 500 px, et mesurer
   `getBoundingClientRect()` avant de conclure à un bug de mise en page.
 - **IndexedDB ne répond pas en headless** (avec ou sans `--virtual-time-budget`, ancien mode ou
-  `--headless=new`) : tout code qui l'attend semble figé. D'où `S.avecDelai()`.
+  `--headless=new`) : tout code qui l'attend semble figé. D'où `S.avecDelai()`. Confirmé à
+  nouveau en testant le lien disque + la publication (2026-08) : une promesse chaînée sur
+  `S.dossierDepotActif()`/`S.enregistrer()` peut **ne jamais se résoudre**, même avec
+  `--virtual-time-budget=15000` et un `setTimeout` réel de 6 s en aval — ce n'est pas juste
+  « lent », ça peut rester figé indéfiniment. **Ne pas s'entêter** à isoler la cause en
+  multipliant les bancs d'essai : dès qu'un test impliquant IndexedDB reste bloqué après une ou
+  deux tentatives avec budget généreux, basculer sur la relecture attentive du code (le vrai
+  filet de sécurité ici) et laisser la confirmation finale à un test manuel par l'utilisateur —
+  conforme à la limite déjà documentée, pas un échec de méthode à corriger davantage.
   **Recette validée pour tester la bibliothèque locale** : copier `index.html` en page de banc
   d'essai et insérer, entre `stockage.js` et le script de la page, un stub qui remplace
   `S.lister/charger/enregistrer/supprimer` par une base en mémoire. Le produit n'est pas pollué,
   et les parcours (renommer une carte, renommer un dossier et vérifier la propagation) deviennent
   testables — un paramètre `?etape=N` permet d'enchaîner les scénarios dans des captures séparées.
+- **Un `&&` entre deux commandes dont la première peut légitimement ne rien trouver** (ex. deux
+  `grep`/`git show` à la suite) **coupe silencieusement la seconde** sans message d'erreur clair —
+  vu en concluant à tort « aucune carte n'a d'image » après un `grep` sans résultat sur le premier
+  fichier, qui a empêché le `grep` du second fichier de s'exécuter. Séparer les commandes (ou
+  utiliser `;`) dès qu'un résultat vide d'une étape est un cas normal à ne pas court-circuiter.
 - Un `pointerdown` de test doit être émis **sur l'élément SVG visé** : sinon `closest('[data-id]')`
   ne trouve rien et la sélection échoue silencieusement.
 - L'historique enregistre l'état **après** modification, via l'unique point d'entrée `apresModif()`.
@@ -324,6 +375,52 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
     jeton doit toujours remonter au MJ), `false` la supprime, `undefined` garde l'ancien
     comportement (jamais depuis la vraie fenêtre séparée) — à choisir consciemment pour toute
     nouvelle action qui doit (ou non) remonter depuis cette fenêtre.
+17. **La copie locale masque le dépôt (point 2/5) n'est pas qu'un détail d'un seul appareil : PC
+    et téléphone ont chacun leur propre IndexedDB, jamais synchronisée.** Ça a produit une longue
+    confusion en session : l'utilisateur voyait « une vieille version » sur mobile après des
+    correctifs pourtant bien commités et déployés (vérifié : `git fetch` + `git show
+    origin/main:…` + le tableau de déploiements Netlify concordaient). La vraie cause n'était pas
+    le cache du navigateur mobile (déjà purgé), mais des **images posées en direct dans
+    l'éditeur sur PC**, enregistrées uniquement dans le IndexedDB de ce navigateur-là — jamais
+    exportées ni commitées, donc absentes du dépôt et invisibles ailleurs. Piège méthodo : face à
+    « ça n'a pas la dernière version », vérifier dans l'ordre (1) le contenu réellement poussé sur
+    `origin/main` (`git fetch` avant de conclure — ne pas faire confiance à un `git status` local
+    qui peut être propre sans avoir jamais été comparé au vrai remote), (2) le déploiement
+    Netlify correspondant, (3) seulement ensuite le cache client. Un `&&` entre deux `git show`
+    dans une même commande shell a fait échouer silencieusement le second sans message d'erreur
+    clair (le premier `grep` sans résultat coupe la chaîne) — préférer des commandes séparées ou
+    `;` quand un résultat vide de la première étape est un cas normal à ne pas court-circuiter.
+    **Correctif structurel** (pas qu'un diagnostic), en deux temps — voir « Enregistrement et
+    publication » plus bas pour le détail technique complet :
+    - **Écriture directe sur disque** (File System Access API, Chromium PC uniquement) : le bouton
+      **💾 Enregistrer** propose de lier le dossier `plateforme/` au tout premier clic explicite
+      (jamais depuis l'enregistrement automatique, qui n'a pas de geste utilisateur pour autoriser
+      un sélecteur de fichier), puis écrit `cartes/<id>.json` + `cartes/index.json` directement sur
+      le disque à chaque sauvegarde suivante — plus de copie locale qui masque le dépôt sur la
+      machine d'édition.
+    - **Publication en un clic** (`📲 Vers ton téléphone`, API GitHub) : geste séparé et
+      **toujours volontaire**, jamais déclenché par l'enregistrement automatique — pour ne pas
+      payer un déploiement Netlify à chaque frappe.
+    - **Deux leçons de conception à généraliser, pas seulement pour cette carte précise** :
+      (1) ne jamais proposer d'automatiser un geste qui a un coût externe (déploiement, appel API
+      payant) sans avoir d'abord demandé la fréquence acceptable — première proposition (tout
+      publier à chaque sauvegarde) refusée pour cette raison ;
+      (2) **un nouveau bouton à comprendre est lui-même un coût** : la première version livrait un
+      bouton séparé (« 🔗 Dossier », à 3 états) en plus de « 💾 Enregistrer » — réaction de
+      l'utilisateur : *« c'est quoi ce bouton de merde »* / *« pourquoi tu ne peux pas faire les
+      choses simplement »*. Corrigé en pliant la liaison de dossier **dans** le bouton Enregistrer
+      existant (elle se propose d'elle-même au premier clic) plutôt que d'ajouter un concept de
+      plus à l'interface. Réflexe pour toute nouvelle capacité liée à un bouton déjà connu :
+      d'abord chercher si le bouton existant peut simplement « faire mieux », avant de proposer un
+      bouton voisin.
+    - **Piège technique croisé en testant ce correctif** : `ouvrir()` (IndexedDB, `stockage.js`)
+      ne mémorisait que la connexion **résolue** (`db`), pas la promesse d'ouverture **en cours** —
+      deux appels concurrents avant la toute première résolution (ex. l'éditeur qui vérifie le
+      dossier lié *et* enregistre la carte dans la même poignée de main) ouvraient deux connexions
+      `indexedDB.open()` en parallèle. Corrigé en mémorisant aussi la promesse en vol
+      (`ouvertureEnCours`), retournée telle quelle à tout appel concurrent. Réflexe pour toute
+      fonction d'ouverture de ressource asynchrone avec cache : mémoriser la **promesse en cours**,
+      pas seulement le résultat final, dès qu'elle peut être appelée deux fois avant sa résolution.
 
 ## Style
 
@@ -333,7 +430,42 @@ Textes d'interface en français, tutoiement, sans jargon technique.
 
 ## Publication
 
-Site statique → `plateforme/` est la racine à publier. Dépôt git déjà initialisé.
-Voir `plateforme/README.md` : Netlify Drop (immédiat, archive `cartographe-knight-a-deposer.zip`)
-ou Cloudflare Pages connecté au dépôt (mises à jour automatiques, gratuit même en dépôt privé).
-Régénérer l'archive après modification.
+**État réel du déploiement** (pas une option parmi d'autres — c'est celle en place) : dépôt GitHub
+`github.com/kyogre21/JDR-createur-de-carte`, branche `main`, connecté à **Netlify** (site
+`resilient-faloodeh-377ce3.netlify.app`) avec auto-publish activé — tout push sur `main` redéploie
+tout seul en quelques secondes. Vérifier l'état d'un déploiement : `git fetch origin main` puis
+comparer avec `git log -1 origin/main`, et/ou l'onglet **Deploys** du tableau de bord Netlify (le
+site donne son propre lien direct, pas la peine de le redemander à chaque session — le retrouver
+dans l'historique de conversation ou le demander une fois).
+
+**Netlify facture au déploiement : ne jamais proposer un mécanisme qui publie à chaque
+sauvegarde ou à chaque frappe.** C'est une contrainte exprimée explicitement par l'utilisateur et
+qui a fait rejeter une première proposition — la publication doit toujours rester un geste
+compté et volontaire (voir « Enregistrement et publication » plus haut, et point 17 des erreurs
+commises). Avant de proposer d'automatiser quoi que ce soit qui a un coût externe (déploiement,
+appel API payant, envoi de message), demander la fréquence acceptable **avant** de concevoir, pas
+après avoir livré quelque chose à corriger.
+
+**Diagnostiquer « ça n'a pas la dernière version » (mobile ou autre appareil), dans cet ordre** —
+ne pas sauter directement à « c'est le cache » :
+1. `git fetch origin main` puis vérifier le contenu réel poussé (`git show origin/main:chemin`) —
+   ne jamais conclure sur un `git status` local seul, qui peut être propre sans jamais avoir été
+   comparé au vrai remote.
+2. Le tableau de bord Netlify (onglet Deploys) : le dernier déploiement correspond-il au bon
+   commit, et est-il marqué « Published » ?
+3. **Seulement ensuite**, le cache côté client (voir plus haut, IndexedDB par appareil — jamais
+   synchronisée — et le cache du navigateur/service worker).
+
+**Usage hors-ligne à table (mobile)** : le site fonctionne en PWA (`manifest.webmanifest` + `sw.js`,
+réseau d'abord/cache en secours — voir erreur commise n°1). Un simple onglet de navigateur ouvert
+en favori n'en profite pas pleinement : sur iOS en particulier, Safari purge le cache d'un site
+non « installé » après une période d'inactivité. Toujours recommander **« Ajouter à l'écran
+d'accueil »** (pas juste un favori) pour un usage fiable à table sans réseau. Pour vider un cache
+mobile récalcitrant : sur Android, passer par les réglages **système** (Applications → l'appli du
+navigateur → Stockage → Effacer les données), pas seulement le nettoyage interne du navigateur
+(qui peut ne toucher que les cookies et laisser le Service Worker / Cache Storage intacts).
+
+Ancienne alternative encore documentée dans `plateforme/README.md` mais non utilisée en pratique :
+Netlify Drop (dépôt manuel d'une archive `cartographe-knight-a-deposer.zip`, sans lien avec le
+dépôt git) — ne pas la proposer par défaut, le déploiement automatique décrit ci-dessus est déjà
+en place et doit rester la référence.

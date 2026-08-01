@@ -33,6 +33,16 @@ cartes. Enregistrement automatique, plus un bouton **💾 Enregistrer** qui forc
 le confirme. La **clé numérotée** se remplit dans le panneau de droite (titre + description) et
 accompagne la carte dans les exports.
 
+**🔗 Dossier** (Chrome, Edge ou Brave sur PC — pas Firefox ni Safari, ni mobile) : lie le dossier
+`plateforme/` sur le disque. Une fois lié, chaque enregistrement écrit directement les fichiers
+du dépôt (`cartes/<id>.json` + `cartes/index.json`), sans passer par le stockage caché du
+navigateur ni par un export/import manuel. La publication (commit + push) reste un geste séparé
+et volontaire, pour ne pas déclencher un déploiement à chaque frappe. Sans ce lien (navigateur
+non compatible, ou dossier non lié), l'enregistrement reste local à ce navigateur — le pied de
+page le dit explicitement à chaque sauvegarde (« Enregistré sur le disque » vs « Enregistré dans
+la bibliothèque (local à ce navigateur) »), justement pour ne pas se retrouver avec des
+modifications introuvables ailleurs.
+
 **Table de jeu** (`table.html`) — on joue : **brouillard de guerre** au pinceau
 (☀ Révéler / ☁ Cacher, « Tout couvrir », « Tout révéler »), jetons déplaçables aimantés
 à la grille, portails pour passer d'une carte à l'autre, ping au double-clic, mesure en

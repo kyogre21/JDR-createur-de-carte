@@ -14,18 +14,21 @@
   <div class="marque">Cartographe <span>Knight</span></div>
   <input id="nom-carte" placeholder="Nom de la carte">
   <div class="esp"></div>
-  <button id="b-enregistrer" title="Enregistrer dans la bibliothèque (Ctrl+S)">💾 Enregistrer</button>
+  <button id="b-enregistrer" title="Enregistrer (Ctrl+S)">💾 Enregistrer</button>
+  <button id="b-publier" title="Envoie cette carte sur GitHub : elle arrive sur ton téléphone dans la minute ou deux qui suivent.">📲 Vers ton téléphone</button>
   <button id="b-undo" title="Annuler (Ctrl+Z)">↶</button>
   <button id="b-redo" title="Refaire (Ctrl+Y)">↷</button>
   <span class="sep"></span>
   <button id="b-vue" class="actif" title="Basculer vue MJ / vue joueurs">Vue MJ</button>
   <button id="b-cadrer" title="Recadrer la vue">⤢</button>
   <button id="b-panneau" title="Replier / déplier le panneau">▤</button>
-  <span class="sep"></span>
-  <button id="b-json" title="Exporter le fichier .json (à versionner dans le dépôt)">↓ JSON</button>
-  <button id="b-svg" title="Exporter le SVG (pour les PDF de Codex)">↓ SVG</button>
-  <button id="b-scene" title="Copier le bloc de scène (pour une page de table externe)">⧉ Scène</button>
-  <span class="sep"></span>
+  <span id="grp-export">
+    <span class="sep"></span>
+    <button id="b-json" title="Exporter le fichier .json (à versionner dans le dépôt)">↓ JSON</button>
+    <button id="b-svg" title="Exporter le SVG (pour les PDF de Codex)">↓ SVG</button>
+    <button id="b-scene" title="Copier le bloc de scène (pour une page de table externe)">⧉ Scène</button>
+    <span class="sep"></span>
+  </span>
   <a class="btn" id="b-jouer" href="table.html" title="Ouvrir cette carte en mode Jeu (brouillard, jetons)">▶ Jouer</a>
   <a class="btn" href="index.html" title="Bibliothèque de cartes">☰ Cartes</a>
 </header>

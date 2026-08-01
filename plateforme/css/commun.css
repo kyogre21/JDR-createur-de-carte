@@ -22,6 +22,7 @@ header .marque{font-family:var(--serif);font-variant:small-caps;letter-spacing:.
   font-size:16px;color:var(--or);white-space:nowrap}
 header .marque span{opacity:.6;font-size:12px;color:var(--encre)}
 header .esp{flex:1 1 auto}
+#grp-export{display:contents}
 #nom-carte{background:#241d14;border:1px solid var(--bord-clair);border-radius:5px;color:var(--encre);
   font-family:var(--serif);font-size:15px;padding:5px 9px;min-width:12ch;max-width:34ch}
 
@@ -147,11 +148,18 @@ footer{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:4px 10px;b
 /* ---------- mobile ---------- */
 @media (max-width:820px){
   #app{flex-direction:column}
+  /* Export JSON/SVG/Scène : gestes de bureau (verser dans le dépôt, coller ailleurs),
+     jamais faits à la table sur téléphone — les cacher rend de la hauteur à la carte
+     et au panneau, qui en manquaient (retour direct : « on ne voit pas bien les
+     boutons, la carte prend toute la place »). Toujours disponibles sur grand écran. */
+  #grp-export{display:none}
   #outils{width:100%;flex-direction:row;overflow-x:auto;border-right:none;
-    border-bottom:1px solid var(--bord);padding:5px;order:2}
+    border-bottom:1px solid var(--bord);padding:5px;order:2;
+    -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);
+    mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent)}
   #outils button{width:auto;flex:0 0 auto;min-width:50px}
-  #canevas{order:1;flex:1 1 auto;min-height:52vh}
-  #panneau{order:3;width:100%;max-height:34vh;border-left:none;border-top:1px solid var(--bord)}
+  #canevas{order:1;flex:1 1 auto;min-height:40vh}
+  #panneau{order:3;width:100%;max-height:42vh;border-left:none;border-top:1px solid var(--bord)}
   #panneau.replie{max-height:0;padding:0;overflow:hidden;border-top:none}
   #b-panneau{display:inline-flex !important}
   header{padding:6px 8px}

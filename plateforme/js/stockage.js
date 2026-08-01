@@ -9,22 +9,30 @@ KJ.stockage = (function () {
 
   const DB_NOM = 'cartographe-knight';
   const STORE = 'cartes';
-  let db = null;
+  const STORE_PARAM = 'parametres';   // v2 : dossier du dépôt lié (File System Access)
+  let db = null, ouvertureEnCours = null;
 
+  /* Deux appels concurrents avant la résolution du premier (ex. l'éditeur qui
+     vérifie le dossier lié ET enregistre la carte dans la même poignée de main)
+     ouvriraient sinon deux connexions indexedDB.open() en parallèle — on
+     mémorise donc la promesse en cours, pas seulement le résultat final. */
   function ouvrir() {
     if (db) return Promise.resolve(db);
-    return new Promise((res, rej) => {
+    if (ouvertureEnCours) return ouvertureEnCours;
+    ouvertureEnCours = new Promise((res, rej) => {
       let rq;
-      try { rq = indexedDB.open(DB_NOM, 1); }
-      catch (e) { return rej(e); }               // stockage interdit (navigation privée stricte)
+      try { rq = indexedDB.open(DB_NOM, 2); }
+      catch (e) { ouvertureEnCours = null; return rej(e); }   // stockage interdit (navigation privée stricte)
       rq.onupgradeneeded = () => {
         const d = rq.result;
         if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: 'id' });
+        if (!d.objectStoreNames.contains(STORE_PARAM)) d.createObjectStore(STORE_PARAM, { keyPath: 'cle' });
       };
-      rq.onsuccess = () => { db = rq.result; res(db); };
-      rq.onerror = () => rej(rq.error);
-      rq.onblocked = () => rej(new Error('Base de données bloquée par un autre onglet.'));
+      rq.onsuccess = () => { db = rq.result; ouvertureEnCours = null; res(db); };
+      rq.onerror = () => { ouvertureEnCours = null; rej(rq.error); };
+      rq.onblocked = () => { ouvertureEnCours = null; rej(new Error('Base de données bloquée par un autre onglet.')); };
     });
+    return ouvertureEnCours;
   }
 
   /* Le stockage local peut être indisponible, bridé ou muet (navigation privée,
@@ -41,9 +49,11 @@ KJ.stockage = (function () {
     });
   }
 
-  function tx(mode) {
-    return ouvrir().then(d => d.transaction(STORE, mode).objectStore(STORE));
+  function txDe(nom, mode) {
+    return ouvrir().then(d => d.transaction(nom, mode).objectStore(nom));
   }
+  const tx = (mode) => txDe(STORE, mode);
+  const txParam = (mode) => txDe(STORE_PARAM, mode);
   const promesse = (rq) => new Promise((res, rej) => {
     rq.onsuccess = () => res(rq.result);
     rq.onerror = () => rej(rq.error);
@@ -157,6 +167,89 @@ KJ.stockage = (function () {
     return ecrireCampagnes(l);
   }
 
+  /* ---------- dossier du dépôt (écriture directe sur disque) ----------
+     File System Access API : Chromium uniquement (Chrome, Edge, Brave desktop —
+     pas Firefox ni Safari, qui n'implémentent pas cette API). Quand ce dossier
+     est lié, enregistrer une carte l'écrit directement dans plateforme/cartes/,
+     comme une édition manuelle du fichier : plus d'export/import, plus de copie
+     locale qui masque le dépôt. La publication (commit + push) reste un geste
+     séparé et volontaire, pour ne pas déclencher un déploiement Netlify à
+     chaque frappe. Le navigateur redemande parfois la permission d'un dossier
+     déjà lié (perte de la permission entre deux sessions) : ça ne peut se faire
+     que dans un clic (voir dossierDepotActif, paramètre « demander »). */
+  const CLE_DOSSIER = 'dossier-depot';
+  function depotPrisEnCharge() {
+    return typeof window !== 'undefined' && 'showDirectoryPicker' in window;
+  }
+  function sauverDossierDepot(poignee) {
+    return txParam('readwrite').then(s => promesse(s.put({ cle: CLE_DOSSIER, poignee })));
+  }
+  function chargerDossierDepot() {
+    return txParam('readonly').then(s => promesse(s.get(CLE_DOSSIER)))
+      .then(r => (r && r.poignee) || null).catch(() => null);
+  }
+  function oublierDossierDepot() {
+    return txParam('readwrite').then(s => promesse(s.delete(CLE_DOSSIER)));
+  }
+  async function lierDossierDepot() {
+    const poignee = await window.showDirectoryPicker({ id: 'kj-depot', mode: 'readwrite' });
+    await poignee.getDirectoryHandle('cartes');   // vérifie que c'est bien le dossier plateforme/
+    await sauverDossierDepot(poignee);
+    return poignee;
+  }
+  async function permissionDossier(poignee, demander) {
+    const opts = { mode: 'readwrite' };
+    if ((await poignee.queryPermission(opts)) === 'granted') return true;
+    if (!demander) return false;
+    return (await poignee.requestPermission(opts)) === 'granted';
+  }
+  /* demander=true seulement depuis un clic (contrainte du navigateur) ;
+     demander=false pour les vérifications silencieuses (démarrage, autosave). */
+  async function dossierDepotActif(demander) {
+    const poignee = await chargerDossierDepot();
+    if (!poignee) return null;
+    return (await permissionDossier(poignee, demander)) ? poignee : null;
+  }
+  async function ecrireFichierDepot(poignee, cheminRelatif, contenu) {
+    const segs = cheminRelatif.split('/');
+    let dir = poignee;
+    for (let i = 0; i < segs.length - 1; i++) dir = await dir.getDirectoryHandle(segs[i], { create: true });
+    const fh = await dir.getFileHandle(segs[segs.length - 1], { create: true });
+    const w = await fh.createWritable();
+    await w.write(contenu);
+    await w.close();
+  }
+  async function lireFichierDepotSiExiste(poignee, cheminRelatif) {
+    try {
+      const segs = cheminRelatif.split('/');
+      let dir = poignee;
+      for (let i = 0; i < segs.length - 1; i++) dir = await dir.getDirectoryHandle(segs[i]);
+      const fh = await dir.getFileHandle(segs[segs.length - 1]);
+      return await (await fh.getFile()).text();
+    } catch (e) { return null; }
+  }
+  /* Écrit cartes/<id>.json (convention déjà suivie par toutes les cartes du dépôt)
+     et complète cartes/index.json si la carte n'y figure pas encore — une carte
+     neuve créée dans l'éditeur devient ainsi visible partout dès l'enregistrement. */
+  async function ecrireCarteDansDepot(poignee, carte) {
+    const fichier = carte.id + '.json';
+    await ecrireFichierDepot(poignee, 'cartes/' + fichier, KJ.modele.versJSON(carte));
+    let cat = null;
+    try { cat = JSON.parse(await lireFichierDepotSiExiste(poignee, 'cartes/index.json')); } catch (e) {}
+    if (!cat || !Array.isArray(cat.cartes)) {
+      cat = {
+        _lisez_moi: 'Catalogue des cartes livrées avec le site. Ajoute une entrée par fichier '
+          + '.json déposé dans ce dossier, puis commite : le site les proposera partout, y '
+          + 'compris sur mobile.',
+        cartes: [],
+      };
+    }
+    const i = cat.cartes.findIndex(e => e.fichier === fichier);
+    const entree = { fichier, nom: carte.nom };
+    if (i === -1) cat.cartes.push(entree); else cat.cartes[i] = entree;
+    await ecrireFichierDepot(poignee, 'cartes/index.json', JSON.stringify(cat, null, 2) + '\n');
+  }
+
   /* ---------- service worker ----------
      Il sert à l'usage hors-ligne du site publié. En local il est nuisible :
      il peut resservir une version périmée de l'application (ancienne page sans
@@ -180,5 +273,7 @@ KJ.stockage = (function () {
   return { enregistrer, charger, supprimer, lister, avecDelai, gererServiceWorker,
            campagnesDeclarees, declarerCampagne, oublierCampagne, renommerCampagneDeclaree,
            exporterJSON, exporterSVG, importerFichier, telecharger, slug,
-           catalogueDepot, chargerDepot, catalogueImages, arboreImages };
+           catalogueDepot, chargerDepot, catalogueImages, arboreImages,
+           depotPrisEnCharge, lierDossierDepot, oublierDossierDepot, dossierDepotActif,
+           ecrireCarteDansDepot };
 })();

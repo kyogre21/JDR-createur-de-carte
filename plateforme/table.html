@@ -126,8 +126,14 @@
     header{flex-wrap:nowrap;gap:6px;padding:5px 6px}
     header .marque{display:none}
     #choix-carte{flex:0 1 40vw;min-width:0;font-size:12px}
+    /* La scrollbar est masquée (esthétique), donc rien d'autre n'indique que la barre
+       défile : un dégradé sur le bord droit sert d'indice, sinon les boutons après
+       « Tout révéler » (Jeton, réinitialiser, galerie, vue joueurs, éditer…) sont
+       invisibles sans qu'on sache qu'il faut glisser pour les atteindre. */
     #barre-mj{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
-      -webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px;
+      -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent);
+      mask-image:linear-gradient(to right,#000 calc(100% - 26px),transparent)}
     #barre-mj::-webkit-scrollbar{display:none}
     #barre-mj button, #barre-mj .btn{flex:0 0 auto;padding:5px 7px;font-size:11px;min-height:34px}
     #barre-mj .sep{flex:0 0 1px}
