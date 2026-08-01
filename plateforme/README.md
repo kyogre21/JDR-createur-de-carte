@@ -19,6 +19,7 @@ plateforme/
   js/editeur.js       outils et interactions d'édition
   js/table.js         brouillard, jetons, portails, ping, mesure
   cartes/             cartes de la campagne (source de vérité, versionnée)
+  images/             illustrations (créatures, lieux) + images/index.json (catalogue)
   manifest.webmanifest, sw.js   installation mobile + hors-ligne
 ```
 
@@ -169,7 +170,7 @@ les trois usages — éditeur, table de jeu, PDF de Codex.
 Le champ `campagne` sert de dossier (voir plus haut).
 
 Types d'éléments : `piece`, `mur`, `porte`, `fenetre`, `objet`, `numero`, `texte`,
-`lumiere`, `portail`, `secret`. `grille.cell = 0` = carte d'extérieur (ni grille ni aimantation) ;
+`lumiere`, `portail`, `secret`, `image`. `grille.cell = 0` = carte d'extérieur (ni grille ni aimantation) ;
 `cell = 40` avec `metres = 1.5` = plan tactique à l'échelle Knight.
 
 Les éléments du calque **secrets** ne sortent qu'en vue MJ : ils disparaissent de la vue
@@ -183,6 +184,47 @@ joueurs, des miniatures et des exports en vue joueurs.
 4. `git commit && git push` — le site se redéploie, la carte apparaît sur tous les appareils.
 
 C'est le principe : **git est la base de données**. Gratuit, versionné, sans serveur.
+
+## Montrer une image (créature, lieu) sur une carte
+
+L'outil **🖼 Image** pose une petite icône à un endroit précis du plan ; en mode Jeu, un clic
+dessus affiche l'illustration en grand par-dessus la carte (le plan reste visible en dessous,
+un clic ailleurs referme). Pratique pour montrer à la volée le portrait d'une créature ou une
+vue d'un lieu sans quitter la carte.
+
+Ces icônes sont **réservées au MJ** : invisibles côté joueurs (`?vue=joueurs`), comme les
+secrets — leur seule présence serait un indice.
+
+Comme pour les cartes, les images viennent du **dépôt**, jamais d'un import depuis l'appareil :
+ça marche pareil sur mobile que sur PC, sans manipulation de fichiers à chaque partie.
+
+1. Dépose des fichiers image (jpg/png/webp) dans `plateforme/images/` — **des dossiers entiers
+   fonctionnent aussi**, pour ranger par campagne ou par thème (ex. `images/Knight/`,
+   `images/Legendary lands/`).
+2. Régénère le catalogue :
+   ```bash
+   cd plateforme && node generer-catalogue-images.js
+   ```
+   Il scanne tout `plateforme/images/` (sous-dossiers compris) et réécrit `images/index.json` en
+   entier — pas besoin d'éditer ce fichier à la main. Le nom affiché est déduit du nom de
+   fichier ; un fichier dans un sous-dossier est suffixé par ce dossier (ex. « Minotaure
+   (Knight) ») pour rester lisible dans une liste à plat.
+3. `git commit && git push` — les images apparaissent dans le panneau de l'outil Image sur tous
+   les appareils.
+4. Dans l'éditeur, outil **🖼 Image** : le panneau de droite s'ouvre sur le premier dossier
+   plutôt que sur la liste complète — un rang de boutons (**Toutes**, puis un par dossier)
+   permet de changer de rayon. Choisis une image, puis clique sur le plan pour poser son icône.
+   La sélectionner permet de changer sa légende ou l'image choisie.
+
+**Vérifie l'image avant de t'y fier** : un nom de fichier peut tromper (par exemple, dans ce
+projet, `Nihil.png` est en réalité l'illustration d'un personnage bouffon sans rapport, pas de
+l'entité qui porte ce nom).
+
+**Montrer une image sans plan** (un PNJ important apparaît, pas besoin de carte à cet instant) :
+bouton **🖼 Galerie** dans la table de jeu (mode MJ). Il ouvre le même catalogue avec le même
+sélecteur de dossier, mais sans passer par une icône posée sur un plan — un clic sur une
+vignette affiche directement l'image en grand. Comme les icônes, la galerie est réservée au MJ
+et invisible en vue joueurs.
 
 ## Publier gratuitement (et l'installer sur mobile)
 
@@ -241,7 +283,7 @@ carte sur le téléphone, elle doit passer par le dépôt (ou par un export/impo
 ## Raccourcis clavier
 
 `V` choisir · `P` pièce · `M` mur · `D` porte · `F` fenêtre · `O` objet · `N` numéro ·
-`T` texte · `L` lumière · `S` secret · `W` portail · `Ctrl+Z` / `Ctrl+Y` annuler / refaire ·
+`T` texte · `L` lumière · `S` secret · `W` portail · `I` image · `Ctrl+Z` / `Ctrl+Y` annuler / refaire ·
 `Suppr` supprimer · `R` tourner un objet · `X` inverser l'ouverture d'une porte ·
 `Maj` (maintenu) désactive l'aimantation · `Échap` désélectionner.
 

@@ -99,6 +99,18 @@ KJ.stockage = (function () {
       .then(r => r.json()).then(KJ.modele.depuisJSON);
   }
 
+  /* ---------- catalogue d'images ----------
+     images/index.json liste les illustrations livrées avec le site (créatures, lieux) :
+     { "images": [ { "fichier": "loup-garou.jpg", "nom": "Loup-garou" } ] }
+     Même principe que cartes/index.json : le dépôt sert de bibliothèque d'images,
+     pas d'import depuis l'appareil (fiable sur mobile, versionné dans git). */
+  function catalogueImages() {
+    return fetch('images/index.json', { cache: 'no-cache' })
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(j => j.images || [])
+      .catch(() => []);
+  }
+
   /* ---------- campagnes déclarées ----------
      Les campagnes sont normalement déduites des cartes. Pour pouvoir créer un
      dossier VIDE (et y déposer des cartes ensuite), on mémorise à part les noms
@@ -145,5 +157,5 @@ KJ.stockage = (function () {
   return { enregistrer, charger, supprimer, lister, avecDelai, gererServiceWorker,
            campagnesDeclarees, declarerCampagne, oublierCampagne, renommerCampagneDeclaree,
            exporterJSON, exporterSVG, importerFichier, telecharger, slug,
-           catalogueDepot, chargerDepot };
+           catalogueDepot, chargerDepot, catalogueImages };
 })();

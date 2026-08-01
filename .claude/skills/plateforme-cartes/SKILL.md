@@ -22,6 +22,7 @@ jeu, PDF de Codex). Ne jamais écrire de SVG de carte à la main.
 | l'apparence d'un élément (porte, mobilier, secret…) | `rendu.js` — jamais les fichiers de cartes |
 | ajouter un **type** d'élément | `modele.js` (gabarit dans `nouvelElement`, `boite()`, calque dans `CALQUES`), puis `rendu.js` (`unElement`), puis un outil dans `editeur.js` |
 | ajouter un **symbole de mobilier** | une entrée dans `M.SYMBOLES` (modele.js) + son tracé dans `R.SYM` (rendu.js), viewBox `0 0 100 100`, `vector-effect:non-scaling-stroke` |
+| ajouter une **image** au catalogue | déposer le fichier (ou tout un dossier) dans `plateforme/images/`, puis `node generer-catalogue-images.js` — régénère `images/index.json` en entier à partir de ce qui s'y trouve, sous-dossiers compris ; jamais d'upload depuis l'appareil, pour rester fiable sur mobile |
 | faire évoluer le format | migrer **à la lecture** dans `depuisJSON()` (voir la migration `pins` → éléments `portail`) : les anciens fichiers doivent rester valides |
 
 ## Architecture
@@ -37,6 +38,7 @@ plateforme/
   js/editeur.js  outils, interactions, historique
   js/table.js    session de jeu
   cartes/*.json  cartes de la campagne + cartes/index.json (catalogue)
+  images/*       illustrations (créatures, lieux) + images/index.json (catalogue)
 ```
 
 Scripts **classiques** (pas de modules ES : ils sont bloqués en `file://`), namespace global `KJ`.
@@ -57,8 +59,12 @@ et les jetons sont une *session de partie* (`localStorage`, clé `kj-partie`). M
 doit jamais réinitialiser une partie en cours.
 
 **Ordre des couches en jeu** (non négociable, hérité de Foundry/Roll20) :
-`plan < portails < brouillard < jetons < pings/mesure < interface`. Le brouillard couvre le décor
-et les portails, jamais les jetons ni les pings.
+`plan < portails < images < brouillard < jetons < pings/mesure < interface`. Le brouillard couvre
+le décor, les portails et les icônes d'image, jamais les jetons ni les pings. Les icônes d'image
+(comme les portails) sont dessinées en HTML par `table.js`, pas par le SVG de `rendu.js`
+(`images:false` passé à `R.dansSVG`) : c'est ce qui les rend cliquables sans dupliquer le rendu.
+Elles sont réservées au MJ — masquées en vue joueurs par CSS, jamais par simple opacité, sinon
+leur position serait un indice visible en transparence.
 
 ## Vérification obligatoire — ne jamais livrer sans avoir regardé
 
@@ -123,6 +129,53 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
    sinon ; et tout état « vide » doit offrir une action de sortie visible.
 7. **Rendre l'affichage en deux passes** (locales puis dépôt) : une fiche locale a besoin de savoir
    si une originale existe. Un seul point de rendu, après `Promise.all` des deux sources.
+8. **Un élément ponctuel posé hors du plan (clic dans le fond du `#canevas`, hors du parchemin)
+   devenait invisible et inatteignable dans l'éditeur** — le `viewBox` du SVG `#plan` le clippe —
+   **mais flottait, visible, en mode Jeu**, où `#images`/`#pins` (des `div` HTML, pas du SVG) ne
+   sont pas clippés à la même frontière. Un utilisateur qui cliquait à côté du plan perdait
+   silencieusement un élément qu'il ne pouvait plus ni voir ni sélectionner pour le corriger.
+   Corrigé à deux niveaux : `poser()` borne désormais le point à `[0,taille.w] × [0,taille.h]`
+   avant toute pose (`objet`, `numero`, `texte`, `lumiere`, `portail`, `image`), et `depuisJSON()`
+   fait de même à la lecture pour rattraper les fichiers déjà touchés. N'affecte pas les outils de
+   tracé (`piece`, `mur`) — hors périmètre de ce correctif.
+9. **Le bouton « Vue joueurs » (préview locale du MJ dans `table.html`) se cachait lui-même** :
+   il vivait dans `#barre-mj`, entièrement masqué par `body[data-vue="joueurs"] #barre-mj{display:
+   none}` dès qu'on cliquait dessus — aucun moyen d'y revenir depuis la même fenêtre, sinon
+   recharger la page. Corrigé en excluant `#b-vue` du masquage. La vraie fenêtre joueurs
+   (`?vue=joueurs`) le masque quand même, explicitement en JS au démarrage — elle n'a pas de
+   « vue MJ » à laquelle revenir, contrairement à la préview locale du MJ.
+   **Un MJ solo (portable sans second écran, écran montré directement aux joueurs)** a besoin de
+   révéler le brouillard *depuis cette même préview* : `#barre-mj > *:not(...)` exempte donc
+   aussi tout le cluster plan (`[data-o]` : déplacer/révéler/cacher/mesurer, `#b-annuler-fog`,
+   `#b-couvrir`, `#b-decouvrir`, `#b-cadrer`), en plus de `#b-vue`. Le reste (jetons, galerie,
+   éditer, bibliothèque) reste caché : ce sont des outils de préparation, sans rapport avec ce qui
+   se montre à l'écran. Ça ne demandait aucun changement côté interactions : `pinceau()` et les
+   handlers de pointeur ne vérifient que `vueJoueurs` (la vraie fenêtre séparée), jamais l'attribut
+   `data-vue` local — seuls les boutons étaient cachés en trop.
+   Attention à la syntaxe CSS d'une chaîne `:not()` : `#barre-mj > *:not(a):not(b)` doit être un
+   **seul sélecteur composé sans espace** ; `#barre-mj > * :not(a)` (avec un espace) devient un
+   sélecteur de **descendant** et ne matche plus rien de ce qu'on veut ici.
+   Pareil pour **« Suivre le MJ »** (`#barre-joueurs`) : n'a d'effet que dans la vraie fenêtre
+   séparée (elle seule reçoit les messages `cam` du MJ) ; masqué en JS quand `!vueJoueurs`, sinon
+   un bouton qui ne fait visiblement rien dans la préview locale.
+10. **La zone de clic invisible d'un `objet` (le `<rect fill="transparent">` posé sous chaque
+    symbole, pour pouvoir cliquer même les symboles clairsemés comme l'escalier) devenait un
+    cadre carré bien visible** : `fill="transparent"` ne suffit pas, sans `stroke="none"` explicite
+    ce rect **hérite** le `stroke`/`stroke-width` de son groupe parent `.kj-obj` (prévu pour le
+    tracé du symbole lui-même). Invisible sur la plupart des symboles, qui ont une forme pleine qui
+    recouvre ce cadre — flagrant sur l'escalier en arc, dont le tracé (juste des traits) ne le
+    recouvre pas. Symptôme signalé par l'utilisateur comme « un gros carré autour des escaliers »,
+    permanent, sans lien avec la sélection — bien vérifier ces deux pistes avant de chercher
+    ailleurs. Toute zone de clic invisible ajoutée plus tard doit fixer `stroke="none"` en plus de
+    `fill="transparent"` : ne jamais compter sur l'absence d'attribut pour rester invisible sous un
+    groupe parent qui, lui, a un style.
+11. **`.palette` (grille CSS `repeat(3,1fr)`) déborde silencieusement avec un libellé un peu long** :
+   `button` hérite `white-space:nowrap` de la règle de base, et un item de grille a par défaut
+   `min-width:auto`, donc son *min-content* (le texte non coupé) prime sur `1fr` — tout le panneau
+   déborde horizontalement. Invisible avec les libellés courts des symboles de mobilier, mais
+   flagrant dès la palette d'images (libellés plus longs). Corrigé une fois pour toutes avec
+   `min-width:0` sur `.palette button` + `white-space:normal` sur son `span` : à ne pas défaire, et
+   à garder en tête pour toute future grille de boutons avec texte.
 
 ## Style
 

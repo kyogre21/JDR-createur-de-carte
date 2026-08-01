@@ -90,9 +90,16 @@ button:disabled{opacity:.4;cursor:default}
 
 /* palette de symboles */
 .palette{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
-.palette button{flex-direction:column;padding:5px 2px;font-size:9px;min-height:52px;line-height:1.15}
+/* min-width:0 : sans ça, une grille avec des colonnes en 1fr laisse un texte non
+   coupé (white-space:nowrap, hérité de la règle button de base) dicter une largeur
+   minimale et faire déborder tout le panneau — visible dès qu'un libellé est un peu long. */
+.palette button{flex-direction:column;padding:5px 2px;font-size:9px;min-height:52px;line-height:1.15;min-width:0}
+.palette button span{white-space:normal;text-align:center;word-break:break-word}
 .palette svg{width:26px;height:26px}
 .palette svg *{fill:none;stroke:var(--encre);stroke-width:5;vector-effect:non-scaling-stroke}
+.palette img{width:26px;height:26px;object-fit:cover;border-radius:3px;display:block}
+.filtre-dossier{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.filtre-dossier button{font-size:10.5px;padding:4px 8px;min-height:26px}
 
 /* clé numérotée */
 .cle-ligne{display:flex;gap:5px;align-items:flex-start;margin:5px 0}

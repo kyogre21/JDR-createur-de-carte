@@ -48,6 +48,8 @@ KJ.modele = (function () {
     { id: 'mobilier',    nom: 'Mobilier',      types: ['objet'] },
     { id: 'annotations', nom: 'Annotations',   types: ['numero', 'texte', 'lumiere'] },
     { id: 'portails',    nom: 'Portails',      types: ['portail'] },
+    // icônes vers une illustration (créature, lieu) : réservées au MJ, comme les secrets
+    { id: 'illustrations', nom: 'Images',      types: ['image'], mj: true },
     { id: 'secrets',     nom: 'Secrets (MJ)',  types: ['secret'], mj: true },
   ];
   const calqueDe = (type) => (CALQUES.find(c => c.types.includes(type)) || CALQUES[0]).id;
@@ -91,6 +93,8 @@ KJ.modele = (function () {
       case 'secret':  return Object.assign(base, { x: 0, y: 0, w: 40, h: 20, nature: 'trappe' }, p);
       // portail : lien vers une autre carte (cliquable en mode Jeu)
       case 'portail': return Object.assign(base, { x: 0, y: 0, vers: '', label: '' }, p);
+      // image : icône vers une illustration du dépôt (créature, lieu), cliquable en mode Jeu
+      case 'image':   return Object.assign(base, { x: 0, y: 0, w: 26, h: 26, src: '', nom: '' }, p);
       default: throw new Error('Type inconnu : ' + type);
     }
   }
@@ -109,7 +113,7 @@ KJ.modele = (function () {
     switch (el.type) {
       case 'piece': case 'secret':
         return { x: el.x, y: el.y, w: el.w, h: el.h };
-      case 'objet':
+      case 'objet': case 'image':
         return { x: el.x - el.w / 2, y: el.y - el.h / 2, w: el.w, h: el.h };
       case 'mur': {
         const x = Math.min(el.x1, el.x2), y = Math.min(el.y1, el.y2);
@@ -170,6 +174,17 @@ KJ.modele = (function () {
         c.elements.push(nouvelElement('portail', { x: p.x, y: p.y, vers: p.vers, label: p.label || '' }));
     }
     c.pins = [];
+    /* Filet de sécurité : un élément ponctuel posé hors du plan (clic dans le fond du
+       canevas, hors du parchemin) reste invisible et inatteignable dans l'éditeur — le
+       viewBox du SVG le clippe — mais flotte, visible, en mode Jeu, où rien ne le clippe.
+       poser() l'empêche désormais à la création ; ceci corrige les fichiers déjà touchés. */
+    const PONCTUELS = ['objet', 'numero', 'texte', 'lumiere', 'portail', 'image'];
+    for (const el of c.elements) {
+      if (PONCTUELS.includes(el.type)) {
+        el.x = Math.min(Math.max(el.x, 0), c.taille.w);
+        el.y = Math.min(Math.max(el.y, 0), c.taille.h);
+      }
+    }
     return c;
   }
 

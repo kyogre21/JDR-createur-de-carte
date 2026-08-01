@@ -1,0 +1,85 @@
+{
+  "_lisez_moi": "Généré par generer-catalogue-images.js à partir du contenu de plateforme/images/. Ne modifie ce fichier à la main que ponctuellement : relance le script après tout ajout, il régénère la liste en entier.",
+  "images": [
+    {
+      "fichier": "Knight/Baron stein.png",
+      "nom": "Baron stein",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/Ed et edda.png",
+      "nom": "Ed et edda",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/Hoplites.png",
+      "nom": "Hoplites",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/Léviathan.png",
+      "nom": "Léviathan",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/Minotaure.png",
+      "nom": "Minotaure",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/Nihil.png",
+      "nom": "Nihil",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/dame du lac.png",
+      "nom": "Dame du lac",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/europapark carte.png",
+      "nom": "Europapark carte",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/la reine de la fôret noire.png",
+      "nom": "La reine de la fôret noire",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/le roi des faunes.png",
+      "nom": "Le roi des faunes",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/plan europa park.jpg",
+      "nom": "Plan europa park",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/queen of despair.png",
+      "nom": "Queen of despair",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/roi des machines phase 1.png",
+      "nom": "Roi des machines phase 1",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Knight/roi des machines phase 2.png",
+      "nom": "Roi des machines phase 2",
+      "dossier": "Knight"
+    },
+    {
+      "fichier": "Legendary lands/Funeral of dead butterflies.png",
+      "nom": "Funeral of dead butterflies",
+      "dossier": "Legendary lands"
+    },
+    {
+      "fichier": "Legendary lands/Mandalf le gris.png",
+      "nom": "Mandalf le gris",
+      "dossier": "Legendary lands"
+    }
+  ]
+}

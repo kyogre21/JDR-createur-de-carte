@@ -14,6 +14,10 @@
   let sel = null;                 // id de l'élément sélectionné
   let outil = 'select';
   let symChoisi = 'table';
+  let imgCatalogue = [];          // images/index.json : illustrations disponibles dans le dépôt
+  let imgChoisi = null;
+  let imgDossier;                 // sous-dossier affiché dans la palette ; undefined = pas encore choisi,
+                                   // null = « Toutes », '' = fichiers sans sous-dossier
   let vueMJ = true;
   let cam = { s: 1, tx: 0, ty: 0 };
   const calquesVis = { grille: true, structure: true, mobilier: true, annotations: true, secrets: true };
@@ -30,6 +34,7 @@
     { id: 'lumiere', ic: '✷', nom: 'Lumière',  k: 'l' },
     { id: 'secret',  ic: '⌗', nom: 'Secret',   k: 's' },
     { id: 'portail', ic: '◈', nom: 'Portail',  k: 'w' },
+    { id: 'image',   ic: '🖼', nom: 'Image',   k: 'i' },
   ];
 
   /* Cartes disponibles comme destinations de portail (bibliothèque + campagne). */
@@ -52,6 +57,21 @@
         destinations.push({ id: c.id, nom: c.nom, campagne: M.campagneDe(c) });
       }
       majCartePanneau();
+    });
+  }
+
+  /* Illustrations disponibles (créatures, lieux) : catalogue du dépôt, jamais
+     d'upload depuis l'appareil — fiable sur mobile, versionné dans git. */
+  function chargerImages() {
+    return S.avecDelai(S.catalogueImages(), 1500, []).then(l => {
+      imgCatalogue = l;
+      // par défaut, ouvrir sur le premier dossier plutôt que sur la liste complète :
+      // avec plusieurs dizaines d'images, tout montrer d'un coup n'est pas utilisable.
+      if (imgDossier === undefined) {
+        const dossiers = [...new Set(l.map(im => im.dossier || ''))];
+        imgDossier = dossiers.length ? dossiers[0] : null;
+      }
+      if (!imgChoisi && l.length) imgChoisi = l.find(im => (im.dossier || '') === imgDossier) || l[0];
     });
   }
 
@@ -363,6 +383,11 @@
   }
 
   function poser(pt) {
+    // le canevas déborde du plan (fond gris de #canevas visible autour du parchemin
+    // quand on est dézoomé) : un clic là créait un élément hors cadre, invisible dans
+    // l'éditeur (clippé par le viewBox du SVG) mais flottant en mode Jeu (rien ne l'y
+    // clippe) — un élément qu'on ne pouvait plus ni voir ni sélectionner pour le corriger.
+    pt = { x: Math.min(Math.max(pt.x, 0), carte.taille.w), y: Math.min(Math.max(pt.y, 0), carte.taille.h) };
     let el;
     if (outil === 'porte' || outil === 'fenetre') {
       const a = accrocheMur(pt);
@@ -387,6 +412,12 @@
       el = M.nouvelElement('portail', {
         x: acc(pt.x, true), y: acc(pt.y, true),
         vers: d ? d.id : '', label: d ? d.nom.replace(/^.*—\s*/, '') : 'Sortie',
+      });
+    } else if (outil === 'image') {
+      if (!imgChoisi) { toast('Choisis d’abord une image dans le panneau, à droite.'); return; }
+      el = M.nouvelElement('image', {
+        x: acc(pt.x, true), y: acc(pt.y, true),
+        src: 'images/' + imgChoisi.fichier, nom: imgChoisi.nom || '',
       });
     } else return;
     M.ajouter(carte, el);
@@ -436,11 +467,13 @@
     $('t-props').textContent = el ? 'Élément — ' + el.type : 'Élément';
 
     if (outil === 'objet' && !el) { palette(p); return; }
+    if (outil === 'image' && !el) { paletteImages(p); return; }
     if (!el) {
       p.innerHTML = '<p class="vide">Aucune sélection.</p>'
         + '<p class="aide">Choisis un outil à gauche, puis trace ou pose sur le plan. '
         + 'Clic droit sur un élément pour le supprimer.</p>';
       if (outil === 'objet') palette(p);
+      if (outil === 'image') paletteImages(p);
       return;
     }
 
@@ -501,6 +534,22 @@
       p.appendChild(champ('L / H', duo(el.w, el.h, (a, b) => { el.w = a; el.h = b; })));
       p.appendChild(document.createRange().createContextualFragment(
         '<p class="aide">Les secrets ne sont visibles qu’en vue MJ : ils disparaissent de la vue joueurs et des exports en vue joueurs.</p>'));
+    } else if (el.type === 'image') {
+      const prev = document.createElement('img');
+      prev.src = el.src; prev.alt = el.nom || '';
+      prev.style.cssText = 'width:100%;max-height:160px;object-fit:contain;border-radius:5px;'
+        + 'display:block;margin-bottom:8px;border:1px solid var(--bord-clair);background:#000';
+      p.appendChild(prev);
+      p.appendChild(champ('Légende', inputTxt(el.nom, v => el.nom = v)));
+      p.appendChild(document.createRange().createContextualFragment(
+        '<p class="aide">Cette icône n’apparaît qu’en vue MJ (éditeur et table de jeu), jamais en vue '
+        + 'joueurs. En mode Jeu, un clic dessus affiche l’image en grand par-dessus le plan.</p>'));
+      const chLbl = document.createElement('p'); chLbl.className = 'aide'; chLbl.textContent = 'Remplacer par :';
+      p.appendChild(chLbl);
+      paletteImages(p, (im) => {
+        el.src = 'images/' + im.fichier; if (!el.nom) el.nom = im.nom || '';
+        apresModif(); dessiner(); majPanneau();
+      }, el.src.replace(/^images\//, ''));
     }
     p.appendChild(bouton('✕ Supprimer (Suppr)', () => {
       M.supprimer(carte, el.id); sel = null; majPanneau(); apresModif(); dessiner();
@@ -524,6 +573,50 @@
         + `<span>${s.nom}</span>`;
       if (s.id === symChoisi) b.classList.add('actif');
       b.addEventListener('click', () => { symChoisi = s.id; majPanneau(); });
+      g.appendChild(b);
+    }
+    p.appendChild(g);
+  }
+
+  /* Palette d'illustrations (catalogue du dépôt, images/index.json). Sans onPick,
+     choisit l'image à poser (outil Image) ; avec onPick, sert à remplacer l'image
+     d'un élément déjà posé (voir majPanneau, cas 'image'). Un sélecteur de dossier
+     filtre la liste : avec plusieurs dizaines d'images, tout montrer en vrac ne sert
+     à rien si elles sont déjà rangées par thème/campagne dans plateforme/images/. */
+  function paletteImages(p, onPick, actifFichier) {
+    onPick = onPick || ((im) => { imgChoisi = im; majPanneau(); });
+    if (actifFichier === undefined) actifFichier = imgChoisi && imgChoisi.fichier;
+
+    const dossiers = [...new Set(imgCatalogue.map(im => im.dossier || ''))];
+    if (dossiers.length > 1) {
+      const rangee = document.createElement('div'); rangee.className = 'filtre-dossier';
+      const boutonDossier = (val, label) => {
+        const b = bouton(label, () => { imgDossier = val; majPanneau(); });
+        if (imgDossier === val) b.classList.add('actif');
+        return b;
+      };
+      rangee.appendChild(boutonDossier(null, 'Toutes'));
+      for (const d of dossiers) rangee.appendChild(boutonDossier(d, d || 'Sans dossier'));
+      p.appendChild(rangee);
+    }
+
+    const filtrees = imgDossier === null ? imgCatalogue
+      : imgCatalogue.filter(im => (im.dossier || '') === imgDossier);
+
+    const t = document.createElement('p'); t.className = 'aide';
+    t.textContent = !imgCatalogue.length
+      ? 'Aucune image dans le dépôt : dépose un fichier (ou un dossier) dans plateforme/images/, '
+        + 'lance « node generer-catalogue-images.js », puis committe (voir le README).'
+      : filtrees.length ? 'Choisis une image, puis clique sur le plan pour poser son icône.'
+        : 'Aucune image dans ce dossier.';
+    p.appendChild(t);
+    if (!filtrees.length) return;
+    const g = document.createElement('div'); g.className = 'palette';
+    for (const im of filtrees) {
+      const b = document.createElement('button');
+      b.innerHTML = `<img src="images/${im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
+      if (im.fichier === actifFichier) b.classList.add('actif');
+      b.addEventListener('click', () => onPick(im));
       g.appendChild(b);
     }
     p.appendChild(g);
@@ -634,8 +727,20 @@
   function enregistrerPlusTard() {
     clearTimeout(tmr);
     $('etat').textContent = 'Modifié…';
-    tmr = setTimeout(() => ecrire().catch(() => {}), 500);
+    tmr = setTimeout(() => { tmr = null; ecrire().catch(() => {}); }, 500);
   }
+  /* Filet de sécurité : sans ça, une modification suivie de près par un clic sur
+     « ▶ Jouer »/« ☰ Cartes », un rechargement ou une fermeture d'onglet perd les
+     500 dernières millisecondes d'édition — le minuteur n'a pas eu le temps de se
+     déclencher. visibilitychange se déclenche même quand l'onglet passe en arrière-
+     plan (mobile compris) ; pagehide couvre la navigation qui ne masque pas l'onglet. */
+  function forcerEnregistrement() {
+    if (tmr) { clearTimeout(tmr); tmr = null; ecrire().catch(() => {}); }
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') forcerEnregistrement();
+  });
+  window.addEventListener('pagehide', forcerEnregistrement);
   function enregistrerMaintenant() {
     clearTimeout(tmr);
     ecrire().then(() => toast('Carte enregistrée dans la bibliothèque.'))
@@ -739,6 +844,7 @@
     carte = c; sel = null; histo = []; hpos = -1; pousser();
     tout(); cadrer();
     chargerDestinations().then(() => { if (sel) majPanneau(); }).catch(() => {});
+    chargerImages().then(() => { if (outil === 'image') majPanneau(); }).catch(() => {});
   }
 
   const p = new URLSearchParams(location.search);

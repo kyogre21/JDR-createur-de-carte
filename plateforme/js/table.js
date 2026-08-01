@@ -9,12 +9,17 @@
   const M = KJ.modele, R = KJ.rendu, S = KJ.stockage;
   const $ = (id) => document.getElementById(id);
   const scene = $('scene'), monde = $('monde'), plan = $('plan'), fog = $('fog'),
-        pinsEl = $('pins'), jetonsEl = $('jetons'), regle = $('regle'), sur = $('sur');
+        pinsEl = $('pins'), imagesEl = $('images'), jetonsEl = $('jetons'), regle = $('regle'), sur = $('sur');
 
   const QUAL = 2, PINCEAU = 26, CLE_PARTIE = 'kj-partie';
   const params = new URLSearchParams(location.search);
   const vueJoueurs = params.get('vue') === 'joueurs';
-  if (vueJoueurs) document.body.dataset.vue = 'joueurs';
+  if (vueJoueurs) {
+    document.body.dataset.vue = 'joueurs';
+    // b-vue (préview locale du MJ) n'a de sens que dans la fenêtre du MJ : ici, il n'y a
+    // pas de « vue MJ » à laquelle revenir, donc pas de bouton pour y prétendre.
+    if ($('b-vue')) $('b-vue').style.display = 'none';
+  }
   const canal = ('BroadcastChannel' in window) ? new BroadcastChannel(CLE_PARTIE) : null;
 
   const COULEURS = ['#c9a227', '#6d8fb0', '#7fa070', '#a8544c', '#9aa0a6', '#b08fc9'];
@@ -22,6 +27,8 @@
   /* ---------------- état ---------------- */
   let carte = null;                 // carte affichée (données)
   let catalogue = [];               // [{ id, nom, source:'locale'|'depot', ref }]
+  let galCatalogue = [];            // images/index.json : galerie indépendante du plan
+  let galDossier;                   // dossier affiché dans la galerie ; undefined = pas encore choisi
   let partie = { carte: null, fog: {}, jetons: [] };
   try { const s = localStorage.getItem(CLE_PARTIE); if (s) partie = JSON.parse(s); } catch (e) {}
 
@@ -98,8 +105,91 @@
   function dessinerPlan() {
     plan.setAttribute('width', carte.taille.w);
     plan.setAttribute('height', carte.taille.h);
-    R.dansSVG(plan, carte, { vueMJ: document.body.dataset.vue === 'mj', grille: true, portails: false });
+    R.dansSVG(plan, carte, { vueMJ: document.body.dataset.vue === 'mj', grille: true, portails: false, images: false });
   }
+  /* Icônes d'illustration (créatures, lieux) : comme les portails, dessinées en HTML
+     pour être cliquables — un clic ouvre l'image en grand par-dessus le plan (lightbox).
+     Masquées en vue joueurs par CSS (voir table.html), donc jamais un spoiler visible. */
+  function dessinerImages() {
+    imagesEl.innerHTML = '';
+    for (const im of carte.elements.filter(e => e.type === 'image' && e.src)) {
+      const d = document.createElement('div');
+      d.className = 'img-pin'; d.dataset.src = im.src; d.title = im.nom || 'Image';
+      d.style.left = im.x + 'px'; d.style.top = im.y + 'px';
+      d.innerHTML = '<span class="ic">🖼</span>';
+      imagesEl.appendChild(d);
+    }
+  }
+  function ouvrirImage(src, titre) {
+    let lb = $('lightbox');
+    if (!lb) {
+      lb = document.createElement('div'); lb.id = 'lightbox';
+      lb.innerHTML = '<img alt=""><p class="legende"></p>';
+      lb.addEventListener('click', () => lb.classList.remove('vu'));
+      document.body.appendChild(lb);
+    }
+    lb.querySelector('img').src = src;
+    lb.querySelector('.legende').textContent = titre || '';
+    lb.classList.add('vu');
+  }
+
+  /* ---------------- galerie ----------------
+     Montrer une illustration sans la poser sur le plan : utile quand aucune carte
+     n'est nécessaire à l'instant (un PNJ important apparaît, une scène hors plan). */
+  function chargerGalerie() {
+    return S.avecDelai(S.catalogueImages(), 1500, []).then(l => {
+      galCatalogue = l;
+      if (galDossier === undefined) {
+        const dossiers = [...new Set(l.map(im => im.dossier || ''))];
+        galDossier = dossiers.length ? dossiers[0] : null;
+      }
+    });
+  }
+  function rendreGalerie() {
+    const dEl = $('galerie-dossiers'), gEl = $('galerie-grille');
+    dEl.innerHTML = ''; gEl.innerHTML = '';
+    const dossiers = [...new Set(galCatalogue.map(im => im.dossier || ''))];
+    if (dossiers.length > 1) {
+      const bouton = (val, label) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        if (galDossier === val) b.classList.add('actif');
+        b.addEventListener('click', () => { galDossier = val; rendreGalerie(); });
+        return b;
+      };
+      dEl.appendChild(bouton(null, 'Toutes'));
+      for (const d of dossiers) dEl.appendChild(bouton(d, d || 'Sans dossier'));
+    }
+    const filtrees = galDossier === null ? galCatalogue
+      : galCatalogue.filter(im => (im.dossier || '') === galDossier);
+    if (!filtrees.length) {
+      const p = document.createElement('p'); p.className = 'aide';
+      p.textContent = galCatalogue.length ? 'Aucune image dans ce dossier.'
+        : 'Aucune image dans le dépôt (plateforme/images/).';
+      gEl.appendChild(p);
+      return;
+    }
+    for (const im of filtrees) {
+      const b = document.createElement('button');
+      b.innerHTML = `<img src="images/${im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
+      b.addEventListener('click', () => {
+        fermerGalerie();
+        ouvrirImage('images/' + im.fichier, im.nom);
+      });
+      gEl.appendChild(b);
+    }
+  }
+  function ouvrirGalerie() {
+    rendreGalerie();
+    $('modale').hidden = false;
+  }
+  function fermerGalerie() { $('modale').hidden = true; }
+  $('b-galerie').addEventListener('click', ouvrirGalerie);
+  $('b-fermer-galerie').addEventListener('click', fermerGalerie);
+  $('modale').addEventListener('click', (e) => { if (e.target.id === 'modale') fermerGalerie(); });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('modale').hidden) fermerGalerie();
+  });
   function dessinerJetons() {
     jetonsEl.innerHTML = '';
     for (const j of partie.jetons) {
@@ -186,7 +276,7 @@
       partie.carte = c.id;
       $('choix-carte').value = c.id;
       $('b-editer').href = 'editeur.html?' + (e.source === 'depot' ? 'depot=' + encodeURIComponent(c.id) + '.json' : 'id=' + encodeURIComponent(c.id));
-      dessinerPlan(); dessinerFog(); dessinerJetons(); dessinerPins();
+      dessinerPlan(); dessinerFog(); dessinerJetons(); dessinerPins(); dessinerImages();
       /* Sur téléphone, la barre d'outils se réorganise après le premier calcul de
          mise en page : on recadre une fois les dimensions définitives connues. */
       cadrer();
@@ -248,7 +338,8 @@
 
   /* ---------------- pointeurs ---------------- */
   const actifs = new Map();
-  let mode = null, dep = null, jDrag = null, bouge = 0, mesure = null, pincePrec = null, pinEnCours = null;
+  let mode = null, dep = null, jDrag = null, bouge = 0, mesure = null, pincePrec = null, pinEnCours = null,
+      imgEnCours = null;
 
   scene.addEventListener('pointerdown', (e) => {
     if (e.button === 2 || !carte) return;
@@ -259,9 +350,13 @@
     const w = versMonde(e.clientX, e.clientY);
     const jet = e.target.closest('.jeton');
     const pin = e.target.closest('.pin');
+    const imgPin = e.target.closest('.img-pin');
     bouge = 0;
 
     if (!vueJoueurs && pin && pin.dataset.vers) { mode = 'pin'; pinEnCours = pin.dataset.vers; return; }
+    if (!vueJoueurs && imgPin) {
+      mode = 'img'; imgEnCours = { src: imgPin.dataset.src, titre: imgPin.title }; return;
+    }
     if (!vueJoueurs && jet && outil === 'deplacer') {
       mode = 'jeton'; jDrag = partie.jetons.find(j => j.id === jet.dataset.id);
       jet.classList.add('drag'); return;
@@ -302,7 +397,7 @@
       if (el) { el.style.left = w.x + 'px'; el.style.top = w.y + 'px'; }
     } else if (mode === 'fog') {
       pinceau(outil, w.x, w.y);
-    } else if (mode === 'pin') {
+    } else if (mode === 'pin' || mode === 'img') {
       bouge++;
     } else if (mode === 'mesure' && mesure) {
       const l = regle.querySelector('line');
@@ -340,6 +435,10 @@
     if (mode === 'pin' && pinEnCours) {
       if (bouge <= 2) chargerCarte(pinEnCours).catch(() => toast('Carte introuvable.'));
       pinEnCours = null;
+    }
+    if (mode === 'img' && imgEnCours) {
+      if (bouge <= 2) ouvrirImage(imgEnCours.src, imgEnCours.titre);
+      imgEnCours = null;
     }
     if (mode === 'mesure') {
       setTimeout(() => { regle.innerHTML = ''; const l = $('etiquette'); if (l) l.remove(); }, 1200);
@@ -453,11 +552,17 @@
   });
   $('b-cadrer').addEventListener('click', cadrer);
   const bs = $('b-suivre');
-  if (bs) bs.addEventListener('click', () => {
-    suivre = !suivre;
-    bs.classList.toggle('actif', suivre);
-    bs.textContent = suivre ? 'Suivre le MJ' : 'Vue libre';
-  });
+  if (bs) {
+    // n'a de sens que dans une vraie fenêtre joueurs séparée (?vue=joueurs) : elle seule
+    // reçoit les messages « cam » du MJ. Dans la préview locale (même fenêtre, via le
+    // bouton Vue MJ/Vue joueurs), il n'y a rien à suivre — le montrer prête à confusion.
+    if (!vueJoueurs) bs.style.display = 'none';
+    else bs.addEventListener('click', () => {
+      suivre = !suivre;
+      bs.classList.toggle('actif', suivre);
+      bs.textContent = suivre ? 'Suivre le MJ' : 'Vue libre';
+    });
+  }
   window.addEventListener('keydown', (e) => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || vueJoueurs) return;
     if (e.key === 'g' || e.key === 'G') $('b-vue').click();
@@ -487,6 +592,8 @@
       '<p style="padding:24px;font-family:var(--serif);font-style:italic;opacity:.7">'
       + 'Aucune carte dans la bibliothèque. Crée-en une dans l’éditeur, puis reviens ici.</p>';
   });
+  // indépendante du chargement de la carte : la galerie doit marcher même sans plan affiché
+  chargerGalerie().catch(() => {});
 
   S.gererServiceWorker();
 

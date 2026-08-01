@@ -80,6 +80,9 @@ KJ.rendu = (function () {
         font-variant:small-caps;letter-spacing:.06em}
       .kj-secret{fill:none;stroke:${sang};stroke-width:1.6;stroke-dasharray:4 3}
       .kj-secret-lbl{fill:${sang};font:italic 9px "Palatino Linotype",Georgia,serif;text-anchor:middle}
+      .kj-image-cadre{fill:${salle};stroke:${or};stroke-width:1.6}
+      .kj-image-glyphe{fill:none;stroke:${or};stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+      .kj-image-soleil{fill:${or};stroke:none}
     `;
   }
 
@@ -150,8 +153,12 @@ KJ.rendu = (function () {
         const rot = el.rot ? ` transform="rotate(${el.rot} ${el.x} ${el.y})"` : '';
         // zone de clic invisible sur toute l'emprise : certains symboles (escaliers) ne
         // sont que des traits sans remplissage, quasi impossibles à toucher sinon.
+        // stroke="none" explicite : sans ça, ce rect hérite du stroke de son groupe
+        // parent .kj-obj (destiné au tracé du symbole) et devient un cadre bien visible
+        // autour de tout symbole clairsemé (l'escalier en arc, par ex., n'a pas de forme
+        // pleine qui le recouvre) — fill="transparent" seul ne suffit pas.
         const prise = opts.ids
-          ? `<rect x="${el.x - el.w / 2}" y="${el.y - el.h / 2}" width="${el.w}" height="${el.h}" fill="transparent" pointer-events="all"/>`
+          ? `<rect x="${el.x - el.w / 2}" y="${el.y - el.h / 2}" width="${el.w}" height="${el.h}" fill="transparent" stroke="none" pointer-events="all"/>`
           : '';
         return `<g${id} class="kj-el kj-obj"${rot}>` + prise
              + `<svg x="${el.x - el.w / 2}" y="${el.y - el.h / 2}" width="${el.w}" height="${el.h}" `
@@ -189,6 +196,16 @@ KJ.rendu = (function () {
               + `width="${el.w}" height="${el.h}"/>`;
         if (el.nature) s += `<text class="kj-secret-lbl" x="${el.x + el.w / 2}" y="${el.y + el.h + 11}">${esc(el.nature)}</text>`;
         return s + `</g>`;
+      }
+
+      /* En mode Jeu, la table dessine ses propres icônes d'image (cliquables, en HTML) :
+         elle passe images:false pour ne pas les avoir en double. */
+      case 'image': {
+        if (opts.images === false) return '';
+        return `<g${id} class="kj-el kj-image mj-only" transform="translate(${el.x} ${el.y})">`
+             + `<rect class="kj-image-cadre" x="-13" y="-13" width="26" height="26" rx="5"/>`
+             + `<path class="kj-image-glyphe" d="M-7 4 L-2 -3 L2 1 L6 -5 L9 4 Z"/>`
+             + `<circle class="kj-image-soleil" cx="-4.5" cy="-6" r="2.1"/></g>`;
       }
 
       default: return '';
