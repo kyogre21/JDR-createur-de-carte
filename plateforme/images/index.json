@@ -72,8 +72,28 @@
       "dossier": "Knight"
     },
     {
+      "fichier": "Legendary lands/Campagne oiseau/Big bird.png",
+      "nom": "Big bird",
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
+      "fichier": "Legendary lands/Campagne oiseau/Black swan.png",
+      "nom": "Black swan",
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
       "fichier": "Legendary lands/Campagne oiseau/Funeral of dead butterflies.png",
       "nom": "Funeral of dead butterflies",
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
+      "fichier": "Legendary lands/Campagne oiseau/Judgement bird.png",
+      "nom": "Judgement bird",
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
+      "fichier": "Legendary lands/Campagne oiseau/Puniching bird.png",
+      "nom": "Puniching bird",
       "dossier": "Legendary lands/Campagne oiseau"
     },
     {
@@ -84,6 +104,11 @@
     {
       "fichier": "Legendary lands/Campagne oiseau/Spider bud.png",
       "nom": "Spider bud",
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
+      "fichier": "Legendary lands/Campagne oiseau/happy teddy bear.png",
+      "nom": "Happy teddy bear",
       "dossier": "Legendary lands/Campagne oiseau"
     },
     {

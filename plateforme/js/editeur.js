@@ -410,7 +410,7 @@
       if (!imgChoisi) { toast('Choisis d’abord une image dans le panneau, à droite.'); return; }
       el = M.nouvelElement('image', {
         x: acc(pt.x, true), y: acc(pt.y, true),
-        src: 'images/' + imgChoisi.fichier, nom: imgChoisi.nom || '',
+        src: 'images/' + imgChoisi.fichier,
       });
     } else return;
     M.ajouter(carte, el);
@@ -554,7 +554,7 @@
       const chLbl = document.createElement('p'); chLbl.className = 'aide'; chLbl.textContent = 'Remplacer par :';
       p.appendChild(chLbl);
       paletteImages(p, (im) => {
-        el.src = 'images/' + im.fichier; if (!el.nom) el.nom = im.nom || '';
+        el.src = 'images/' + im.fichier;
         apresModif(); dessiner(); majPanneau();
       }, el.src.replace(/^images\//, ''));
     }
