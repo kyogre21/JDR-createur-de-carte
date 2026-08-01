@@ -490,6 +490,22 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
     de suite s'ajoute au même endroit, s'arrêter et se demander si ce n'est pas la structure qui
     est fausse — et proposer de l'enlever plutôt que d'empiler un garde-fou de plus.
 
+21. **« Le jeton n'est pas cliquable au tactile » : la logique était bonne, la cible était trop
+    petite.** Jetons (32 px), portails (18 px) et icônes d'image (26 px) vivent dans `#monde`, qui
+    porte le `transform: scale(cam.s)` de la caméra — leur taille CSS est donc en unités *monde*,
+    pas écran. Sur un plan dézoomé (le cas normal sur téléphone, où la carte entière doit tenir),
+    un jeton tombe à **17 px à l'écran**, très en dessous des ~44 px qu'un doigt peut viser ; le
+    code de glisser-déposer, lui, fonctionnait parfaitement (vérifié en simulant un
+    `PointerEvent{pointerType:'touch'}` : le jeton se déplaçait bien). Corrigé par un halo
+    `::before` transparent sur `.jeton/.pin/.img-pin`, contre-mis à l'échelle par
+    `transform:scale(var(--inv))` — `--inv = 1/cam.s`, posé sur `#monde` par `appliquerCam()` —
+    donc de **taille constante à l'écran** (mesuré : 40-42 px) sans rien changer au dessin.
+    **Réflexe** : devant « ça ne réagit pas au doigt », mesurer `getBoundingClientRect()` de la
+    cible **à la largeur mobile** avant de suspecter les gestionnaires d'événements ; et se
+    rappeler que tout ce qui vit sous un conteneur mis à l'échelle a une taille écran variable.
+    Le halo reste modeste (42 px) exprès : plus large, les halos de deux jetons sur des cases
+    voisines se recouvriraient et on attraperait le mauvais.
+
 ## Style
 
 Charte de la campagne : parchemin sombre (`--parchemin #221b11`), encre pâle (`--encre #d3c5a4`),

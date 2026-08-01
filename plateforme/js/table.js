@@ -104,6 +104,12 @@
   let cam = { s: 1, tx: 0, ty: 0 }, suivre = true;
   function appliquerCam() {
     monde.style.transform = `translate(${cam.tx}px,${cam.ty}px) scale(${cam.s})`;
+    /* --inv = 1/zoom : sert aux zones tactiles (voir .jeton::before dans table.html).
+       Jetons, portails et icônes d'image suivent le zoom de la carte ; sur un plan
+       dézoomé (le cas normal sur téléphone) un jeton tombe à ~17 px à l'écran, très
+       en dessous de ce qu'un doigt peut viser. Cette variable permet de garder une
+       zone sensible de taille CONSTANTE À L'ÉCRAN sans toucher au dessin. */
+    monde.style.setProperty('--inv', 1 / (cam.s || 1));
     if (canal && !vueJoueurs) {
       const r = scene.getBoundingClientRect();
       canal.postMessage({ t: 'cam', cx: (r.width / 2 - cam.tx) / cam.s, cy: (r.height / 2 - cam.ty) / cam.s, s: cam.s });
