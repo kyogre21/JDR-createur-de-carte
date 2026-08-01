@@ -33,15 +33,18 @@ cartes. Enregistrement automatique, plus un bouton **💾 Enregistrer** qui forc
 le confirme. La **clé numérotée** se remplit dans le panneau de droite (titre + description) et
 accompagne la carte dans les exports.
 
-**🔗 Dossier** (Chrome, Edge ou Brave sur PC — pas Firefox ni Safari, ni mobile) : lie le dossier
-`plateforme/` sur le disque. Une fois lié, chaque enregistrement écrit directement les fichiers
-du dépôt (`cartes/<id>.json` + `cartes/index.json`), sans passer par le stockage caché du
-navigateur ni par un export/import manuel. La publication (commit + push) reste un geste séparé
-et volontaire, pour ne pas déclencher un déploiement à chaque frappe. Sans ce lien (navigateur
-non compatible, ou dossier non lié), l'enregistrement reste local à ce navigateur — le pied de
-page le dit explicitement à chaque sauvegarde (« Enregistré sur le disque » vs « Enregistré dans
-la bibliothèque (local à ce navigateur) »), justement pour ne pas se retrouver avec des
-modifications introuvables ailleurs.
+**Écriture directe sur le disque** (Chrome, Edge ou Brave sur PC — pas Firefox ni Safari, ni
+mobile) : au tout premier clic sur **💾 Enregistrer**, l'éditeur propose de lier le dossier
+`plateforme/` sur le disque — un seul geste, pas de bouton séparé. Une fois lié, chaque
+enregistrement suivant écrit directement les fichiers du dépôt (`cartes/<id>.json` +
+`cartes/index.json`), sans passer par le stockage caché du navigateur ni par un export/import
+manuel. **La publication (commit + push) reste entièrement manuelle, faite par toi via ton
+propre outil git** — l'appli n'y touche pas et ne se connecte à aucun service distant : une fois
+les fichiers à jour sur le disque, tu commites et pousses quand tu le souhaites, et le site
+(Netlify) se redéploie tout seul derrière. Sans ce lien (navigateur non compatible, ou dossier
+non lié), l'enregistrement reste local à ce navigateur — le pied de page le dit explicitement à
+chaque sauvegarde (« Enregistré sur le disque » vs « Enregistré dans la bibliothèque (local à ce
+navigateur) »), justement pour ne pas se retrouver avec des modifications introuvables ailleurs.
 
 **Table de jeu** (`table.html`) — on joue : **brouillard de guerre** au pinceau
 (☀ Révéler / ☁ Cacher, « Tout couvrir », « Tout révéler »), jetons déplaçables aimantés

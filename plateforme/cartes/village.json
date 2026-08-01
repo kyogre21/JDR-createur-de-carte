@@ -2,7 +2,7 @@
   "format": 1,
   "id": "village",
   "nom": "Village",
-  "campagne": "Forêt Noire",
+  "campagne": "LL campagne oiseaux",
   "taille": {
     "w": 900,
     "h": 700
@@ -52,7 +52,7 @@
       "id": "p5",
       "type": "piece",
       "x": 200,
-      "y": 245,
+      "y": 272,
       "w": 90,
       "h": 80,
       "nom": "Maison"
@@ -60,8 +60,8 @@
     {
       "id": "p6",
       "type": "piece",
-      "x": 420,
-      "y": 245,
+      "x": 422,
+      "y": 264,
       "w": 150,
       "h": 115,
       "nom": "Maison du bourgmestre"
@@ -239,6 +239,110 @@
       "y": 650,
       "vers": "manoir-cygnus-rdc",
       "label": "Manoir"
+    },
+    {
+      "id": "piece_msah08301",
+      "type": "piece",
+      "x": 105,
+      "y": 477,
+      "w": 94,
+      "h": 94,
+      "nom": "Maison brulée",
+      "ep": 5
+    },
+    {
+      "id": "fenetre_msah5i5s1",
+      "type": "fenetre",
+      "x": 198,
+      "y": 315,
+      "o": "v",
+      "l": 25.6
+    },
+    {
+      "id": "fenetre_msah5mbc2",
+      "type": "fenetre",
+      "x": 422,
+      "y": 309,
+      "o": "v",
+      "l": 25.6
+    },
+    {
+      "id": "fenetre_msah5nc63",
+      "type": "fenetre",
+      "x": 571,
+      "y": 336,
+      "o": "v",
+      "l": 25.6
+    },
+    {
+      "id": "porte_msah5t6i4",
+      "type": "porte",
+      "x": 497,
+      "y": 265,
+      "o": "h",
+      "l": 30,
+      "style": "simple",
+      "sens": 1
+    },
+    {
+      "id": "porte_msah5v145",
+      "type": "porte",
+      "x": 247,
+      "y": 273,
+      "o": "h",
+      "l": 30,
+      "style": "simple",
+      "sens": 1
+    },
+    {
+      "id": "porte_msah5yhy6",
+      "type": "porte",
+      "x": 747,
+      "y": 380,
+      "o": "h",
+      "l": 30,
+      "style": "simple",
+      "sens": 1
+    },
+    {
+      "id": "porte_msah61ca7",
+      "type": "porte",
+      "x": 659,
+      "y": 170,
+      "o": "h",
+      "l": 30,
+      "style": "simple",
+      "sens": -1
+    },
+    {
+      "id": "porte_msah61yv8",
+      "type": "porte",
+      "x": 540,
+      "y": 170,
+      "o": "h",
+      "l": 30,
+      "style": "simple",
+      "sens": -1
+    },
+    {
+      "id": "porte_msah630i9",
+      "type": "porte",
+      "x": 395,
+      "y": 170,
+      "o": "h",
+      "l": 30,
+      "style": "simple",
+      "sens": -1
+    },
+    {
+      "id": "porte_msah6438a",
+      "type": "porte",
+      "x": 202,
+      "y": 170,
+      "o": "h",
+      "l": 30,
+      "style": "simple",
+      "sens": -1
     }
   ],
   "cle": [
@@ -263,5 +367,6 @@
       "desc": "Dernière maison avant la route qui grimpe vers le manoir ; ses habitants surveillent les allées et venues."
     }
   ],
-  "pins": []
+  "pins": [],
+  "maj": 1785614038595
 }

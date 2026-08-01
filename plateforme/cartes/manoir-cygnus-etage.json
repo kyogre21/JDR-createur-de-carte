@@ -2,7 +2,7 @@
   "format": 1,
   "id": "manoir-cygnus-etage",
   "nom": "Manoir Cygnus — Étage",
-  "campagne": "Forêt Noire",
+  "campagne": "LL campagne oiseaux",
   "taille": {
     "w": 560,
     "h": 466
@@ -473,7 +473,7 @@
       "y": 320,
       "w": 32,
       "h": 12,
-      "rot": 0
+      "rot": 180
     },
     {
       "id": "n5",
@@ -616,6 +616,71 @@
       "y": 384,
       "vers": "manoir-cygnus-rdc",
       "label": "RDC"
+    },
+    {
+      "id": "image_msaax1zs1",
+      "type": "image",
+      "x": 280,
+      "y": 180,
+      "w": 26,
+      "h": 26,
+      "src": "images/Legendary lands/Campagne oiseau/Funeral of dead butterflies.png",
+      "nom": "croquemort des papillons"
+    },
+    {
+      "id": "image_msafg1ni1",
+      "type": "image",
+      "x": 480,
+      "y": 240,
+      "w": 26,
+      "h": 26,
+      "src": "images/Legendary lands/Campagne oiseau/scorched_girl.png",
+      "nom": "",
+      "auto": true
+    },
+    {
+      "id": "image_msafgk5c4",
+      "type": "image",
+      "x": 100,
+      "y": 220,
+      "w": 26,
+      "h": 26,
+      "src": "images/Legendary lands/Campagne oiseau/soda poisson.png",
+      "nom": "",
+      "auto": true
+    },
+    {
+      "id": "image_msafgork5",
+      "type": "image",
+      "x": 300,
+      "y": 280,
+      "w": 26,
+      "h": 26,
+      "src": "images/Legendary lands/Campagne oiseau/Spider bud.png",
+      "nom": "",
+      "auto": true
+    },
+    {
+      "id": "image_msakge591",
+      "type": "image",
+      "x": 100,
+      "y": 300,
+      "w": 26,
+      "h": 26,
+      "src": "images/Legendary lands/Campagne oiseau/happy teddy bear.png",
+      "nom": "",
+      "auto": true
+    },
+    {
+      "id": "image_msao1su01",
+      "type": "image",
+      "x": 360,
+      "y": 100,
+      "w": 26,
+      "h": 26,
+      "src": "images/Legendary lands/Campagne oiseau/Black swan.png",
+      "nom": "",
+      "auto": true
     }
   ],
   "cle": [
@@ -657,8 +722,9 @@
     {
       "num": 12,
       "titre": "Chambre du maître",
-      "desc": "Belle double porte ouvragée, lit à baldaquin, cheminée, armoire et écritoire."
+      "desc": "Chambre du père de famille"
     }
   ],
-  "pins": []
+  "pins": [],
+  "maj": 1785614036017
 }

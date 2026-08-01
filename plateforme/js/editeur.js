@@ -745,14 +745,23 @@
     clearTimeout(toast._t);
     toast._t = setTimeout(() => t.classList.remove('vu'), 1800);
   }
+  const RATE = Symbol('delai-depasse');
   function ecrire() {
-    return S.enregistrer(carte).then(() => {
+    // avecDelai ici aussi : S.enregistrer dépend d'IndexedDB, pas plus fiable ici
+    // qu'ailleurs dans ce fichier — sans filet, un blocage y laissait tout le
+    // parcours de sauvegarde silencieux, y compris le message d'échec.
+    return S.avecDelai(S.enregistrer(carte), 3000, RATE).then((r) => {
+      if (r === RATE) throw new Error('stockage local indisponible (délai dépassé)');
+    }).then(() => {
       try { localStorage.setItem('kj-derniere-carte', carte.id); } catch (e) {}
       majLienJouer();
       const heure = new Date().toLocaleTimeString('fr-FR');
       // écriture silencieuse (demander=false) : jamais de popup de permission
       // depuis l'enregistrement automatique, seulement depuis un clic explicite.
-      return S.dossierDepotActif(false).then(poignee => {
+      // avecDelai : IndexedDB peut rester muet (onglet concurrent qui bloque la
+      // montée de version, entre autres) — sans filet, tout le reste de
+      // l'enregistrement restait bloqué en silence, sans même une erreur visible.
+      return S.avecDelai(S.dossierDepotActif(false), 1500, null).then(poignee => {
         if (!poignee) {
           $('etat').textContent = 'Enregistré dans la bibliothèque (local à ce navigateur) à ' + heure;
           return;
@@ -788,15 +797,23 @@
   let depotDejaPropose = false;
   function enregistrerMaintenant() {
     clearTimeout(tmr);
+    const nonSupporte = !S.depotPrisEnCharge() && !depotDejaPropose;
+    if (nonSupporte) depotDejaPropose = true;
     const avantEcriture = (S.depotPrisEnCharge() && !depotDejaPropose)
-      ? S.dossierDepotActif(false).then(poignee => {
+      ? S.avecDelai(S.dossierDepotActif(false), 1500, null).then(poignee => {
           depotDejaPropose = true;
           if (poignee) return;
           return S.lierDossierDepot().catch(() => {});
         })
       : Promise.resolve();
     avantEcriture.then(() => ecrire())
-      .then(() => toast('Carte enregistrée.'))
+      .then(() => {
+        // le diagnostic « navigateur non compatible » prime sur la confirmation
+        // habituelle, sinon le toast générique l'efface avant que ce soit lisible.
+        if (nonSupporte) {
+          toast('Ce navigateur ne permet pas l’écriture directe sur le disque (utilise Chrome, Edge ou Brave récent, sur PC) — la carte reste dans la bibliothèque du navigateur.');
+        } else toast('Carte enregistrée.');
+      })
       .catch(() => toast('Échec de l’enregistrement.'));
   }
   function majLienJouer() { $('b-jouer').href = 'table.html?carte=' + encodeURIComponent(carte.id); }
@@ -881,86 +898,6 @@
     $('b-vue').textContent = vueMJ ? 'Vue MJ' : 'Vue joueurs';
     dessiner();
   });
-  /* ---------------- publication (GitHub) ----------------
-     Envoie la carte courante directement sur GitHub via son API (jeton d'accès
-     personnel stocké en local, jamais transmis ailleurs qu'à GitHub). Netlify
-     redéploie tout seul derrière — mais UNIQUEMENT sur ce clic explicite : on ne
-     déclenche jamais ça depuis l'enregistrement automatique, pour ne pas payer
-     un déploiement à chaque frappe. Portée volontairement limitée à la carte
-     ouverte (+ cartes/index.json si besoin) : ce bouton ne fait pas un « commit
-     de tout ce qui a changé sur le disque », seulement ce que l'éditeur connaît. */
-  const GH_OWNER = 'kyogre21', GH_REPO = 'JDR-createur-de-carte', GH_BRANCHE = 'main';
-  const CLE_JETON = 'kj-gh-token';
-  function b64Utf8(str) { return btoa(unescape(encodeURIComponent(str))); }
-  function deB64Utf8(str) { return decodeURIComponent(escape(atob(str.replace(/\n/g, '')))); }
-  function entetesGitHub(jeton) {
-    return { 'Authorization': 'Bearer ' + jeton, 'Accept': 'application/vnd.github+json',
-             'Content-Type': 'application/json' };
-  }
-  async function publierFichierGitHub(jeton, chemin, contenu, message) {
-    const url = 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + chemin;
-    const actuel = await fetch(url + '?ref=' + GH_BRANCHE, { headers: entetesGitHub(jeton) });
-    let sha;
-    if (actuel.ok) sha = (await actuel.json()).sha;
-    else if (actuel.status !== 404) throw new Error('lecture refusée (' + actuel.status + ')');
-    const corps = { message, content: b64Utf8(contenu), branch: GH_BRANCHE };
-    if (sha) corps.sha = sha;
-    const rep = await fetch(url, { method: 'PUT', headers: entetesGitHub(jeton), body: JSON.stringify(corps) });
-    if (!rep.ok) {
-      if (rep.status === 401) throw new Error('jeton invalide ou expiré');
-      throw new Error('GitHub a refusé (' + rep.status + ')');
-    }
-  }
-  async function publierIndexSiBesoin(jeton, c) {
-    const chemin = 'plateforme/cartes/index.json';
-    const url = 'https://api.github.com/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + chemin;
-    const rep = await fetch(url + '?ref=' + GH_BRANCHE, { headers: entetesGitHub(jeton) });
-    if (!rep.ok) throw new Error('lecture du catalogue refusée (' + rep.status + ')');
-    const j = await rep.json();
-    let cat;
-    try { cat = JSON.parse(deB64Utf8(j.content)); } catch (e) { throw new Error('cartes/index.json illisible sur GitHub'); }
-    if (!Array.isArray(cat.cartes)) cat.cartes = [];
-    const fichier = c.id + '.json';
-    const i = cat.cartes.findIndex(e => e.fichier === fichier);
-    const entree = { fichier, nom: c.nom };
-    if (i !== -1 && cat.cartes[i].fichier === entree.fichier && cat.cartes[i].nom === entree.nom) return;
-    if (i === -1) cat.cartes.push(entree); else cat.cartes[i] = entree;
-    const corps = {
-      message: 'Catalogue : ' + c.nom,
-      content: b64Utf8(JSON.stringify(cat, null, 2) + '\n'),
-      branch: GH_BRANCHE, sha: j.sha,
-    };
-    const rep2 = await fetch(url, { method: 'PUT', headers: entetesGitHub(jeton), body: JSON.stringify(corps) });
-    if (!rep2.ok) throw new Error('mise à jour du catalogue refusée (' + rep2.status + ')');
-  }
-  async function envoyerVersTelephone() {
-    let jeton = null;
-    try { jeton = localStorage.getItem(CLE_JETON); } catch (e) {}
-    if (!jeton) {
-      jeton = prompt('Colle ton jeton GitHub (créé une seule fois : github.com → photo de profil → '
-        + 'Settings → Developer settings → Personal access tokens → Generate new token, en cochant '
-        + 'juste la case « repo »). Il reste uniquement sur cet ordinateur.');
-      if (!jeton) return;
-      jeton = jeton.trim();
-      try { localStorage.setItem(CLE_JETON, jeton); } catch (e) {}
-    }
-    const b = $('b-publier');
-    const texteInitial = b.textContent;
-    b.disabled = true; b.textContent = '📲 Envoi…';
-    try {
-      await publierFichierGitHub(jeton, 'plateforme/cartes/' + carte.id + '.json',
-        KJ.modele.versJSON(carte), 'Modifie ' + carte.nom);
-      await publierIndexSiBesoin(jeton, carte);
-      toast('Envoyé — ton téléphone verra la mise à jour dans une minute ou deux (le temps que Netlify redéploie).');
-    } catch (e) {
-      if (e && /jeton invalide/.test(e.message)) { try { localStorage.removeItem(CLE_JETON); } catch (er) {} }
-      toast('Échec de l’envoi : ' + (e && e.message || e));
-    } finally {
-      b.disabled = false; b.textContent = texteInitial;
-    }
-  }
-  $('b-publier').addEventListener('click', envoyerVersTelephone);
-
   $('b-json').addEventListener('click', () => S.exporterJSON(carte));
   $('b-svg').addEventListener('click', () => S.exporterSVG(carte, { vueMJ: vueMJ, grille: calquesVis.grille }));
   $('b-scene').addEventListener('click', () => {

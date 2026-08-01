@@ -157,19 +157,18 @@ distincts, à ne pas confondre entre eux.
    store `parametres`, v2 du schéma) ; la permission peut être perdue entre deux sessions
    (`queryPermission`), et ne peut être redemandée (`requestPermission`) que depuis un geste
    utilisateur réel — jamais silencieusement.
-3. **Dépôt distant, en un clic** (bouton `📲 Vers ton téléphone`, `editeur.js`) : appelle
-   directement l'API GitHub (`PUT /repos/{owner}/{repo}/contents/{chemin}`) pour écrire
-   `plateforme/cartes/<id>.json` et, si besoin, `plateforme/cartes/index.json`, sur la branche
-   `main` — Netlify (connecté au dépôt GitHub, auto-publish sur `main`) redéploie tout seul
-   derrière, en 1-2 minutes. Jeton d'accès personnel GitHub (scope `repo` minimal) saisi une fois
-   via `prompt()` et stocké dans `localStorage` (`kj-gh-token`) — jamais transmis ailleurs qu'à
-   l'API GitHub. **Portée volontairement limitée** à la carte ouverte (+ `cartes/index.json` si
-   elle n'y figure pas encore ou si le nom a changé) : ce n'est pas un `git add -A` générique
-   (impossible depuis un navigateur), seulement ce que l'éditeur connaît. Se déclenche **seulement**
-   sur ce clic explicite — jamais depuis l'enregistrement automatique ni depuis le lien au disque
-   (point 2), pour ne jamais faire payer un déploiement Netlify à l'utilisateur sans qu'il l'ait
-   décidé. Voir point 17 des erreurs commises pour le contexte complet de cette conception (deux
-   propositions refusées avant celle-ci).
+3. **Publication : entièrement manuelle, hors de l'appli — ne pas en refaire une dans l'appli.**
+   Une version antérieure ajoutait un bouton `📲 Vers ton téléphone` qui commitait directement sur
+   GitHub via son API (jeton d'accès personnel en `localStorage`). **Supprimé à la demande
+   explicite de l'utilisateur** : *« tu va me supprimer ce putain de bouton inutile »* — il gère
+   lui-même `git commit`/`git push` avec ses propres outils, une fois le disque à jour via le
+   point 2. Deux boutons de sauvegarde (un local, un qui publie) avaient déjà été rejetés une
+   première fois comme trop compliqués (point 17) ; le bouton de publication en un clic,
+   pourtant plus simple, l'a été aussi à l'usage — **ne pas réintroduire un mécanisme de
+   publication dans l'appli sans qu'il soit redemandé explicitement**, ce n'est pas un manque à
+   combler de sa propre initiative. Le seul bouton de sauvegarde à conserver est
+   **💾 Enregistrer** (point 2 ci-dessus) ; Netlify est déjà connecté au dépôt GitHub et redéploie
+   tout seul dès que l'utilisateur pousse, quel que soit l'outil git qu'il utilise pour ça.
 
 **Ordre des couches en jeu** (non négociable, hérité de Foundry/Roll20) :
 `plan < portails < images < brouillard < jetons < pings/mesure < interface`. Le brouillard couvre
@@ -398,21 +397,25 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
       un sélecteur de fichier), puis écrit `cartes/<id>.json` + `cartes/index.json` directement sur
       le disque à chaque sauvegarde suivante — plus de copie locale qui masque le dépôt sur la
       machine d'édition.
-    - **Publication en un clic** (`📲 Vers ton téléphone`, API GitHub) : geste séparé et
-      **toujours volontaire**, jamais déclenché par l'enregistrement automatique — pour ne pas
-      payer un déploiement Netlify à chaque frappe.
-    - **Deux leçons de conception à généraliser, pas seulement pour cette carte précise** :
+    - **Publication : essayée en un clic dans l'appli (bouton `📲 Vers ton téléphone`, API GitHub,
+      jeton personnel), puis retirée à la demande explicite de l'utilisateur** — voir point 3 de
+      « Enregistrement et publication » plus haut. **Ne pas la réintroduire d'initiative.** La
+      publication se fait entièrement hors de l'appli, avec l'outil git de l'utilisateur.
+    - **Trois leçons de conception à généraliser, pas seulement pour cette carte précise** :
       (1) ne jamais proposer d'automatiser un geste qui a un coût externe (déploiement, appel API
       payant) sans avoir d'abord demandé la fréquence acceptable — première proposition (tout
       publier à chaque sauvegarde) refusée pour cette raison ;
-      (2) **un nouveau bouton à comprendre est lui-même un coût** : la première version livrait un
-      bouton séparé (« 🔗 Dossier », à 3 états) en plus de « 💾 Enregistrer » — réaction de
-      l'utilisateur : *« c'est quoi ce bouton de merde »* / *« pourquoi tu ne peux pas faire les
-      choses simplement »*. Corrigé en pliant la liaison de dossier **dans** le bouton Enregistrer
-      existant (elle se propose d'elle-même au premier clic) plutôt que d'ajouter un concept de
-      plus à l'interface. Réflexe pour toute nouvelle capacité liée à un bouton déjà connu :
-      d'abord chercher si le bouton existant peut simplement « faire mieux », avant de proposer un
-      bouton voisin.
+      (2) **un nouveau bouton à comprendre est lui-même un coût** : une version livrait un bouton
+      séparé (« 🔗 Dossier », à 3 états) en plus de « 💾 Enregistrer » — réaction de l'utilisateur :
+      *« c'est quoi ce bouton de merde »* / *« pourquoi tu ne peux pas faire les choses
+      simplement »*. Corrigé en pliant la liaison de dossier **dans** le bouton Enregistrer
+      existant, sans nouveau concept d'interface ;
+      (3) **même correction appliquée, un deuxième bouton peut encore être « en trop » aux yeux de
+      l'utilisateur** — le bouton de publication en un clic, pourtant simple et bien nommé, a
+      quand même été jugé inutile une fois expliqué (l'utilisateur préfère gérer `git push`
+      lui-même). Ne pas supposer qu'une fonctionnalité bien conçue est forcément désirée : quand
+      l'utilisateur demande d'expliquer un bouton juste après l'avoir livré, c'est souvent le
+      signe qu'il pèse la nécessité de le garder — écouter la suite plutôt que défendre le choix.
     - **Piège technique croisé en testant ce correctif** : `ouvrir()` (IndexedDB, `stockage.js`)
       ne mémorisait que la connexion **résolue** (`db`), pas la promesse d'ouverture **en cours** —
       deux appels concurrents avant la toute première résolution (ex. l'éditeur qui vérifie le
@@ -421,6 +424,18 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
       (`ouvertureEnCours`), retournée telle quelle à tout appel concurrent. Réflexe pour toute
       fonction d'ouverture de ressource asynchrone avec cache : mémoriser la **promesse en cours**,
       pas seulement le résultat final, dès qu'elle peut être appelée deux fois avant sa résolution.
+18. **La vérification du dossier lié (`S.dossierDepotActif()`, point 2 d'« Enregistrement et
+    publication ») pouvait bloquer *tout* l'enregistrement en silence** — aucune erreur, aucun
+    message, juste rien qui ne se passait au clic sur Enregistrer. Cause : cette fonction dépend
+    d'IndexedDB, déjà documenté ailleurs dans ce fichier comme peu fiable (onglet concurrent qui
+    bloque une montée de version, entre autres — voir les pièges de test plus haut) ; `S.avecDelai`
+    existe justement pour ça, mais je ne l'avais appliqué qu'aux appels déjà connus pour poser
+    problème (chargement de catalogues), pas à ce nouvel appel. L'utilisateur a d'abord été accusé
+    à tort de ne pas avoir cliqué (*« tu me prend pour un con, BIEN SUR QUE J'AI CLIQUER »*) avant
+    que je relise le code et trouve le vrai trou. **Réflexe à généraliser** : tout nouvel appel à
+    une fonction de `stockage.js` qui touche IndexedDB doit passer par `S.avecDelai(...)` dès
+    l'écriture initiale, pas seulement après qu'un symptôme le révèle — et avant de suspecter
+    l'utilisateur d'une erreur de manipulation, relire le code du chemin concerné.
 
 ## Style
 
@@ -445,6 +460,13 @@ compté et volontaire (voir « Enregistrement et publication » plus haut, et po
 commises). Avant de proposer d'automatiser quoi que ce soit qui a un coût externe (déploiement,
 appel API payant, envoi de message), demander la fréquence acceptable **avant** de concevoir, pas
 après avoir livré quelque chose à corriger.
+
+**L'appli ne publie jamais elle-même, y compris en un clic — ce point a été tranché, ne pas y
+revenir sans qu'on le redemande.** Un bouton de publication en un clic (API GitHub) a été
+construit puis retiré à la demande de l'utilisateur, qui préfère pousser lui-même avec son propre
+outil git une fois les fichiers à jour sur le disque (voir point 2 d'« Enregistrement et
+publication », et point 17 des erreurs commises). L'unique bouton de sauvegarde à conserver dans
+l'éditeur est **💾 Enregistrer**.
 
 **Diagnostiquer « ça n'a pas la dernière version » (mobile ou autre appareil), dans cet ordre** —
 ne pas sauter directement à « c'est le cache » :

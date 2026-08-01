@@ -2,7 +2,7 @@
   "format": 1,
   "id": "manoir-cygnus-rdc",
   "nom": "Manoir Cygnus — Rez-de-chaussée",
-  "campagne": "Forêt Noire",
+  "campagne": "LL campagne oiseaux",
   "taille": {
     "w": 560,
     "h": 466
@@ -82,7 +82,7 @@
       "id": "d4",
       "type": "porte",
       "x": 200,
-      "y": 256,
+      "y": 356,
       "o": "v",
       "l": 32,
       "style": "simple",
@@ -92,7 +92,7 @@
       "id": "d5",
       "type": "porte",
       "x": 400,
-      "y": 256,
+      "y": 356,
       "o": "v",
       "l": 32,
       "style": "simple",
@@ -314,8 +314,8 @@
       "id": "o15",
       "type": "objet",
       "sym": "escalierdemi",
-      "x": 229,
-      "y": 330,
+      "x": 249,
+      "y": 230,
       "w": 116,
       "h": 116,
       "rot": 180
@@ -324,8 +324,8 @@
       "id": "o16",
       "type": "objet",
       "sym": "escalierdemi",
-      "x": 371,
-      "y": 330,
+      "x": 351,
+      "y": 230,
       "w": 116,
       "h": 116,
       "rot": 0
@@ -461,15 +461,6 @@
       "y": 100
     },
     {
-      "id": "s1",
-      "type": "secret",
-      "x": 286,
-      "y": 250,
-      "w": 28,
-      "h": 40,
-      "nature": "trappe sous le tapis ?"
-    },
-    {
       "id": "pt1",
       "type": "portail",
       "x": 300,
@@ -481,7 +472,7 @@
       "id": "pt2",
       "type": "portail",
       "x": 258,
-      "y": 330,
+      "y": 190,
       "vers": "manoir-cygnus-etage",
       "label": "Étage"
     },
@@ -489,9 +480,20 @@
       "id": "pt3",
       "type": "portail",
       "x": 342,
-      "y": 330,
+      "y": 190,
       "vers": "manoir-cygnus-etage",
       "label": "Étage"
+    },
+    {
+      "id": "image_msak528y1",
+      "type": "image",
+      "x": 440,
+      "y": 80,
+      "w": 26,
+      "h": 26,
+      "src": "images/Legendary lands/Campagne oiseau/Singind machine.png",
+      "nom": "Machine chantante",
+      "auto": true
     }
   ],
   "cle": [
@@ -516,5 +518,6 @@
       "desc": "Toute la longueur du bâtiment ; table de 14 couverts, chandeliers."
     }
   ],
-  "pins": []
+  "pins": [],
+  "maj": 1785613950756
 }
