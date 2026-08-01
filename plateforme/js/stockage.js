@@ -111,6 +111,29 @@ KJ.stockage = (function () {
       .catch(() => []);
   }
 
+  /* Vue arborescente du catalogue à un niveau donné (chemin = tableau de segments,
+     [] = racine) : les sous-dossiers directs de ce niveau, et les images posées
+     directement dedans (pas dans un sous-dossier). Le format de images/index.json ne
+     change pas (chaque image garde son « dossier » en chemin complet, ex. "Legendary
+     lands/Campagne oiseau") ; c'est ici qu'on le transforme en arborescence navigable,
+     pour l'éditeur comme pour la galerie de la table de jeu. */
+  function arboreImages(catalogue, chemin) {
+    const prefixe = (chemin || []).join('/');
+    const dossiers = new Set();
+    const images = [];
+    for (const im of catalogue) {
+      const d = im.dossier || '';
+      if (prefixe && d !== prefixe && !d.startsWith(prefixe + '/')) continue;
+      const reste = prefixe ? d.slice(prefixe.length).replace(/^\//, '') : d;
+      if (!reste) images.push(im);
+      else dossiers.add(reste.split('/')[0]);
+    }
+    return {
+      dossiers: [...dossiers].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' })),
+      images,
+    };
+  }
+
   /* ---------- campagnes déclarées ----------
      Les campagnes sont normalement déduites des cartes. Pour pouvoir créer un
      dossier VIDE (et y déposer des cartes ensuite), on mémorise à part les noms
@@ -157,5 +180,5 @@ KJ.stockage = (function () {
   return { enregistrer, charger, supprimer, lister, avecDelai, gererServiceWorker,
            campagnesDeclarees, declarerCampagne, oublierCampagne, renommerCampagneDeclaree,
            exporterJSON, exporterSVG, importerFichier, telecharger, slug,
-           catalogueDepot, chargerDepot, catalogueImages };
+           catalogueDepot, chargerDepot, catalogueImages, arboreImages };
 })();

@@ -16,9 +16,18 @@
   const vueJoueurs = params.get('vue') === 'joueurs';
   if (vueJoueurs) {
     document.body.dataset.vue = 'joueurs';
+    // classe séparée de data-vue (qui, elle, bascule aussi pour la préview locale du MJ) :
+    // vraie ici pour toute la vie de cette fenêtre, jamais pour la préview. Sert à verrouiller
+    // en dur ce qui ne doit JAMAIS apparaître dans une vraie fenêtre joueurs séparée (galerie,
+    // lightbox), tout en les laissant fonctionner dans la préview locale d'un MJ solo qui
+    // montre son propre écran — c'est justement le moyen de révéler une image au bon moment.
+    document.body.classList.add('fenetre-joueurs');
     // b-vue (préview locale du MJ) n'a de sens que dans la fenêtre du MJ : ici, il n'y a
-    // pas de « vue MJ » à laquelle revenir, donc pas de bouton pour y prétendre.
+    // pas de « vue MJ » à laquelle revenir, donc pas de bouton pour y prétendre. b-galerie
+    // reste dans la liste d'exception CSS de #barre-mj (utile à la préview locale) : il
+    // faut donc le cacher ici explicitement, cette fenêtre-ci n'a rien à y déclencher.
     if ($('b-vue')) $('b-vue').style.display = 'none';
+    if ($('b-galerie')) $('b-galerie').style.display = 'none';
   }
   const canal = ('BroadcastChannel' in window) ? new BroadcastChannel(CLE_PARTIE) : null;
 
@@ -27,14 +36,66 @@
   /* ---------------- état ---------------- */
   let carte = null;                 // carte affichée (données)
   let catalogue = [];               // [{ id, nom, source:'locale'|'depot', ref }]
-  let galCatalogue = [];            // images/index.json : galerie indépendante du plan
-  let galDossier;                   // dossier affiché dans la galerie ; undefined = pas encore choisi
-  let partie = { carte: null, fog: {}, jetons: [] };
+  let galCatalogue = [];             // images/index.json : galerie indépendante du plan
+  let galChemin = [];                // navigation dans le catalogue (chemin de dossiers) ; [] = racine
+  let partie = { carte: null, fog: {}, jetons: [], reveles: {} };
   try { const s = localStorage.getItem(CLE_PARTIE); if (s) partie = JSON.parse(s); } catch (e) {}
+  if (!partie.reveles) partie.reveles = {};   // sessions sauvegardées avant l'ajout de ce champ
 
+  // diffuser: undefined = comportement par défaut (jamais depuis la vraie fenêtre séparée,
+  // qui ne fait normalement que refléter le MJ) ; true = forcer la diffusion même depuis
+  // cette fenêtre — nécessaire quand un joueur y déplace lui-même son jeton PJ, pour que
+  // le MJ voie le résultat ; false = ne jamais diffuser (mise à jour reçue, pas d'écho).
   function sauverPartie(diffuser) {
     try { localStorage.setItem(CLE_PARTIE, JSON.stringify(partie)); } catch (e) {}
-    if (diffuser !== false && canal && !vueJoueurs) canal.postMessage({ t: 'partie', partie: partie });
+    const doitDiffuser = diffuser === true || (diffuser !== false && !vueJoueurs);
+    if (doitDiffuser && canal) canal.postMessage({ t: 'partie', partie: partie });
+  }
+  // éléments MJ (secret, image) révélés en permanence aux joueurs pour la carte affichée :
+  // une session de partie, comme le brouillard — pas une donnée de la carte elle-même.
+  const opsReveles = () => (partie.reveles[carte.id] = partie.reveles[carte.id] || []);
+  function basculerRevele(id) {
+    const liste = opsReveles();
+    const i = liste.indexOf(id);
+    if (i >= 0) { liste.splice(i, 1); toast('Caché de nouveau aux joueurs.'); }
+    else { liste.push(id); toast('Révélé aux joueurs.'); }
+    dessinerPlan(); dessinerImages(); sauverPartie();
+  }
+  /* Révélation automatique : dès qu'un jeton PJ entre dans la pièce (élément 'piece') qui
+     contient un secret ou une image non révélé, on le révèle — approximation volontaire
+     d'une ligne de vue (une pièce fermée = un champ de vision) sans le coût d'un vrai calcul
+     de raycasting, hors périmètre de ce projet (voir README, « ce qui n'est pas fait »).
+     Permanent comme la révélation manuelle : ne redevient pas caché si le groupe ressort. */
+  function verifierDeclencheurs() {
+    if (!carte) return;
+    const pjs = partie.jetons.filter(j => j.pj && j.carte === carte.id);
+    if (!pjs.length) return;
+    const revelees = opsReveles();
+    // auto !== false : un élément sans le champ (anciens fichiers) reste éligible par défaut ;
+    // el.auto = false l'exclut explicitement (ex. une trappe qui ne doit jamais se révéler
+    // toute seule) — reste quand même révélable à la main, par clic droit.
+    const cibles = carte.elements.filter(e => (e.type === 'secret' || e.type === 'image')
+      && e.auto !== false && !revelees.includes(e.id));
+    if (!cibles.length) return;
+    const pieces = carte.elements.filter(e => e.type === 'piece');
+    let changement = false;
+    for (const cible of cibles) {
+      const b = M.boite(cible);
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      // la pièce qui contient le centre de la cible (la plus petite si plusieurs se chevauchent)
+      const salle = pieces
+        .filter(p => cx >= p.x && cx <= p.x + p.w && cy >= p.y && cy <= p.y + p.h)
+        .sort((a, c) => a.w * a.h - c.w * c.h)[0];
+      // pas de pièce englobante (élément posé en couloir, extérieur…) : repli en rayon (~2 cases)
+      const zone = salle || { x: cx - 80, y: cy - 80, w: 160, h: 160 };
+      if (pjs.some(j => j.x >= zone.x && j.x <= zone.x + zone.w && j.y >= zone.y && j.y <= zone.y + zone.h)) {
+        revelees.push(cible.id);
+        changement = true;
+        toast((cible.type === 'image' ? '🖼 ' : '⌗ ') + (cible.nom || cible.nature || 'Élément')
+          + ' révélé : un PJ est entré dans la zone.');
+      }
+    }
+    if (changement) { dessinerPlan(); dessinerImages(); sauverPartie(); }
   }
   const opsFog = () => (partie.fog[carte.id] = partie.fog[carte.id] || []);
   const cellule = () => (carte.grille.cell || 0);
@@ -105,16 +166,22 @@
   function dessinerPlan() {
     plan.setAttribute('width', carte.taille.w);
     plan.setAttribute('height', carte.taille.h);
-    R.dansSVG(plan, carte, { vueMJ: document.body.dataset.vue === 'mj', grille: true, portails: false, images: false });
+    // ids:true : nécessaire pour retrouver un secret sous le clic droit (basculerRevele)
+    R.dansSVG(plan, carte, { ids: true, vueMJ: document.body.dataset.vue === 'mj', grille: true,
+      portails: false, images: false, reveles: opsReveles() });
   }
   /* Icônes d'illustration (créatures, lieux) : comme les portails, dessinées en HTML
-     pour être cliquables — un clic ouvre l'image en grand par-dessus le plan (lightbox).
-     Masquées en vue joueurs par CSS (voir table.html), donc jamais un spoiler visible. */
+     pour être cliquables — un clic ouvre l'image en grand par-dessus le plan (lightbox),
+     un clic droit bascule sa révélation permanente aux joueurs (basculerRevele). Invisibles
+     en vue joueurs par CSS tant que non révélées (voir table.html) : jamais un spoiler
+     visible avant que le MJ ne le décide. */
   function dessinerImages() {
+    const revelees = opsReveles();
     imagesEl.innerHTML = '';
     for (const im of carte.elements.filter(e => e.type === 'image' && e.src)) {
       const d = document.createElement('div');
-      d.className = 'img-pin'; d.dataset.src = im.src; d.title = im.nom || 'Image';
+      d.className = 'img-pin' + (revelees.includes(im.id) ? ' revele' : '');
+      d.dataset.src = im.src; d.dataset.id = im.id; d.title = im.nom || 'Image';
       d.style.left = im.x + 'px'; d.style.top = im.y + 'px';
       d.innerHTML = '<span class="ic">🖼</span>';
       imagesEl.appendChild(d);
@@ -133,69 +200,93 @@
     lb.classList.add('vu');
   }
 
+  /* ---------------- boîte de dialogue générique ----------------
+     Un seul #modale, un seul point d'entrée : galerie d'images, nouveau jeton…
+     construire(corps) remplit #modale-corps ; fermer réutilisable partout. */
+  function bouton(txt, onc) {
+    const b = document.createElement('button'); b.textContent = txt;
+    b.addEventListener('click', onc); return b;
+  }
+  function ouvrirModale(titre, large, construire) {
+    $('modale-titre').textContent = titre;
+    $('modale').classList.toggle('large', !!large);
+    const corps = $('modale-corps'); corps.innerHTML = '';
+    construire(corps);
+    $('modale').hidden = false;
+  }
+  function fermerModale() { $('modale').hidden = true; }
+  $('b-fermer-modale').addEventListener('click', fermerModale);
+  $('modale').addEventListener('click', (e) => { if (e.target.id === 'modale') fermerModale(); });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('modale').hidden) fermerModale();
+  });
+
+  /* Sélecteur d'image navigable (dossiers + vignettes), partagé par la galerie et le
+     choix de portrait d'un jeton. chemin est un tableau muté en place (pas réassigné),
+     pour que l'appelant retrouve toujours le même chemin après un re-rendu. */
+  function construirePickerImages(dEl, gEl, chemin, onChoisir) {
+    const rendre = () => {
+      dEl.innerHTML = ''; gEl.innerHTML = '';
+      if (!galCatalogue.length) {
+        const p = document.createElement('p'); p.className = 'aide';
+        p.textContent = 'Aucune image dans le dépôt (plateforme/images/).';
+        gEl.appendChild(p);
+        return;
+      }
+      const racine = bouton('🗀 Toutes', () => { chemin.splice(0); rendre(); });
+      if (!chemin.length) racine.classList.add('actif');
+      dEl.appendChild(racine);
+      chemin.forEach((seg, i) => {
+        const sep = document.createElement('span'); sep.className = 'fil-sep'; sep.textContent = '›';
+        dEl.appendChild(sep);
+        const b = bouton(seg, () => { chemin.splice(i + 1); rendre(); });
+        if (i === chemin.length - 1) b.classList.add('actif');
+        dEl.appendChild(b);
+      });
+      const { dossiers, images } = S.arboreImages(galCatalogue, chemin);
+      if (!dossiers.length && !images.length) {
+        const p = document.createElement('p'); p.className = 'aide'; p.textContent = 'Dossier vide.';
+        gEl.appendChild(p);
+        return;
+      }
+      for (const d of dossiers) {
+        const b = document.createElement('button'); b.className = 'dossier';
+        b.innerHTML = `<span class="ic-dossier">🗀</span><span>${d}</span>`;
+        b.addEventListener('click', () => { chemin.push(d); rendre(); });
+        gEl.appendChild(b);
+      }
+      for (const im of images) {
+        const b = document.createElement('button');
+        b.innerHTML = `<img src="images/${im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
+        b.addEventListener('click', () => onChoisir(im));
+        gEl.appendChild(b);
+      }
+    };
+    rendre();
+  }
+
   /* ---------------- galerie ----------------
      Montrer une illustration sans la poser sur le plan : utile quand aucune carte
      n'est nécessaire à l'instant (un PNJ important apparaît, une scène hors plan). */
   function chargerGalerie() {
-    return S.avecDelai(S.catalogueImages(), 1500, []).then(l => {
-      galCatalogue = l;
-      if (galDossier === undefined) {
-        const dossiers = [...new Set(l.map(im => im.dossier || ''))];
-        galDossier = dossiers.length ? dossiers[0] : null;
-      }
-    });
-  }
-  function rendreGalerie() {
-    const dEl = $('galerie-dossiers'), gEl = $('galerie-grille');
-    dEl.innerHTML = ''; gEl.innerHTML = '';
-    const dossiers = [...new Set(galCatalogue.map(im => im.dossier || ''))];
-    if (dossiers.length > 1) {
-      const bouton = (val, label) => {
-        const b = document.createElement('button');
-        b.textContent = label;
-        if (galDossier === val) b.classList.add('actif');
-        b.addEventListener('click', () => { galDossier = val; rendreGalerie(); });
-        return b;
-      };
-      dEl.appendChild(bouton(null, 'Toutes'));
-      for (const d of dossiers) dEl.appendChild(bouton(d, d || 'Sans dossier'));
-    }
-    const filtrees = galDossier === null ? galCatalogue
-      : galCatalogue.filter(im => (im.dossier || '') === galDossier);
-    if (!filtrees.length) {
-      const p = document.createElement('p'); p.className = 'aide';
-      p.textContent = galCatalogue.length ? 'Aucune image dans ce dossier.'
-        : 'Aucune image dans le dépôt (plateforme/images/).';
-      gEl.appendChild(p);
-      return;
-    }
-    for (const im of filtrees) {
-      const b = document.createElement('button');
-      b.innerHTML = `<img src="images/${im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
-      b.addEventListener('click', () => {
-        fermerGalerie();
-        ouvrirImage('images/' + im.fichier, im.nom);
-      });
-      gEl.appendChild(b);
-    }
+    return S.avecDelai(S.catalogueImages(), 1500, []).then(l => { galCatalogue = l; });
   }
   function ouvrirGalerie() {
-    rendreGalerie();
-    $('modale').hidden = false;
+    ouvrirModale('Montrer une image', true, (corps) => {
+      corps.innerHTML = '<div id="galerie-dossiers" class="fil-ariane"></div><div id="galerie-grille" class="palette"></div>';
+      construirePickerImages($('galerie-dossiers'), $('galerie-grille'), galChemin, (im) => {
+        fermerModale();
+        ouvrirImage('images/' + im.fichier, im.nom);
+      });
+    });
   }
-  function fermerGalerie() { $('modale').hidden = true; }
   $('b-galerie').addEventListener('click', ouvrirGalerie);
-  $('b-fermer-galerie').addEventListener('click', fermerGalerie);
-  $('modale').addEventListener('click', (e) => { if (e.target.id === 'modale') fermerGalerie(); });
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !$('modale').hidden) fermerGalerie();
-  });
   function dessinerJetons() {
     jetonsEl.innerHTML = '';
     for (const j of partie.jetons) {
       if (j.carte !== carte.id) continue;
       const d = document.createElement('div');
-      d.className = 'jeton'; d.dataset.id = j.id;
+      d.className = 'jeton'; d.dataset.id = j.id; d.dataset.pj = j.pj ? 'true' : 'false';
       d.style.left = j.x + 'px'; d.style.top = j.y + 'px';
       if (j.img) d.style.backgroundImage = `url("${j.img}")`;
       else { d.style.background = j.couleur; d.textContent = j.nom; }
@@ -211,6 +302,22 @@
     const cands = catalogue.filter(c => c.id === vers || S.slug(c.id) === v || S.slug(c.nom) === v);
     if (!cands.length) return null;
     return cands.find(c => c.source === 'locale') || cands[0];
+  }
+  /* Portail à moins d'une case du point donné (le jeton qu'on vient de lâcher) — ignore un
+     portail inerte (carte de destination introuvable), rien à déclencher. Une case entière,
+     pas une demi-case : les portails s'aimantent à la demi-case (acc(pt,true) dans l'éditeur)
+     mais les jetons à la case entière (voir plus bas) — deux grilles décalées, un portail posé
+     sur un multiple entier de la case reste alors à une demi-case pile du jeton le plus proche
+     possible. Un seuil trop juste (l'ancien : demi-case) ratait le déclenchement alors que le
+     jeton semblait visuellement posé dessus. */
+  function trouverPortailProche(pt) {
+    if (!carte) return null;
+    const seuil = cellule() || 40;
+    for (const p of carte.elements) {
+      if (p.type !== 'portail' || !resoudre(p.vers)) continue;
+      if (Math.hypot(pt.x - p.x, pt.y - p.y) <= seuil) return p;
+    }
+    return null;
   }
 
   function dessinerPins() {
@@ -277,6 +384,10 @@
       $('choix-carte').value = c.id;
       $('b-editer').href = 'editeur.html?' + (e.source === 'depot' ? 'depot=' + encodeURIComponent(c.id) + '.json' : 'id=' + encodeURIComponent(c.id));
       dessinerPlan(); dessinerFog(); dessinerJetons(); dessinerPins(); dessinerImages();
+      // pas dans la vraie fenêtre séparée : elle reste un pur miroir, jamais productrice
+      // d'état — un PJ déjà présent dans une pièce au chargement doit être détecté, mais
+      // uniquement par la fenêtre du MJ (voir le point 12 du skill sur les trois publics).
+      if (!vueJoueurs) verifierDeclencheurs();
       /* Sur téléphone, la barre d'outils se réorganise après le premier calcul de
          mise en page : on recadre une fois les dimensions définitives connues. */
       cadrer();
@@ -323,6 +434,16 @@
     setTimeout(() => p.remove(), 2100);
   }
   scene.addEventListener('dblclick', (e) => {
+    // double-clic sur un jeton : l'ouvrir en édition (étiquette, PJ, portrait, suppression),
+    // pas un ping — réservé au MJ et à la préview locale, jamais à la vraie fenêtre séparée.
+    const jet = e.target.closest('.jeton');
+    if (jet) {
+      if (!vueJoueurs) {
+        const j = partie.jetons.find(x => x.id === jet.dataset.id);
+        if (j) ouvrirDialogueJeton(j);
+      }
+      return;
+    }
     const w = versMonde(e.clientX, e.clientY);
     montrerPing(w.x, w.y);
     if (canal) canal.postMessage({ t: 'ping', x: w.x, y: w.y, carte: carte.id });
@@ -357,7 +478,9 @@
     if (!vueJoueurs && imgPin) {
       mode = 'img'; imgEnCours = { src: imgPin.dataset.src, titre: imgPin.title }; return;
     }
-    if (!vueJoueurs && jet && outil === 'deplacer') {
+    // un joueur peut déplacer son propre jeton PJ, même dans la vraie fenêtre séparée ;
+    // le MJ peut toujours déplacer n'importe quel jeton, depuis n'importe où.
+    if (jet && outil === 'deplacer' && (!vueJoueurs || jet.dataset.pj === 'true')) {
       mode = 'jeton'; jDrag = partie.jetons.find(j => j.id === jet.dataset.id);
       jet.classList.add('drag'); return;
     }
@@ -425,12 +548,29 @@
       return;
     }
     if (mode === 'jeton' && jDrag) {
+      // avant le repositionnement sur la grille ci-dessous : la position brute où le jeton a
+      // été lâché est plus fidèle à l'intention que sa case la plus proche (voir trouverPortailProche)
+      const portail = jDrag.pj ? trouverPortailProche(jDrag) : null;
       const c = cellule();
       if (bouge > 2 && c) {
         jDrag.x = Math.round((jDrag.x - c / 2) / c) * c + c / 2;
         jDrag.y = Math.round((jDrag.y - c / 2) / c) * c + c / 2;
       }
-      dessinerJetons(); sauverPartie(); jDrag = null;
+      dessinerJetons();
+      // true : un jeton qui bouge doit toujours se voir de l'autre côté, y compris quand
+      // c'est un joueur qui vient de le déplacer depuis la vraie fenêtre séparée.
+      sauverPartie(true);
+      if (jDrag.pj) {
+        verifierDeclencheurs();
+        // le groupe marche sur le losange : change de carte tout seul, PJ amenés avec lui
+        if (portail) {
+          const dest = resoudre(portail.vers);
+          toast('Passage : ' + (portail.label || dest.nom) + '…');
+          chargerCarte(portail.vers).then(() => { amenerPJ(); sauverPartie(true); })
+            .catch(() => toast('Carte introuvable.'));
+        }
+      }
+      jDrag = null;
     }
     if (mode === 'pin' && pinEnCours) {
       if (bouge <= 2) chargerCarte(pinEnCours).catch(() => toast('Carte introuvable.'));
@@ -466,6 +606,15 @@
     if (jet) {
       partie.jetons = partie.jetons.filter(j => j.id !== jet.dataset.id);
       dessinerJetons(); sauverPartie();
+      return;
+    }
+    const imgPin = e.target.closest('.img-pin');
+    if (imgPin && imgPin.dataset.id) { basculerRevele(imgPin.dataset.id); return; }
+    // secret : pas de calque HTML dédié, on retrouve l'élément via data-id dans le SVG du plan
+    const cible = e.target.closest('[data-id]');
+    if (cible) {
+      const el = M.trouver(carte, cible.dataset.id);
+      if (el && el.type === 'secret') basculerRevele(el.id);
     }
   });
 
@@ -477,6 +626,38 @@
     partie.fog[carte.id] = [{ m: 'reveal', x: carte.taille.w / 2, y: carte.taille.h / 2,
       r: Math.max(carte.taille.w, carte.taille.h) }];
     dessinerFog(); sauverPartie(); toast('Terrain entièrement révélé.');
+  });
+  /* Repartir à neuf sur cette carte pour une nouvelle table (d'autres joueurs) : brouillard,
+     révélations et jetons sont une session, pas une donnée de la carte (voir README) — mais
+     rien ne les remettait à zéro jusqu'ici, un groupe suivant héritait du brouillard et des
+     révélations du précédent. Ne touche qu'à la carte affichée, jamais aux autres.
+     Trois cases plutôt qu'un confirm() global : le brouillard représente souvent des heures
+     d'exploration qu'on ne veut pas perdre juste pour corriger une révélation isolée — décoché
+     par défaut, contrairement aux révélations et aux jetons (le cas le plus courant : rejouer
+     la carte avec un nouveau groupe). Un clic droit direct sur un seul élément reste le moyen
+     le plus rapide de ne corriger que lui, sans passer par cette boîte. */
+  $('b-reinitialiser').addEventListener('click', () => {
+    ouvrirModale('Réinitialiser « ' + carte.nom + ' »', false, (corps) => {
+      corps.innerHTML = `
+        <p class="aide">Ne touche que cette carte ; les autres cartes de la campagne ne sont pas concernées.</p>
+        <label class="coche"><input id="r-fog" type="checkbox"> Brouillard (tout redevient caché)</label>
+        <label class="coche"><input id="r-reveles" type="checkbox" checked> Révélations (secrets, images redeviennent cachés)</label>
+        <label class="coche"><input id="r-jetons" type="checkbox" checked> Jetons posés sur cette carte</label>
+        <div class="actions-modale">
+          <button id="r-annuler">Annuler</button>
+          <button id="r-ok" class="danger">Réinitialiser</button>
+        </div>`;
+      $('r-annuler').addEventListener('click', fermerModale);
+      $('r-ok').addEventListener('click', () => {
+        const touche = [];
+        if ($('r-fog').checked) { partie.fog[carte.id] = []; touche.push('brouillard'); }
+        if ($('r-reveles').checked) { partie.reveles[carte.id] = []; touche.push('révélations'); }
+        if ($('r-jetons').checked) { partie.jetons = partie.jetons.filter(j => j.carte !== carte.id); touche.push('jetons'); }
+        dessinerFog(); dessinerJetons(); dessinerPlan(); dessinerImages(); sauverPartie(true);
+        fermerModale();
+        toast(touche.length ? 'Réinitialisé : ' + touche.join(', ') + '.' : 'Rien à réinitialiser.');
+      });
+    });
   });
   /* Vignette carrée recadrée au centre, en data URL — un chemin de fichier local
      (file:///…) ne se charge jamais depuis une page servie en http(s) : on lit
@@ -498,50 +679,120 @@
     });
   }
 
-  $('b-jeton').addEventListener('click', () => {
-    const nom = (prompt('Étiquette du jeton (1-2 caractères) :', 'E') || '').trim().slice(0, 2);
-    if (!nom) return;
-    const creerJeton = (img) => {
-      const pj = confirm('Est-ce un PJ ?\n\nOK = PJ (suivra le groupe de carte en carte)\nAnnuler = PNJ ou ennemi');
-      const r = scene.getBoundingClientRect();
-      const c = versMonde(r.left + r.width / 2, r.top + r.height / 2);
-      partie.jetons.push({
-        id: 'j' + Date.now(), nom: nom, pj: pj,
-        couleur: COULEURS[partie.jetons.length % COULEURS.length],
-        img: img || undefined,
-        x: Math.round(c.x), y: Math.round(c.y), carte: carte.id,
+  /* Une seule boîte de dialogue au lieu d'une chaîne de 4 popups navigateur (étiquette,
+     adresse d'image, confirmation de fichier, confirmation PJ) : illisible sur mobile,
+     bloquant, sans retour arrière possible. Portrait choisi dans la galerie du dépôt
+     (comme les icônes d'image du plan) ou importé depuis l'appareil ; les deux restent
+     facultatifs, un jeton sans image est un simple disque de couleur.
+     jetonExistant (facultatif) : édite ce jeton au lieu d'en créer un — double-clic dessus
+     sur le plan (voir plus haut) ; permet aussi de corriger sa case PJ sans le recréer, et
+     de le supprimer. */
+  function ouvrirDialogueJeton(jetonExistant) {
+    ouvrirModale(jetonExistant ? 'Modifier le jeton' : 'Nouveau jeton', true, (corps) => {
+      corps.innerHTML = `
+        <div class="champ"><label>Étiquette</label><input id="j-nom" type="text" maxlength="2" placeholder="J"></div>
+        <label class="coche"><input id="j-pj" type="checkbox"> PJ — suit le groupe de carte en carte</label>
+        <p class="aide">Portrait (facultatif, sinon disque de couleur) :</p>
+        <div id="j-preview"></div>
+        <button id="j-depuis-appareil">📁 Depuis cet appareil</button>
+        <div id="j-dossiers" class="fil-ariane"></div>
+        <div id="j-grille" class="palette"></div>
+        <div class="actions-modale">
+          ${jetonExistant ? '<button id="j-supprimer" class="danger">✕ Supprimer</button>' : ''}
+          <button id="j-annuler">Annuler</button>
+          <button id="j-creer" class="primaire">${jetonExistant ? 'Enregistrer' : 'Créer'}</button>
+        </div>`;
+      $('j-nom').value = jetonExistant ? jetonExistant.nom : '';
+      $('j-pj').checked = jetonExistant ? !!jetonExistant.pj : true;
+      $('j-nom').focus();
+      let img = jetonExistant ? (jetonExistant.img || null) : null;
+      const preview = $('j-preview');
+      const choisir = (src, libelle) => {
+        img = src;
+        preview.innerHTML = '';
+        const ap = document.createElement('img'); ap.src = src; ap.alt = '';
+        ap.style.cssText = 'width:40px;height:40px;object-fit:cover;border-radius:50%;'
+          + 'border:2px solid var(--or);vertical-align:middle;margin-right:6px';
+        preview.appendChild(ap);
+        preview.appendChild(document.createTextNode(libelle));
+        preview.appendChild(bouton('✕', () => { img = null; preview.innerHTML = ''; }));
+      };
+      if (img) choisir(img, 'portrait actuel');
+      construirePickerImages($('j-dossiers'), $('j-grille'), [], (im) => choisir('images/' + im.fichier, im.nom || im.fichier));
+      $('j-depuis-appareil').addEventListener('click', () => {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'image/*';
+        input.addEventListener('change', () => {
+          const f = input.files[0]; if (!f) return;
+          const fr = new FileReader();
+          fr.onload = () => vignette(fr.result).then(durl => choisir(durl, f.name)).catch(() => toast('Image illisible.'));
+          fr.readAsDataURL(f);
+        });
+        input.click();
       });
-      dessinerJetons(); sauverPartie();
-    };
-    const url = (prompt('Image du jeton : colle une adresse http(s) (vide = choisir un fichier '
-      + 'sur cet appareil, ou passer) :', '') || '').trim();
-    if (/^https?:\/\//i.test(url)) { creerJeton(url); return; }
-    if (url) toast('Adresse ignorée : seule une adresse http(s) fonctionne ici, pas un chemin local.');
-    if (!confirm('Choisir une image sur cet appareil pour ce jeton ?\n\n'
-        + 'OK = ouvrir le sélecteur de fichier\nAnnuler = disque de couleur uni')) { creerJeton(''); return; }
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.addEventListener('change', () => {
-      const f = input.files[0];
-      if (!f) { creerJeton(''); return; }
-      const fr = new FileReader();
-      fr.onload = () => vignette(fr.result).then(creerJeton).catch(() => creerJeton(''));
-      fr.onerror = () => creerJeton('');
-      fr.readAsDataURL(f);
+      if (jetonExistant) $('j-supprimer').addEventListener('click', () => {
+        partie.jetons = partie.jetons.filter(j => j.id !== jetonExistant.id);
+        dessinerJetons(); sauverPartie(true); fermerModale();
+        toast('Jeton supprimé.');
+      });
+      $('j-annuler').addEventListener('click', fermerModale);
+      $('j-creer').addEventListener('click', () => {
+        const nom = ($('j-nom').value || 'J').trim().slice(0, 2) || 'J';
+        const pj = $('j-pj').checked;
+        if (jetonExistant) {
+          jetonExistant.nom = nom; jetonExistant.pj = pj; jetonExistant.img = img || undefined;
+          dessinerJetons(); sauverPartie(true); fermerModale();
+          toast('Jeton mis à jour' + (pj ? ' (PJ).' : '.'));
+          return;
+        }
+        const r = scene.getBoundingClientRect();
+        const c = versMonde(r.left + r.width / 2, r.top + r.height / 2);
+        partie.jetons.push({
+          id: 'j' + Date.now(), nom: nom, pj: pj,
+          couleur: COULEURS[partie.jetons.length % COULEURS.length],
+          img: img || undefined,
+          x: Math.round(c.x), y: Math.round(c.y), carte: carte.id,
+        });
+        dessinerJetons(); sauverPartie(); fermerModale();
+        toast('Jeton créé' + (pj ? ' (PJ).' : '.'));
+      });
     });
-    input.addEventListener('cancel', () => creerJeton(''));
-    input.click();
+  }
+  /* + Jeton : un clic, un jeton PJ, c'est tout — pas de dialogue. Le renommer, lui donner
+     un portrait, le marquer PNJ ou le supprimer se fait ensuite par double-clic dessus
+     (ouvrirDialogueJeton, juste au-dessus), pas au moment de la création. Disponible aussi
+     en préview locale (chaque joueur peut créer son propre jeton) — voir table.html, exempté
+     du masquage de #barre-mj ; sauverPartie(true) pour que ça remonte bien jusqu'au MJ. */
+  $('b-jeton').addEventListener('click', () => {
+    const n = partie.jetons.filter(j => j.carte === carte.id).length + 1;
+    const r = scene.getBoundingClientRect();
+    const c = versMonde(r.left + r.width / 2, r.top + r.height / 2);
+    partie.jetons.push({
+      id: 'j' + Date.now(), nom: ('J' + n).slice(0, 2), pj: true,
+      couleur: COULEURS[partie.jetons.length % COULEURS.length],
+      x: Math.round(c.x), y: Math.round(c.y), carte: carte.id,
+    });
+    dessinerJetons(); sauverPartie(true);
+    toast('Jeton PJ créé — double-clic dessus pour le personnaliser.');
   });
-  $('b-amener').addEventListener('click', () => {
+
+  /* Amène les jetons PJ sur la carte affichée (bouton, et après un passage de portail
+     déclenché par un jeton PJ — voir trouverPortailProche). */
+  function amenerPJ() {
     const pjs = partie.jetons.filter(j => j.pj);
-    if (!pjs.length) { toast('Aucun jeton marqué « PJ ».'); return; }
+    if (!pjs.length) return 0;
     const pas = cellule() || 40;
     pjs.forEach((j, i) => {
       j.carte = carte.id;
       j.x = Math.round(carte.taille.w / 2 + (i - (pjs.length - 1) / 2) * pas);
       j.y = Math.round(carte.taille.h - pas * .9);
     });
-    dessinerJetons(); sauverPartie(); toast(pjs.length + ' jeton(s) de PJ amené(s) ici.');
+    dessinerJetons(); sauverPartie(); verifierDeclencheurs();
+    return pjs.length;
+  }
+  $('b-amener').addEventListener('click', () => {
+    const n = amenerPJ();
+    toast(n ? n + ' jeton(s) de PJ amené(s) ici.' : 'Aucun jeton marqué « PJ ».');
   });
   $('b-vue').addEventListener('click', () => {
     const j = document.body.dataset.vue === 'joueurs';

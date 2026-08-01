@@ -25,13 +25,21 @@
   #barre-joueurs{display:flex;gap:6px}
   /* En préview locale (un seul écran, montré directement aux joueurs — typiquement un MJ
      solo sur portable, sans second écran), les outils de plan doivent rester utilisables :
-     déplacer/recadrer, révéler/cacher le brouillard, tout couvrir/révéler, mesurer, et
-     #b-vue pour repasser en vue MJ. Le reste (jetons, galerie, édition, bibliothèque)
-     reste des outils de préparation, sans rapport avec ce qui se montre à l'écran, donc
-     masqué. Le geste de pinceau lui-même ne vérifie que la vraie fenêtre joueurs
+     déplacer/recadrer, révéler/cacher le brouillard, tout couvrir/révéler, mesurer, #b-vue
+     pour repasser en vue MJ, et #b-galerie pour montrer une illustration (« il y a
+     quelqu'un ici ») — c'est justement l'écran qu'on montre aux joueurs, le bon moment
+     pour la déclencher. Le reste (jetons, édition, bibliothèque) reste des outils de
+     préparation, sans rapport avec ce qui se montre à l'écran, donc masqué. Le geste de
+     pinceau et le clic sur une icône d'image ne vérifient que la vraie fenêtre joueurs
      (`?vue=joueurs`, la variable `vueJoueurs`), jamais cette préview locale : rien à
      changer côté interactions, seuls les boutons étaient cachés en trop. */
-  body[data-vue="joueurs"] #barre-mj > *:not([data-o]):not(#b-annuler-fog):not(#b-couvrir):not(#b-decouvrir):not(#b-cadrer):not(#b-vue){display:none}
+  body[data-vue="joueurs"] #barre-mj > *:not([data-o]):not(#b-annuler-fog):not(#b-couvrir):not(#b-decouvrir):not(#b-cadrer):not(#b-vue):not(#b-galerie):not(#b-jeton){display:none}
+  /* la vraie fenêtre séparée n'a droit à AUCUN outil MJ, contrairement à la préview locale
+     ci-dessus : elle doit rester un pur miroir. Plus spécifique que la règle du dessus
+     (deux sélecteurs dont un id, contre un id + une classe d'attribut) : l'emporte pour
+     #barre-mj lui-même, et un parent display:none masque tous ses enfants quel que soit
+     leur propre display — inutile de refaire la liste d'exceptions à l'envers. */
+  body.fenetre-joueurs #barre-mj{display:none}
   body[data-vue="mj"] #barre-joueurs{display:none}
 
   #pins{pointer-events:none;width:100%;height:100%}
@@ -46,14 +54,22 @@
   /* fenêtre projetée : rien n'y est manipulable */
   body[data-vue="joueurs"] #choix-carte{pointer-events:none;opacity:.75}
 
-  /* icônes d'illustration (créatures, lieux) : réservées au MJ, jamais montrées
-     ni cliquables côté joueurs — sinon leur seule présence serait un indice. */
+  /* icônes d'illustration (créatures, lieux) : réservées au MJ tant que non révélées
+     (clic droit dessus — voir basculerRevele) : leur seule présence trahirait « il y a
+     quelque chose ici ». Un clic (gauche) ouvre la lightbox — c'est le mécanisme pour
+     révéler « il y a quelqu'un ici » au bon moment. Une fois révélée, l'icône reste
+     visible en permanence, y compris dans une vraie fenêtre séparée (?vue=joueurs) —
+     c'est le sens même de « rendre visible aux joueurs ». Cette fenêtre séparée reste en
+     revanche un simple miroir, jamais cliquable : c'est le MJ qui déclenche, depuis son
+     propre écran (classe .fenetre-joueurs, posée une fois pour toutes par table.js). */
   #images{pointer-events:none;width:100%;height:100%}
   .img-pin{position:absolute;width:0;height:0;pointer-events:auto;cursor:pointer}
   .img-pin .ic{position:absolute;left:-13px;top:-13px;width:26px;height:26px;border-radius:6px;
     background:var(--salle);border:1.6px solid var(--or);display:flex;align-items:center;justify-content:center;
     font-size:14px;box-shadow:0 0 8px rgba(0,0,0,.55)}
-  body[data-vue="joueurs"] #images{display:none}
+  .img-pin.revele .ic{border-color:#7fa070}
+  body[data-vue="joueurs"] .img-pin:not(.revele){opacity:0}
+  body.fenetre-joueurs .img-pin{pointer-events:none;cursor:default}
 
   /* lightbox : agrandit l'image au clic, le plan reste visible en dessous */
   #lightbox{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -63,18 +79,17 @@
     border:1px solid var(--bord-clair);box-shadow:0 10px 40px rgba(0,0,0,.7)}
   #lightbox .legende{color:var(--or);font:italic 15px var(--serif);text-align:center;margin:0}
   #lightbox .legende:empty{display:none}
-  /* comme .mj-only : ne pas compter sur le seul bouton déclencheur (masqué avec
-     #barre-mj) pour empêcher la fenêtre joueurs de voir une image en cours de
-     préparation — la fenêtre plan et grand écran l'affichent chacune elles-mêmes. */
-  body[data-vue="joueurs"] #lightbox{display:none !important}
+  /* réservée à la vraie fenêtre séparée (voir plus haut) : la préview locale doit
+     pouvoir l'afficher, c'est tout l'intérêt de #b-galerie et du clic sur une icône. */
+  body.fenetre-joueurs #lightbox{display:none !important}
 
-  /* galerie : montrer une illustration sans passer par le plan (un PNJ important
-     apparaît hors carte, ou pas de carte affichée à ce moment). Réutilise le
-     modale générique de commun.css, juste un peu plus large pour la grille. */
+  /* boîte de dialogue générique (galerie d'images, nouveau jeton…) : réutilise le modale
+     de commun.css, avec une variante plus large (.large) pour une grille d'images. */
   #modale.large .boite{width:min(560px,94vw);max-height:86vh;overflow-y:auto}
-  #modale .entete-galerie{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-  #modale .entete-galerie h3{margin:0}
-  body[data-vue="joueurs"] #modale{display:none !important}
+  #modale .entete-modale{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  #modale .entete-modale h3{margin:0}
+  #modale .aide{margin:6px 0}
+  body.fenetre-joueurs #modale{display:none !important}
 
   #jetons{width:100%;height:100%;pointer-events:none}
   .jeton{position:absolute;width:32px;height:32px;margin:-16px 0 0 -16px;border-radius:50%;
@@ -82,7 +97,11 @@
     cursor:grab;font:700 15px var(--ui);color:#100d08;background-size:cover;background-position:center;
     box-shadow:0 2px 6px rgba(0,0,0,.6),inset 0 0 0 1.5px rgba(255,255,255,.35);touch-action:none}
   .jeton.drag{cursor:grabbing;box-shadow:0 6px 14px rgba(0,0,0,.8);z-index:5}
-  body[data-vue="joueurs"] .jeton{pointer-events:none}
+  /* réservé aux jetons PJ, et seulement dans la vraie fenêtre séparée : la préview locale
+     du MJ (même écran) doit rester entièrement manipulable, comme le reste des outils
+     exemptés plus haut — c'est là-dessus que ce bug se voyait (un clic sur le jeton
+     n'atteignait même pas le code, pointer-events:none l'empêchait). */
+  body.fenetre-joueurs .jeton:not([data-pj="true"]){pointer-events:none}
 
   #sur{pointer-events:none;width:100%;height:100%}
   .ping{position:absolute;width:0;height:0}
@@ -135,6 +154,8 @@
     <button id="b-jeton" title="Ajouter un jeton">+ Jeton</button>
     <button id="b-amener" title="Amener les jetons des PJ sur cette carte">⇄ PJ</button>
     <span class="sep"></span>
+    <button id="b-reinitialiser" class="danger" title="Remettre cette carte à neuf pour une nouvelle table : brouillard, révélations et jetons de cette carte">↺ Réinitialiser cette carte</button>
+    <span class="sep"></span>
     <button id="b-galerie" title="Montrer une illustration sans la poser sur le plan">🖼 Galerie</button>
     <span class="sep"></span>
     <button id="b-vue" title="Prévisualiser ce que voient les joueurs (G)">Vue joueurs</button>
@@ -148,14 +169,14 @@
 </header>
 <div id="toast"></div>
 
-<div id="modale" class="large" hidden>
+<!-- boîte de dialogue générique : galerie d'images, nouveau jeton… (voir ouvrirModale() dans table.js) -->
+<div id="modale" hidden>
   <div class="boite">
-    <div class="entete-galerie">
-      <h3>Montrer une image</h3>
-      <button id="b-fermer-galerie" title="Fermer (Échap)">✕</button>
+    <div class="entete-modale">
+      <h3 id="modale-titre"></h3>
+      <button id="b-fermer-modale" title="Fermer (Échap)">✕</button>
     </div>
-    <div id="galerie-dossiers" class="filtre-dossier"></div>
-    <div id="galerie-grille" class="palette"></div>
+    <div id="modale-corps"></div>
   </div>
 </div>
 
@@ -174,8 +195,11 @@
 </div>
 
 <div id="aide-jeu">molette : zoom · glisser le fond : déplacer · <b>clic sur un losange doré : changer de carte</b> ·
-<b>clic sur 🖼 : afficher l’image</b> · double-clic : ping · Ctrl+Z : annuler le dernier geste de brouillard ·
-clic droit sur un jeton : le retirer · fenêtre pour la TV : ajouter <b>?vue=joueurs</b> à l’adresse</div>
+<b>un jeton PJ glissé sur un losange doré change de carte tout seul</b> ·
+<b>double-clic sur un jeton : le modifier (étiquette, PJ, portrait, suppression)</b> ·
+<b>clic sur 🖼 : afficher l’image</b> · <b>clic droit sur 🖼 ou un secret : le révéler aux joueurs</b> ·
+double-clic : ping · Ctrl+Z : annuler le dernier geste de brouillard · clic droit sur un jeton : le retirer ·
+fenêtre pour la TV : ajouter <b>?vue=joueurs</b> à l’adresse</div>
 
 <script src="js/modele.js"></script>
 <script src="js/rendu.js"></script>

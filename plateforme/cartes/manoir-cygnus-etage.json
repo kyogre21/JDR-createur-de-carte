@@ -598,7 +598,8 @@
       "y": 314,
       "w": 24,
       "h": 10,
-      "nature": "trappe → cave"
+      "nature": "trappe → cave",
+      "auto": false
     },
     {
       "id": "pt1",

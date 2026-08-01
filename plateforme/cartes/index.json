@@ -8,6 +8,10 @@
     {
       "fichier": "manoir-cygnus-etage.json",
       "nom": "Manoir Cygnus — Étage"
+    },
+    {
+      "fichier": "village.json",
+      "nom": "Village"
     }
   ]
 }

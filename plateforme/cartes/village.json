@@ -1,0 +1,267 @@
+{
+  "format": 1,
+  "id": "village",
+  "nom": "Village",
+  "campagne": "Forêt Noire",
+  "taille": {
+    "w": 900,
+    "h": 700
+  },
+  "grille": {
+    "cell": 0,
+    "metres": 1.5
+  },
+  "elements": [
+    {
+      "id": "p1",
+      "type": "piece",
+      "x": 120,
+      "y": 60,
+      "w": 160,
+      "h": 110,
+      "nom": "Auberge"
+    },
+    {
+      "id": "p2",
+      "type": "piece",
+      "x": 340,
+      "y": 75,
+      "w": 110,
+      "h": 95,
+      "nom": "Apothicaire"
+    },
+    {
+      "id": "p3",
+      "type": "piece",
+      "x": 500,
+      "y": 85,
+      "w": 85,
+      "h": 85,
+      "nom": "Maison"
+    },
+    {
+      "id": "p4",
+      "type": "piece",
+      "x": 615,
+      "y": 90,
+      "w": 85,
+      "h": 80,
+      "nom": "Maison"
+    },
+    {
+      "id": "p5",
+      "type": "piece",
+      "x": 200,
+      "y": 245,
+      "w": 90,
+      "h": 80,
+      "nom": "Maison"
+    },
+    {
+      "id": "p6",
+      "type": "piece",
+      "x": 420,
+      "y": 245,
+      "w": 150,
+      "h": 115,
+      "nom": "Maison du bourgmestre"
+    },
+    {
+      "id": "p7",
+      "type": "piece",
+      "x": 700,
+      "y": 380,
+      "w": 95,
+      "h": 75,
+      "nom": "Maison"
+    },
+    {
+      "id": "m1",
+      "type": "mur",
+      "x1": 0,
+      "y1": 185,
+      "x2": 900,
+      "y2": 185,
+      "ep": 3
+    },
+    {
+      "id": "m2",
+      "type": "mur",
+      "x1": 0,
+      "y1": 235,
+      "x2": 900,
+      "y2": 235,
+      "ep": 3
+    },
+    {
+      "id": "m3",
+      "type": "mur",
+      "x1": 650,
+      "y1": 235,
+      "x2": 650,
+      "y2": 650,
+      "ep": 3
+    },
+    {
+      "id": "m4",
+      "type": "mur",
+      "x1": 690,
+      "y1": 235,
+      "x2": 690,
+      "y2": 650,
+      "ep": 3
+    },
+    {
+      "id": "o1",
+      "type": "objet",
+      "sym": "colline",
+      "x": 670,
+      "y": 560,
+      "w": 380,
+      "h": 280,
+      "rot": 0
+    },
+    {
+      "id": "o2",
+      "type": "objet",
+      "sym": "puits",
+      "x": 610,
+      "y": 290,
+      "w": 30,
+      "h": 30,
+      "rot": 0
+    },
+    {
+      "id": "o3",
+      "type": "objet",
+      "sym": "arbre",
+      "x": 520,
+      "y": 480,
+      "w": 28,
+      "h": 28,
+      "rot": 0
+    },
+    {
+      "id": "o4",
+      "type": "objet",
+      "sym": "arbre",
+      "x": 560,
+      "y": 650,
+      "w": 28,
+      "h": 28,
+      "rot": 0
+    },
+    {
+      "id": "o5",
+      "type": "objet",
+      "sym": "arbre",
+      "x": 800,
+      "y": 500,
+      "w": 28,
+      "h": 28,
+      "rot": 0
+    },
+    {
+      "id": "o6",
+      "type": "objet",
+      "sym": "arbre",
+      "x": 820,
+      "y": 630,
+      "w": 28,
+      "h": 28,
+      "rot": 0
+    },
+    {
+      "id": "n1",
+      "type": "numero",
+      "x": 200,
+      "y": 150,
+      "num": 1
+    },
+    {
+      "id": "n2",
+      "type": "numero",
+      "x": 395,
+      "y": 150,
+      "num": 2
+    },
+    {
+      "id": "n3",
+      "type": "numero",
+      "x": 495,
+      "y": 335,
+      "num": 3
+    },
+    {
+      "id": "n4",
+      "type": "numero",
+      "x": 747,
+      "y": 435,
+      "num": 4
+    },
+    {
+      "id": "t1",
+      "type": "texte",
+      "x": 670,
+      "y": 445,
+      "texte": "Colline",
+      "style": "lbl"
+    },
+    {
+      "id": "t2",
+      "type": "texte",
+      "x": 50,
+      "y": 175,
+      "texte": "route vers l'ouest",
+      "style": "tiny"
+    },
+    {
+      "id": "t3",
+      "type": "texte",
+      "x": 850,
+      "y": 175,
+      "texte": "route vers l'est",
+      "style": "tiny"
+    },
+    {
+      "id": "t4",
+      "type": "texte",
+      "x": 670,
+      "y": 300,
+      "texte": "route de la colline",
+      "style": "tiny",
+      "rot": -90
+    },
+    {
+      "id": "pt1",
+      "type": "portail",
+      "x": 670,
+      "y": 650,
+      "vers": "manoir-cygnus-rdc",
+      "label": "Manoir"
+    }
+  ],
+  "cle": [
+    {
+      "num": 1,
+      "titre": "Auberge",
+      "desc": "Chambres pour voyageurs et grande salle commune ; le tenancier connaît toutes les rumeurs du village."
+    },
+    {
+      "num": 2,
+      "titre": "Apothicaire",
+      "desc": "Herbes, onguents et potions ; sait identifier poisons et maladies."
+    },
+    {
+      "num": 3,
+      "titre": "Maison du bourgmestre",
+      "desc": "La plus grande demeure du village ; le bourgmestre y reçoit les visiteurs de passage."
+    },
+    {
+      "num": 4,
+      "titre": "Maison au pied de la colline",
+      "desc": "Dernière maison avant la route qui grimpe vers le manoir ; ses habitants surveillent les allées et venues."
+    }
+  ],
+  "pins": []
+}

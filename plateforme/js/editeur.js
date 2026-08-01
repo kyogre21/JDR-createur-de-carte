@@ -16,8 +16,7 @@
   let symChoisi = 'table';
   let imgCatalogue = [];          // images/index.json : illustrations disponibles dans le dépôt
   let imgChoisi = null;
-  let imgDossier;                 // sous-dossier affiché dans la palette ; undefined = pas encore choisi,
-                                   // null = « Toutes », '' = fichiers sans sous-dossier
+  let imgChemin = [];             // navigation dans le catalogue (chemin de dossiers) ; [] = racine
   let vueMJ = true;
   let cam = { s: 1, tx: 0, ty: 0 };
   const calquesVis = { grille: true, structure: true, mobilier: true, annotations: true, secrets: true };
@@ -65,13 +64,7 @@
   function chargerImages() {
     return S.avecDelai(S.catalogueImages(), 1500, []).then(l => {
       imgCatalogue = l;
-      // par défaut, ouvrir sur le premier dossier plutôt que sur la liste complète :
-      // avec plusieurs dizaines d'images, tout montrer d'un coup n'est pas utilisable.
-      if (imgDossier === undefined) {
-        const dossiers = [...new Set(l.map(im => im.dossier || ''))];
-        imgDossier = dossiers.length ? dossiers[0] : null;
-      }
-      if (!imgChoisi && l.length) imgChoisi = l.find(im => (im.dossier || '') === imgDossier) || l[0];
+      if (!imgChoisi && l.length) imgChoisi = l[0];
     });
   }
 
@@ -460,6 +453,13 @@
     if (cls) b.className = cls;
     b.addEventListener('click', onc); return b;
   }
+  function caseACocher(label, val, onch) {
+    const l = document.createElement('label'); l.className = 'coche';
+    const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !!val;
+    i.addEventListener('change', () => { onch(i.checked); apresModif(); dessiner(); });
+    l.appendChild(i); l.appendChild(document.createTextNode(label));
+    return l;
+  }
 
   function majPanneau() {
     const p = $('props'); p.innerHTML = '';
@@ -532,8 +532,13 @@
     } else if (el.type === 'secret') {
       p.appendChild(champ('Nature', inputTxt(el.nature, v => el.nature = v)));
       p.appendChild(champ('L / H', duo(el.w, el.h, (a, b) => { el.w = a; el.h = b; })));
+      p.appendChild(caseACocher('Révélation automatique (un PJ entre dans la pièce)',
+        el.auto !== false, v => el.auto = v));
       p.appendChild(document.createRange().createContextualFragment(
-        '<p class="aide">Les secrets ne sont visibles qu’en vue MJ : ils disparaissent de la vue joueurs et des exports en vue joueurs.</p>'));
+        '<p class="aide">Les secrets ne sont visibles qu’en vue MJ : ils disparaissent de la vue joueurs et '
+        + 'des exports en vue joueurs. Décoche la révélation automatique pour un secret qui ne doit jamais '
+        + 'se dévoiler tout seul (une trappe cachée, par ex.) — clic droit dessus, en mode Jeu, reste toujours '
+        + 'possible pour le révéler à la main.</p>'));
     } else if (el.type === 'image') {
       const prev = document.createElement('img');
       prev.src = el.src; prev.alt = el.nom || '';
@@ -541,6 +546,8 @@
         + 'display:block;margin-bottom:8px;border:1px solid var(--bord-clair);background:#000';
       p.appendChild(prev);
       p.appendChild(champ('Légende', inputTxt(el.nom, v => el.nom = v)));
+      p.appendChild(caseACocher('Révélation automatique (un PJ entre dans la pièce)',
+        el.auto !== false, v => el.auto = v));
       p.appendChild(document.createRange().createContextualFragment(
         '<p class="aide">Cette icône n’apparaît qu’en vue MJ (éditeur et table de jeu), jamais en vue '
         + 'joueurs. En mode Jeu, un clic dessus affiche l’image en grand par-dessus le plan.</p>'));
@@ -580,39 +587,44 @@
 
   /* Palette d'illustrations (catalogue du dépôt, images/index.json). Sans onPick,
      choisit l'image à poser (outil Image) ; avec onPick, sert à remplacer l'image
-     d'un élément déjà posé (voir majPanneau, cas 'image'). Un sélecteur de dossier
-     filtre la liste : avec plusieurs dizaines d'images, tout montrer en vrac ne sert
-     à rien si elles sont déjà rangées par thème/campagne dans plateforme/images/. */
+     d'un élément déjà posé (voir majPanneau, cas 'image'). Navigation par dossiers
+     (fil d'ariane + sous-dossiers cliquables, via imgChemin) : avec des images rangées
+     en sous-dossiers dans plateforme/images/, il faut pouvoir descendre dedans, pas
+     seulement choisir parmi un premier niveau à plat. */
   function paletteImages(p, onPick, actifFichier) {
     onPick = onPick || ((im) => { imgChoisi = im; majPanneau(); });
     if (actifFichier === undefined) actifFichier = imgChoisi && imgChoisi.fichier;
 
-    const dossiers = [...new Set(imgCatalogue.map(im => im.dossier || ''))];
-    if (dossiers.length > 1) {
-      const rangee = document.createElement('div'); rangee.className = 'filtre-dossier';
-      const boutonDossier = (val, label) => {
-        const b = bouton(label, () => { imgDossier = val; majPanneau(); });
-        if (imgDossier === val) b.classList.add('actif');
-        return b;
-      };
-      rangee.appendChild(boutonDossier(null, 'Toutes'));
-      for (const d of dossiers) rangee.appendChild(boutonDossier(d, d || 'Sans dossier'));
-      p.appendChild(rangee);
+    if (!imgCatalogue.length) {
+      const t = document.createElement('p'); t.className = 'aide';
+      t.textContent = 'Aucune image dans le dépôt : dépose un fichier (ou un dossier) dans '
+        + 'plateforme/images/, lance « node generer-catalogue-images.js », puis committe '
+        + '(voir le README).';
+      p.appendChild(t);
+      return;
     }
 
-    const filtrees = imgDossier === null ? imgCatalogue
-      : imgCatalogue.filter(im => (im.dossier || '') === imgDossier);
+    p.appendChild(filAriane(imgChemin, (c) => { imgChemin = c; majPanneau(); }));
 
+    const { dossiers, images } = S.arboreImages(imgCatalogue, imgChemin);
+    if (!dossiers.length && !images.length) {
+      const t = document.createElement('p'); t.className = 'aide';
+      t.textContent = 'Dossier vide.';
+      p.appendChild(t);
+      return;
+    }
     const t = document.createElement('p'); t.className = 'aide';
-    t.textContent = !imgCatalogue.length
-      ? 'Aucune image dans le dépôt : dépose un fichier (ou un dossier) dans plateforme/images/, '
-        + 'lance « node generer-catalogue-images.js », puis committe (voir le README).'
-      : filtrees.length ? 'Choisis une image, puis clique sur le plan pour poser son icône.'
-        : 'Aucune image dans ce dossier.';
+    t.textContent = 'Choisis une image (ou un dossier), puis clique sur le plan pour poser son icône.';
     p.appendChild(t);
-    if (!filtrees.length) return;
+
     const g = document.createElement('div'); g.className = 'palette';
-    for (const im of filtrees) {
+    for (const d of dossiers) {
+      const b = document.createElement('button'); b.className = 'dossier';
+      b.innerHTML = `<span class="ic-dossier">🗀</span><span>${d}</span>`;
+      b.addEventListener('click', () => { imgChemin = imgChemin.concat([d]); majPanneau(); });
+      g.appendChild(b);
+    }
+    for (const im of images) {
       const b = document.createElement('button');
       b.innerHTML = `<img src="images/${im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
       if (im.fichier === actifFichier) b.classList.add('actif');
@@ -620,6 +632,22 @@
       g.appendChild(b);
     }
     p.appendChild(g);
+  }
+  /* Fil d'ariane générique (dossiers d'images) : chemin = tableau de segments,
+     onNav(nouveauChemin) est appelé au clic sur un cran (y compris la racine). */
+  function filAriane(chemin, onNav) {
+    const fil = document.createElement('div'); fil.className = 'fil-ariane';
+    const racine = bouton('🗀 Toutes', () => onNav([]));
+    if (!chemin.length) racine.classList.add('actif');
+    fil.appendChild(racine);
+    chemin.forEach((seg, i) => {
+      const sep = document.createElement('span'); sep.className = 'fil-sep'; sep.textContent = '›';
+      fil.appendChild(sep);
+      const b = bouton(seg, () => onNav(chemin.slice(0, i + 1)));
+      if (i === chemin.length - 1) b.classList.add('actif');
+      fil.appendChild(b);
+    });
+    return fil;
   }
 
   function majCalques() {

@@ -33,6 +33,7 @@ KJ.modele = (function () {
     { id: 'trappe',     nom: 'Trappe (visible)', w: 36, h: 36 },
     { id: 'arbre',      nom: 'Arbre',          w: 28, h: 28 },
     { id: 'maison',     nom: 'Maison (vue de dessus)', w: 44, h: 30 },
+    { id: 'colline',    nom: 'Colline (courbes de niveau)', w: 220, h: 150 },
     { id: 'tableau',    nom: 'Tableau au mur', w: 32, h: 12 },
     { id: 'miroir',     nom: 'Miroir',         w: 26, h: 14 },
     { id: 'statue',     nom: 'Statue',         w: 26, h: 34 },
@@ -90,11 +91,15 @@ KJ.modele = (function () {
       case 'numero':  return Object.assign(base, { x: 0, y: 0, num: 1 }, p);
       case 'texte':   return Object.assign(base, { x: 0, y: 0, texte: 'Texte', style: 'lbl', rot: 0 }, p);
       case 'lumiere': return Object.assign(base, { x: 0, y: 0 }, p);
-      case 'secret':  return Object.assign(base, { x: 0, y: 0, w: 40, h: 20, nature: 'trappe' }, p);
+      // auto : révélation automatique aux joueurs quand un PJ entre dans la pièce qui
+      // contient l'élément (voir table.js, verifierDeclencheurs) — activée par défaut ;
+      // un élément qui ne doit jamais se révéler tout seul (une trappe secrète, par ex.)
+      // la désactive et reste uniquement révélable à la main (clic droit, en mode Jeu).
+      case 'secret':  return Object.assign(base, { x: 0, y: 0, w: 40, h: 20, nature: 'trappe', auto: true }, p);
       // portail : lien vers une autre carte (cliquable en mode Jeu)
       case 'portail': return Object.assign(base, { x: 0, y: 0, vers: '', label: '' }, p);
       // image : icône vers une illustration du dépôt (créature, lieu), cliquable en mode Jeu
-      case 'image':   return Object.assign(base, { x: 0, y: 0, w: 26, h: 26, src: '', nom: '' }, p);
+      case 'image':   return Object.assign(base, { x: 0, y: 0, w: 26, h: 26, src: '', nom: '', auto: true }, p);
       default: throw new Error('Type inconnu : ' + type);
     }
   }

@@ -98,8 +98,16 @@ button:disabled{opacity:.4;cursor:default}
 .palette svg{width:26px;height:26px}
 .palette svg *{fill:none;stroke:var(--encre);stroke-width:5;vector-effect:non-scaling-stroke}
 .palette img{width:26px;height:26px;object-fit:cover;border-radius:3px;display:block}
-.filtre-dossier{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
-.filtre-dossier button{font-size:10.5px;padding:4px 8px;min-height:26px}
+/* dossier navigable dans la palette d'images : même gabarit que les vignettes, une
+   icône à la place d'une image */
+.palette button.dossier{background:#241d14}
+.palette button.dossier .ic-dossier{font-size:21px;line-height:26px;display:block}
+/* fil d'ariane (navigation de dossiers) */
+.fil-ariane{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin-bottom:8px}
+.fil-ariane button{font-size:10.5px;padding:3px 7px;min-height:24px;background:transparent;border-color:transparent}
+.fil-ariane button:not(.actif):hover{background:#3a3126}
+.fil-ariane button.actif{background:var(--or);color:#161208;border-color:var(--or)}
+.fil-ariane .fil-sep{opacity:.45;font-size:11px;padding:0 1px}
 
 /* clé numérotée */
 .cle-ligne{display:flex;gap:5px;align-items:flex-start;margin:5px 0}

@@ -1,6 +1,6 @@
 ---
 name: plateforme-cartes
-description: À utiliser pour toute intervention sur Cartographe Knight, l'éditeur de cartes de JDR de ce projet — ajouter un outil ou un type d'élément, un symbole de mobilier, corriger le rendu, le brouillard, les portails, la bibliothèque, le stockage, publier le site. Déclencheurs : "ajoute un outil", "nouveau symbole", "l'éditeur/la table de jeu ne…", "le brouillard", "les portails", "publie la plateforme". Contient l'architecture, les invariants et le protocole de vérification obligatoire.
+description: À utiliser pour TOUTE intervention sur Cartographe Knight, l'éditeur de cartes de JDR de ce projet — corrections, mais aussi nouvelles fonctionnalités, refontes de design/interaction, ajout d'un outil ou d'un type d'élément, symbole de mobilier, brouillard, portails, bibliothèque, stockage, publication. Déclencheurs : "ajoute un outil", "nouveau symbole", "l'éditeur/la table de jeu ne…", "le brouillard", "les portails", "publie la plateforme", "refonte", "nouvelle fonctionnalité", "change le design/l'interface/l'interaction", "grosse modification". Contient l'architecture, les invariants, une check-list avant un gros changement, le protocole de vérification obligatoire, et le journal des pièges déjà rencontrés — à consulter avant d'en refaire un.
 ---
 
 # Cartographe Knight — développement de la plateforme
@@ -24,6 +24,43 @@ jeu, PDF de Codex). Ne jamais écrire de SVG de carte à la main.
 | ajouter un **symbole de mobilier** | une entrée dans `M.SYMBOLES` (modele.js) + son tracé dans `R.SYM` (rendu.js), viewBox `0 0 100 100`, `vector-effect:non-scaling-stroke` |
 | ajouter une **image** au catalogue | déposer le fichier (ou tout un dossier) dans `plateforme/images/`, puis `node generer-catalogue-images.js` — régénère `images/index.json` en entier à partir de ce qui s'y trouve, sous-dossiers compris ; jamais d'upload depuis l'appareil, pour rester fiable sur mobile |
 | faire évoluer le format | migrer **à la lecture** dans `depuisJSON()` (voir la migration `pins` → éléments `portail`) : les anciens fichiers doivent rester valides |
+
+## Avant un gros changement (design, fonctionnalité, interaction)
+
+Ce projet a déjà changé de forme plusieurs fois (voir « Erreurs commises » plus bas) ; la
+check-list ci-dessous synthétise ce qu'on a appris à chaque fois. Pour une modification qui
+touche plus qu'une correction locale, parcourir dans l'ordre :
+
+1. **Ça touche le format d'une carte ?** Repartir de l'invariant ci-dessus (le tableau). Un
+   nouveau champ doit être lu par `depuisJSON()` de façon rétrocompatible — jamais supposer qu'un
+   fichier existant l'a déjà.
+2. **Ça touche l'apparence ou l'interactivité d'un élément ?** `rendu.js` est la seule vérité
+   graphique, utilisée par les **trois** usages (éditeur, table, export SVG/PDF) — vérifier le
+   rendu dans chacun, pas seulement celui qu'on a sous les yeux en développant. Un élément qui a
+   besoin d'être cliquable en mode Jeu (comme les portails et les images) se dessine en HTML par
+   `table.js`, pas dans le SVG (`images:false`/`portails:false` passés à `R.dansSVG`) : décider dès
+   le départ si le nouvel élément suit ce même chemin.
+3. **Ça ajoute quelque chose de visible sur le plan ou la table ?** Décider **explicitement** sa
+   place dans l'ordre des couches (voir plus bas) et son statut MJ/joueurs : toujours visible ?
+   réservé au MJ (`mj:true` dans `CALQUES`) ? révélable (voir `opts.reveles`, point 13 plus bas) ?
+   Ne jamais laisser un élément « juste apparaître » sans avoir tranché cette question — c'est la
+   source de la moitié des pièges listés plus bas.
+4. **Ça ajoute un contrôle réservé au MJ dans `table.html` ?** Trois publics à distinguer, pas
+   deux : vue MJ, préview locale du MJ (même fenêtre, `data-vue` bascule), et vraie fenêtre
+   séparée (`?vue=joueurs`, classe `.fenetre-joueurs`). Un contrôle exempté pour la préview locale
+   n'est **pas** automatiquement bloqué dans la vraie fenêtre séparée (et inversement) — les deux
+   se décident indépendamment. Voir les points 9 et 12 plus bas ; c'est le piège le plus facile à
+   refaire.
+5. **Ça touche le style visuel ?** La charte vit à deux endroits qu'il faut garder synchronisés :
+   les variables CSS de `commun.css` (`:root`, éditeur/bibliothèque/table) et `styles(theme)` dans
+   `rendu.js` (le SVG des cartes, autonome, embarque sa propre feuille de style). Modifier l'un
+   sans l'autre désynchronise l'interface et le rendu des cartes.
+6. **Ça touche le mobile ?** L'appli est pensée pour être utilisée à table, sur téléphone —
+   vérifier à ~500 px (le minimum que Chrome headless accepte, voir plus bas), et se méfier de
+   `white-space:nowrap`/grilles CSS avec du texte variable (point 11).
+7. **Avant de livrer** : le protocole de vérification obligatoire, plus bas, n'est pas
+   optionnel pour un gros changement — un rendu qui a l'air bon dans un cas peut casser
+   silencieusement un des deux autres usages, ou la vue joueurs, ou le mobile.
 
 ## Architecture
 
@@ -54,9 +91,47 @@ Le groupement est appliqué dans la bibliothèque (titres + filtre persisté dan
 `kj-filtre-campagne`) et dans le sélecteur de la table (`<optgroup>`). Ne pas confondre avec
 la section « Cartes fournies avec l'application », qui désigne le dépôt et non une campagne.
 
-**Séparation des données** : une carte est une *donnée* (`cartes/*.json`, IndexedDB) ; le brouillard
-et les jetons sont une *session de partie* (`localStorage`, clé `kj-partie`). Modifier une carte ne
-doit jamais réinitialiser une partie en cours.
+**Séparation des données** : une carte est une *donnée* (`cartes/*.json`, IndexedDB) ; le brouillard,
+les jetons et les révélations sont une *session de partie* (`localStorage`, clé `kj-partie`, champs
+`fog`/`jetons`/`reveles`). Modifier une carte ne doit jamais réinitialiser une partie en cours.
+
+**Révélation d'un élément MJ (`opts.reveles`)** : deux déclencheurs, le même état. Manuel — clic
+droit sur l'icône (voir `basculerRevele()`). Automatique — `verifierDeclencheurs()`, appelée après
+tout déplacement de jeton PJ et au chargement d'une carte (jamais dans la vraie fenêtre séparée,
+qui reste un pur miroir sans en être la source) : révèle un secret/une image dès qu'un jeton
+`pj:true` entre dans la **pièce** qui le contient (repli en rayon ~2 cases si l'élément n'est dans
+aucune pièce). C'est une approximation volontaire d'une ligne de vue, pas un vrai calcul optique
+(voir README, « hors périmètre »). Permanent dans les deux cas : jamais re-caché automatiquement.
+Le déclenchement **automatique** se désactive par élément (`el.auto === false` — le clic droit,
+lui, marche toujours quel que soit `auto`) : `verifierDeclencheurs()` exclut ces éléments de ses
+cibles, `auto` absent ou `true` = éligible (compatibilité avec les fichiers déjà existants — ne
+jamais inverser cette valeur par défaut, ça changerait le comportement de tout élément déjà posé
+sans `auto` explicite). Case correspondante dans le panneau de l'éditeur pour `secret`/`image` :
+« Révélation automatique ». Utile pour un élément qui ne doit **jamais** se dévoiler tout seul
+(une trappe cachée) à côté d'un autre qui le doit (une créature au détour d'un couloir).
+
+**Réinitialiser une carte pour une nouvelle table** (`#b-reinitialiser`) : `partie.fog[carte.id]`,
+`partie.reveles[carte.id]` et les jetons de cette carte repartent à zéro — jamais les autres
+cartes. Nécessaire parce que fog/reveles/jetons sont une session persistante sans limite de
+temps ; sans ce bouton, rejouer la même carte avec un groupe différent héritait silencieusement
+du brouillard et des révélations du groupe précédent. Volontairement pas dans la liste
+d'exceptions de `#barre-mj` pour la préview locale (point 9/12) : contrairement aux outils de
+brouillard, ce n'est pas une action à faire devant les joueurs.
+**Boîte à cases plutôt qu'un `confirm()` global** (voir `ouvrirModale`) : brouillard, révélations
+et jetons se réinitialisent **indépendamment**, pas en bloc — le brouillard représente souvent
+des heures d'exploration qu'un MJ ne veut pas perdre juste pour corriger une révélation isolée
+(retour d'expérience direct : le premier jet, tout-ou-rien avec un `confirm()`, obligeait à
+choisir entre garder le brouillard et corriger une révélation). Décochée par défaut pour cette
+raison ; révélations et jetons cochés par défaut (le cas le plus courant). Un clic droit sur un
+seul élément (`basculerRevele`) reste le chemin le plus rapide pour ne corriger que lui, sans
+passer par cette boîte du tout.
+**`+ Jeton` en préview locale, pas dans la vraie fenêtre séparée** : ajouté à la liste
+d'exceptions de `#barre-mj` (point 9/12), mais la vraie fenêtre séparée reste bloquée en bloc par
+`body.fenetre-joueurs #barre-mj{display:none}` — l'exception ne s'applique qu'à la préview
+locale, ce n'était pas la peine de traiter les deux cas séparément ici, contrairement à
+`#b-galerie`/`#b-vue` qui ont chacun besoin d'un masquage JS explicite pour la vraie fenêtre.
+`sauverPartie(true)` sur la création, comme sur le déplacement (point 16) : un jeton créé côté
+joueur doit remonter jusqu'au MJ.
 
 **Ordre des couches en jeu** (non négociable, hérité de Foundry/Roll20) :
 `plan < portails < images < brouillard < jetons < pings/mesure < interface`. Le brouillard couvre
@@ -176,6 +251,79 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
    flagrant dès la palette d'images (libellés plus longs). Corrigé une fois pour toutes avec
    `min-width:0` sur `.palette button` + `white-space:normal` sur son `span` : à ne pas défaire, et
    à garder en tête pour toute future grille de boutons avec texte.
+12. **En exemptant les outils de plan du masquage de `#barre-mj` pour la préview locale du MJ
+    (point 9), ils fuyaient aussi dans la VRAIE fenêtre séparée** (`?vue=joueurs`) : `body[data-
+    vue="joueurs"] #barre-mj > *:not(...)` ne distingue pas les deux, puisque `data-vue` vaut
+    `"joueurs"` dans les deux cas. Une vraie fenêtre séparée ne doit pourtant avoir strictement
+    aucun outil MJ — elle doit rester un pur miroir. D'où `document.body.classList.add
+    ('fenetre-joueurs')`, posé une fois pour toutes par `table.js` **seulement** quand `vueJoueurs`
+    (le paramètre d'URL) est vrai — jamais pour la préview locale, qui elle ne bascule que
+    `data-vue`. Règle générale : **`data-vue` distingue MJ/joueurs pour l'affichage** (bascule
+    aussi en préview locale), **`.fenetre-joueurs` distingue vraie fenêtre séparée/tout le reste**
+    (jamais en préview locale) — les deux servent à des questions différentes, ne pas les
+    confondre pour un nouvel élément à verrouiller. `body.fenetre-joueurs #barre-mj{display:none}`
+    suffit à tout cacher d'un coup (un parent `display:none` masque ses enfants quel que soit leur
+    propre `display`) — pas besoin de répéter la liste d'exceptions à l'envers.
+13. **Élément MJ révélé aux joueurs (clic droit)** : filtré élément par élément dans `corps()`
+    (`opts.reveles`, un tableau d'ids), pas par calque entier comme avant — sinon révéler *un*
+    secret aurait révélé tous les secrets de la carte. Stocké dans `partie.reveles[carte.id]`
+    (session de partie, comme `partie.fog` — jamais dans le fichier de la carte). Les icônes
+    d'image utilisent la même distinction MJ/joueurs-locale/fenêtre-séparée que le point 12 :
+    invisibles (`opacity:0`) tant que non révélées y compris en fenêtre séparée, mais cliquables
+    (`pointer-events`) seulement hors fenêtre séparée — c'est le MJ, depuis son propre écran, qui
+    déclenche, jamais la fenêtre miroir elle-même.
+14. **Une chaîne de `prompt()`/`confirm()` natifs pour créer un jeton (étiquette, adresse
+    d'image, confirmation de fichier, confirmation PJ — jusqu'à 4 popups à la suite)** :
+    illisible sur mobile, bloquant, aucun retour en arrière possible. Remplacé par une seule
+    boîte `#modale` (voir ci-dessous). Ne plus jamais enchaîner `prompt()`/`confirm()` pour un
+    flux à plusieurs étapes dans `table.js` — toujours une boîte de dialogue.
+
+**Boîte de dialogue générique (`table.js`)** : un seul `#modale`/`#modale-corps`, rempli par
+`ouvrirModale(titre, large, construire)` — `construire(corps)` construit son propre contenu
+(champs, boutons), fermeture par `fermerModale()`, Échap ou clic sur le fond. Sert à la galerie
+d'images et à la création d'un jeton ; tout nouveau flux à plusieurs étapes doit passer par là,
+jamais par `prompt()`/`confirm()`. Le sélecteur d'images navigable (dossiers + vignettes) est
+factorisé dans `construirePickerImages(dEl, gEl, chemin, onChoisir)`, réutilisé par la galerie et
+par le choix de portrait d'un jeton — `chemin` est un tableau **muté en place** (`splice`), pas
+réassigné, pour que l'appelant garde toujours la même référence après un re-rendu.
+
+**Portail déclenché par un jeton (pas seulement par un clic)** : `trouverPortailProche()` teste
+la distance entre un jeton PJ tout juste lâché et chaque portail résolu (destination existante) ;
+en dessous d'une case, `chargerCarte()` puis `amenerPJ()` (factorisée hors du bouton ⇄ PJ,
+réutilisée ici) — tous les jetons PJ suivent, pas seulement celui qu'on a fait glisser. Réservé
+aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien déclencher.
+15. **Le déclenchement du portail par un jeton ratait alors que le jeton semblait posé pile
+    dessus** : la distance était testée **après** l'aimantation du jeton à la grille
+    (`Math.round((x-c/2)/c)*c+c/2`, la case entière), alors que les portails s'aimantent eux à la
+    **demi-case** (`acc(pt,true)` dans l'éditeur) — deux grilles décalées d'une demi-case. Un
+    portail posé sur une position que le jeton ne peut jamais atteindre par aimantation restait
+    hors d'un seuil pourtant généreux. Corrigé sur les deux plans : tester la position **brute**
+    du dépôt (avant l'aimantation qui vient juste après, dans `fin()`), et élargir le seuil à une
+    case entière plutôt qu'une demi-case — la précision au pixel près n'est pas réaliste pour un
+    geste de glisser à la main (souris ou doigt). Réflexe pour toute détection de proximité entre
+    deux éléments posés indépendamment : vérifier qu'ils utilisent la **même grille d'aimantation**
+    avant de fixer un seuil, sinon un cas au pixel près peut rester structurellement inatteignable.
+16. **Le vrai bug derrière le point 15 (l'utilisateur a dû insister — mon propre test ne l'avait
+    pas détecté) : `.jeton{pointer-events:none}` était posé sur `body[data-vue="joueurs"]`, donc
+    aussi sur la préview locale**, pas seulement la vraie fenêtre séparée — exactement le même
+    oubli qu'au point 12 (barre d'outils), mais je ne l'avais pas généralisé aux jetons. Un clic
+    réel n'atteignait donc jamais le code : `mode` ne passait jamais à `'jeton'`, tout le reste
+    (déclenchement de portail y compris) ne s'exécutait tout simplement pas. **Piège méthodo à
+    retenir** : `el.dispatchEvent(...)` directement sur l'élément **ignore `pointer-events` en
+    CSS** (ce n'est pertinent que pour le hit-testing d'un vrai clic) — un banc d'essai qui
+    dispatche sur la cible peut donc donner un faux positif si le point réel du bug est justement
+    que l'élément ne peut jamais devenir la cible d'un clic. Corrigé en généralisant le point 12 :
+    `body.fenetre-joueurs .jeton{pointer-events:none}`, pas `body[data-vue="joueurs"]`. Pour
+    vérifier ce genre de correctif, mesurer `getComputedStyle(el).pointerEvents` en plus de
+    simuler l'interaction — les deux, pas l'un à la place de l'autre.
+    **Jeton PJ manipulable par les joueurs, y compris dans la vraie fenêtre séparée** (élargi au
+    passage, dans le même geste) : exception par jeton (`[data-pj="true"]` reste cliquable, les
+    autres non) plutôt qu'un verrou global comme les autres contrôles MJ — un jeton n'est pas un
+    outil de préparation, c'est un élément que joueurs et MJ se partagent. `sauverPartie(diffuser)`
+    a donc changé de sens : `true` force la diffusion même depuis `vueJoueurs` (un déplacement de
+    jeton doit toujours remonter au MJ), `false` la supprime, `undefined` garde l'ancien
+    comportement (jamais depuis la vraie fenêtre séparée) — à choisir consciemment pour toute
+    nouvelle action qui doit (ou non) remonter depuis cette fenêtre.
 
 ## Style
 

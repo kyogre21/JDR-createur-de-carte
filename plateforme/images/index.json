@@ -72,9 +72,29 @@
       "dossier": "Knight"
     },
     {
-      "fichier": "Legendary lands/Funeral of dead butterflies.png",
+      "fichier": "Legendary lands/Campagne oiseau/Funeral of dead butterflies.png",
       "nom": "Funeral of dead butterflies",
-      "dossier": "Legendary lands"
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
+      "fichier": "Legendary lands/Campagne oiseau/Singind machine.png",
+      "nom": "Singind machine",
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
+      "fichier": "Legendary lands/Campagne oiseau/Spider bud.png",
+      "nom": "Spider bud",
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
+      "fichier": "Legendary lands/Campagne oiseau/scorched_girl.png",
+      "nom": "Scorched_girl",
+      "dossier": "Legendary lands/Campagne oiseau"
+    },
+    {
+      "fichier": "Legendary lands/Campagne oiseau/soda poisson.png",
+      "nom": "Soda poisson",
+      "dossier": "Legendary lands/Campagne oiseau"
     },
     {
       "fichier": "Legendary lands/Mandalf le gris.png",

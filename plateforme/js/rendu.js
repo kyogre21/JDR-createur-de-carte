@@ -45,6 +45,11 @@ KJ.rendu = (function () {
     miroir: `<rect x="2" y="2" width="96" height="96" rx="6"/><ellipse cx="50" cy="50" rx="38" ry="44"/>`,
     statue: `<rect x="30" y="70" width="40" height="26"/><circle cx="50" cy="40" r="20"/><path d="M30 70 Q50 44 70 70" fill="none"/>`,
     tombe: `<path d="M20 96 L20 40 A30 30 0 0 1 80 40 L80 96 Z"/><line x1="50" y1="50" x2="50" y2="76"/><line x1="38" y1="60" x2="62" y2="60"/>`,
+    /* colline : silhouette en courbes de niveau imbriquées (décor de carte extérieure) */
+    colline: `<path d="M2 94 Q30 84 50 84 Q70 84 98 94" fill="none"/>
+      <path d="M8 78 Q30 62 50 62 Q70 62 92 78" fill="none"/>
+      <path d="M20 58 Q35 44 50 44 Q65 44 80 58" fill="none"/>
+      <path d="M32 40 Q42 30 50 30 Q58 30 68 40" fill="none"/>`,
   };
 
   /* Feuille de style embarquée : rend le SVG exporté autonome
@@ -83,6 +88,11 @@ KJ.rendu = (function () {
       .kj-image-cadre{fill:${salle};stroke:${or};stroke-width:1.6}
       .kj-image-glyphe{fill:none;stroke:${or};stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
       .kj-image-soleil{fill:${or};stroke:none}
+      /* révélé aux joueurs (clic droit dessus, en mode Jeu) : même teinte verte que les
+       * jetons de PJ, pour distinguer d'un coup d'œil ce que les joueurs voient déjà. */
+      .kj-secret.revele{stroke:#7fa070}
+      .kj-secret-lbl.revele{fill:#7fa070}
+      .kj-image-cadre.revele{stroke:#7fa070}
     `;
   }
 
@@ -192,9 +202,14 @@ KJ.rendu = (function () {
       }
 
       case 'secret': {
-        let s = `<g${id} class="kj-el mj-only"><rect class="kj-secret" x="${el.x}" y="${el.y}" `
-              + `width="${el.w}" height="${el.h}"/>`;
-        if (el.nature) s += `<text class="kj-secret-lbl" x="${el.x + el.w / 2}" y="${el.y + el.h + 11}">${esc(el.nature)}</text>`;
+        // révélé (opts.reveles, une session de table de jeu) : reste visible aux joueurs
+        // en permanence, sans repasser par mj-only — un secret qu'ils ont découvert.
+        const revele = !!(opts.reveles && opts.reveles.includes(el.id));
+        const cls = 'kj-el' + (revele ? '' : ' mj-only');
+        let s = `<g${id} class="${cls}"><rect class="kj-secret${revele ? ' revele' : ''}" `
+              + `x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}"/>`;
+        if (el.nature) s += `<text class="kj-secret-lbl${revele ? ' revele' : ''}" `
+          + `x="${el.x + el.w / 2}" y="${el.y + el.h + 11}">${esc(el.nature)}</text>`;
         return s + `</g>`;
       }
 
@@ -202,8 +217,10 @@ KJ.rendu = (function () {
          elle passe images:false pour ne pas les avoir en double. */
       case 'image': {
         if (opts.images === false) return '';
-        return `<g${id} class="kj-el kj-image mj-only" transform="translate(${el.x} ${el.y})">`
-             + `<rect class="kj-image-cadre" x="-13" y="-13" width="26" height="26" rx="5"/>`
+        const revele = !!(opts.reveles && opts.reveles.includes(el.id));
+        const cls = 'kj-el kj-image' + (revele ? '' : ' mj-only');
+        return `<g${id} class="${cls}" transform="translate(${el.x} ${el.y})">`
+             + `<rect class="kj-image-cadre${revele ? ' revele' : ''}" x="-13" y="-13" width="26" height="26" rx="5"/>`
              + `<path class="kj-image-glyphe" d="M-7 4 L-2 -3 L2 1 L6 -5 L9 4 Z"/>`
              + `<circle class="kj-image-soleil" cx="-4.5" cy="-6" r="2.1"/></g>`;
       }
@@ -234,7 +251,15 @@ KJ.rendu = (function () {
 
     for (const c of KJ.modele.CALQUES) {
       if (!vis(c.id)) continue;
-      if (c.mj && !opts.vueMJ) continue;
+      // un calque MJ se filtre élément par élément, pas en bloc : un élément révélé
+      // (opts.reveles, une session de table de jeu) reste visible même hors vue MJ.
+      if (c.mj && !opts.vueMJ) {
+        s += `<g data-calque="${c.id}">`;
+        for (const el of parC[c.id])
+          if (opts.reveles && opts.reveles.includes(el.id)) s += unElement(el, opts);
+        s += `</g>`;
+        continue;
+      }
       s += `<g data-calque="${c.id}">`;
       for (const el of parC[c.id]) s += unElement(el, opts);
       s += `</g>`;

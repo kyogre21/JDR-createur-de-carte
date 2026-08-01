@@ -26,7 +26,8 @@ plateforme/
 ## Les deux modes
 
 **Éditeur** (`editeur.html`) — on dessine : pièces (épaisseur de murs réglable), murs, portes
-et fenêtres qui s'accrochent au mur le plus proche, mobilier (23 symboles), numéros liés à la
+et fenêtres qui s'accrochent au mur le plus proche, mobilier (24 symboles, dont une colline en
+courbes de niveau pour les cartes extérieures), numéros liés à la
 clé du lieu, libellés, sources de lumière, secrets réservés au MJ, et portails vers les autres
 cartes. Enregistrement automatique, plus un bouton **💾 Enregistrer** qui force l'écriture et
 le confirme. La **clé numérotée** se remplit dans le panneau de droite (titre + description) et
@@ -193,28 +194,84 @@ un clic ailleurs referme). Pratique pour montrer à la volée le portrait d'une 
 vue d'un lieu sans quitter la carte.
 
 Ces icônes sont **réservées au MJ** : invisibles côté joueurs (`?vue=joueurs`), comme les
-secrets — leur seule présence serait un indice.
+secrets — leur seule présence serait un indice. **Clic droit dessus (ou sur un secret) pour la
+révéler aux joueurs en permanence** — voir plus bas.
 
 Comme pour les cartes, les images viennent du **dépôt**, jamais d'un import depuis l'appareil :
 ça marche pareil sur mobile que sur PC, sans manipulation de fichiers à chaque partie.
 
 1. Dépose des fichiers image (jpg/png/webp) dans `plateforme/images/` — **des dossiers entiers
-   fonctionnent aussi**, pour ranger par campagne ou par thème (ex. `images/Knight/`,
-   `images/Legendary lands/`).
+   fonctionnent aussi**, y compris imbriqués, pour ranger par campagne ou par thème (ex.
+   `images/Knight/`, `images/Legendary lands/Campagne oiseau/`).
 2. Régénère le catalogue :
    ```bash
    cd plateforme && node generer-catalogue-images.js
    ```
    Il scanne tout `plateforme/images/` (sous-dossiers compris) et réécrit `images/index.json` en
-   entier — pas besoin d'éditer ce fichier à la main. Le nom affiché est déduit du nom de
-   fichier ; un fichier dans un sous-dossier est suffixé par ce dossier (ex. « Minotaure
-   (Knight) ») pour rester lisible dans une liste à plat.
+   entier — pas besoin d'éditer ce fichier à la main.
 3. `git commit && git push` — les images apparaissent dans le panneau de l'outil Image sur tous
    les appareils.
-4. Dans l'éditeur, outil **🖼 Image** : le panneau de droite s'ouvre sur le premier dossier
-   plutôt que sur la liste complète — un rang de boutons (**Toutes**, puis un par dossier)
-   permet de changer de rayon. Choisis une image, puis clique sur le plan pour poser son icône.
-   La sélectionner permet de changer sa légende ou l'image choisie.
+4. Dans l'éditeur, outil **🖼 Image** : le panneau de droite s'ouvre sur la racine du dépôt, avec
+   les dossiers en vignettes — clique dedans pour naviguer, un fil d'ariane en haut permet de
+   remonter. Choisis une image, puis clique sur le plan pour poser son icône. La sélectionner
+   permet de changer sa légende ou l'image choisie.
+
+### Révéler un secret ou une image aux joueurs
+
+Une icône d'image ou un secret posé sur le plan reste invisible aux joueurs par défaut — mais
+**clic droit dessus, en mode Jeu (vue MJ), bascule sa visibilité en permanence**. Une fois
+révélé, il reste visible aux joueurs (teinté en vert côté MJ pour le distinguer d'un coup
+d'œil), y compris sur une vraie fenêtre séparée (`?vue=joueurs`, TV ou second écran) : c'est le
+sens même de « rendre visible ».
+
+C'est une **session de partie** (comme le brouillard), pas une donnée de la carte : révéler un
+secret ne modifie pas le fichier de la carte, et se réinitialise avec la partie. Re-clic droit
+dessus pour le cacher de nouveau.
+
+**Révélation automatique** : dès qu'un jeton marqué **PJ** entre dans la **pièce** qui contient
+un secret ou une image, il se révèle tout seul (un message le confirme), sans clic droit — utile
+pour une créature ou un indice qui doit apparaître dès que le groupe pénètre quelque part, sans
+que le MJ ait à y penser. Approximation volontaire d'une ligne de vue (une pièce fermée = un
+champ de vision) : le vrai calcul optique, plus coûteux, reste hors périmètre de ce projet (voir
+plus bas). Un élément posé hors de toute pièce (couloir, extérieur) se révèle par proximité
+(~2 cases) à la place. Comme le clic droit, c'est permanent : le groupe qui ressort de la pièce
+ne re-cache rien.
+
+**Désactiver la révélation automatique pour un élément précis** : dans l'éditeur, sélectionne le
+secret ou l'image, décoche **« Révélation automatique »**. Utile pour un secret qui ne doit
+jamais se dévoiler tout seul (une trappe cachée dans un mur, par ex.) — le clic droit en mode
+Jeu reste toujours possible pour le révéler à la main, seul le déclenchement automatique par
+un jeton PJ est coupé. Cochée par défaut, pour tout nouvel élément comme pour les anciens.
+
+**Repartir à neuf pour une nouvelle table** : bouton **↺ Réinitialiser cette carte**, en mode
+Jeu (vue MJ). Une case à cocher par catégorie — **brouillard** (décochée par défaut : ça
+représente souvent des heures d'exploration, pas la peine de le perdre pour corriger une
+révélation isolée), **révélations** et **jetons** (cochées par défaut, le cas le plus courant en
+rejouant la carte avec un nouveau groupe) — coche seulement ce que tu veux remettre à zéro. Ne
+touche que la carte affichée, jamais les autres cartes de la campagne. Pour ne corriger qu'un
+seul élément sans tout ça, plus rapide : clic droit dessus (voir plus haut), ça ne touche pas au
+brouillard.
+
+### Créer un jeton, changer de carte en marchant sur un portail
+
+**+ Jeton** pose immédiatement un jeton PJ (étiquette J1, J2… automatique) — un clic, rien
+d'autre. Pour lui donner un nom, un portrait ou le marquer PNJ, **double-clic dessus** ensuite ;
+clic droit dessus le supprime directement, sans rien demander.
+
+**Un jeton PJ glissé sur un losange doré change de carte tout seul**, comme si le groupe montait
+l'escalier : la nouvelle carte se charge, et tous les jetons marqués PJ y sont amenés avec lui
+(même comportement que le bouton ⇄ PJ). Pas besoin de cliquer sur le losange séparément.
+
+**Les joueurs peuvent déplacer leur propre jeton PJ**, y compris depuis une vraie fenêtre
+séparée (`?vue=joueurs`, TV ou second écran) — un jeton qui n'est pas marqué PJ, lui, n'y est
+jamais manipulable, pour ne pas déranger la mise en scène du MJ (les PNJ et monstres restent
+sous son seul contrôle). Cette fenêtre reste sans aucun autre outil MJ ; seul le déplacement
+d'un jeton PJ y est permis, et se répercute normalement du côté du MJ.
+
+**+ Jeton reste aussi accessible depuis la préview locale du MJ** (le bouton Vue joueurs/Vue MJ,
+même écran) — pratique quand chaque joueur crée lui-même son jeton sur l'écran partagé, sans
+repasser par le MJ. Pas dans la vraie fenêtre séparée, celle-ci reste volontairement sans aucun
+outil de création.
 
 **Vérifie l'image avant de t'y fier** : un nom de fichier peut tromper (par exemple, dans ce
 projet, `Nihil.png` est en réalité l'illustration d'un personnage bouffon sans rapport, pas de
@@ -294,8 +351,8 @@ deux doigts : zoom tactile.
 
 Manques connus, par ordre d'utilité :
 
-1. **Cartes manquantes de la campagne** : le village et la cave. Le portail « Village »
-   du rez-de-chaussée reste donc gris.
+1. **Carte manquante de la campagne** : la cave (le portail « Village » du rez-de-chaussée
+   pointe désormais vers `village.json`, qui existe).
 2. **Image de fond** dans une carte (plan scanné, illustration) : le format le prévoit,
    l'éditeur ne l'expose pas encore.
 3. **Publication** : rien n'est en ligne. Il faut un dépôt git puis Cloudflare Pages
