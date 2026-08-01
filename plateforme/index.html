@@ -15,9 +15,11 @@
   <select id="filtre-campagne" title="Afficher une seule campagne"></select>
   <div class="esp"></div>
   <a class="btn" href="table.html" title="Ouvrir la table de jeu">▶ Table de jeu</a>
-  <button id="b-campagne" title="Créer un dossier de campagne">🗀 Nouvelle campagne</button>
-  <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
-  <button id="b-importer">↑ Importer un .json</button>
+  <span id="grp-edition" hidden>
+    <button id="b-campagne" title="Créer un dossier de campagne">🗀 Nouvelle campagne</button>
+    <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
+    <button id="b-importer">↑ Importer un .json</button>
+  </span>
   <input type="file" id="fichier" accept=".json,application/json" hidden>
 </header>
 
@@ -34,11 +36,8 @@
 </div>
 <div id="app">
   <div id="biblio">
-    <h2 class="titre-page">Mes cartes</h2>
+    <p class="aide" id="note-lecture" style="grid-column:1/-1;padding:0 18px;margin:8px 0 0" hidden></p>
     <div id="liste" style="display:contents"></div>
-    <h2 class="titre-page" id="t-depot" hidden>Cartes fournies avec l’application</h2>
-    <p class="aide" id="note-depot" style="grid-column:1/-1;padding:0 18px;margin:4px 0 0" hidden></p>
-    <div id="liste-depot" style="display:contents"></div>
   </div>
 </div>
 
@@ -56,8 +55,9 @@
       .replace('<svg ', '<svg preserveAspectRatio="xMidYMid meet" ');
   }
 
-  function fiche(carte, opts) {
-    opts = opts || {};
+  /* Une carte = un fichier cartes/<id>.json. Pas de copie, pas de version « fournie »
+     à côté d'une version « à moi » : ce qui est listé ici est ce qui sera commité. */
+  function fiche(carte) {
     const d = document.createElement('div'); d.className = 'fiche';
     const nb = carte.elements.length;
     const dim = carte.grille.cell
@@ -68,60 +68,39 @@
       + `<div class="txt"><b>${R.esc(carte.nom)}</b><div>${dim} · ${nb} élément${nb > 1 ? 's' : ''}${maj ? ' · ' + maj : ''}</div></div>`;
     const act = document.createElement('div'); act.className = 'actions';
     const lien = document.createElement('button');
-    lien.textContent = 'Ouvrir';
-    lien.title = opts.depot
-      ? 'Ouvre cette carte de campagne dans ta bibliothèque de travail (même identifiant, donc les liaisons entre cartes restent valides)'
-      : 'Ouvrir dans l’éditeur';
-    lien.addEventListener('click', () => {
-      if (opts.depot) {
-        // on garde l'identifiant : la carte locale REMPLACE celle du dépôt,
-        // elle n'en crée pas un doublon aux liaisons cassées.
-        const c = M.depuisJSON(JSON.parse(JSON.stringify(carte)));
-        S.enregistrer(c).then(() => location.href = 'editeur.html?id=' + c.id);
-      } else location.href = 'editeur.html?id=' + carte.id;
-    });
+    lien.textContent = modifiable ? 'Ouvrir' : 'Voir';
+    lien.title = modifiable ? 'Ouvrir dans l’éditeur' : 'Ouvrir (lecture seule sur cet appareil)';
+    lien.addEventListener('click', () => location.href = 'editeur.html?id=' + encodeURIComponent(carte.id));
     act.appendChild(lien);
     const jouer = document.createElement('button');
     jouer.textContent = '▶ Jouer';
     jouer.title = 'Ouvrir en mode Jeu (brouillard, jetons)';
     jouer.addEventListener('click', () => location.href = 'table.html?carte=' + encodeURIComponent(carte.id));
     act.appendChild(jouer);
-    if (!opts.depot) {
+    const svg = document.createElement('button');
+    svg.textContent = '↓ SVG';
+    svg.addEventListener('click', () => S.exporterSVG(carte));
+    act.appendChild(svg);
+    if (modifiable) {
       const ren = document.createElement('button');
       ren.textContent = '✎ Renommer';
       ren.title = 'Renommer la carte ou la changer de dossier';
       ren.addEventListener('click', () => dialogueCarte(carte));
       act.appendChild(ren);
-    }
-    const svg = document.createElement('button');
-    svg.textContent = '↓ SVG';
-    svg.addEventListener('click', () => S.exporterSVG(carte));
-    act.appendChild(svg);
-    if (!opts.depot) {
-      const js = document.createElement('button');
-      js.textContent = '↓ JSON';
-      js.addEventListener('click', () => S.exporterJSON(carte));
-      act.appendChild(js);
       const sup = document.createElement('button');
       sup.textContent = '✕'; sup.className = 'danger';
-      /* Si une carte d'origine du même nom existe dans le dépôt, la suppression de
-         ma version n'est pas définitive : l'originale réapparaîtra. Le dire. */
-      const origine = campDepot.some(x => x.id === carte.id || S.slug(x.nom) === S.slug(carte.nom));
-      sup.title = origine
-        ? 'Supprimer ma version (la carte d’origine réapparaîtra dans « Cartes fournies »)'
-        : 'Supprimer cette carte de ma bibliothèque';
+      sup.title = 'Supprimer le fichier de cette carte';
       sup.addEventListener('click', () => {
-        const msg = origine
-          ? 'Supprimer ta version de « ' + carte.nom + ' » ?\n\nLa carte d’origine, livrée avec '
-            + 'l’application, réapparaîtra dans « Cartes fournies » : rien n’est perdu définitivement.'
-          : 'Supprimer « ' + carte.nom + ' » de ta bibliothèque ?\n(Un fichier .json déjà exporté reste intact.)';
-        if (confirm(msg)) S.supprimer(carte.id).then(charger);
+        if (!confirm('Supprimer « ' + carte.nom + ' » ?\n\nLe fichier cartes/' + carte.id
+          + '.json sera effacé du disque. Tant que ce n’est pas commité, un « git checkout » le rétablit.')) return;
+        S.supprimerCarte(carte.id).then(charger)
+          .catch(e => alert('Suppression impossible : ' + (e && e.message || e)));
       });
       act.appendChild(sup);
     }
     d.appendChild(act);
     d.querySelector('.apercu-img').addEventListener('click', () => lien.click());
-    if (!opts.depot) {   // une carte de ma bibliothèque se fait glisser vers un dossier
+    if (modifiable) {   // glisser une fiche sur un titre de dossier pour l'y ranger
       d.draggable = true;
       d.addEventListener('dragstart', function (e) {
         e.dataTransfer.setData('text/plain', carte.id);
@@ -133,44 +112,10 @@
     return d;
   }
 
-  /* Une ancienne version du bouton « Ouvrir une copie » attribuait un nouvel
-     identifiant aux cartes du dépôt : les liaisons entre cartes (les portails
-     des escaliers) ne les retrouvaient plus. On répare en rendant à chaque copie
-     l'identifiant de la carte de campagne dont elle porte le nom. */
-  /* Diagnostic : pour chaque nom de carte, on veut UN seul exemplaire local,
-     portant l'identifiant de la carte de campagne correspondante. On garde la
-     version la plus récemment modifiée et on supprime les autres. */
-  function aReparer(locales, depot) {
-    const groupes = {};
-    for (const l of locales) {
-      const k = S.slug(l.nom);
-      (groupes[k] = groupes[k] || []).push(l);
-    }
-    const plan = { garder: [], supprimer: [], renommer: [], doublons: 0 };
-    for (const k of Object.keys(groupes)) {
-      const g = groupes[k].slice().sort((a, b) => (b.maj || 0) - (a.maj || 0));
-      const chef = g[0];
-      const ref = depot.find(x => S.slug(x.nom) === k);
-      if (g.length > 1) plan.doublons += g.length - 1;
-      g.slice(1).forEach(x => plan.supprimer.push({ id: x.id, nom: x.nom }));
-      if (ref && ref.id !== chef.id) plan.renommer.push({ ancien: chef.id, nouveau: ref.id, nom: chef.nom });
-      plan.garder.push(chef);
-    }
-    return plan;
-  }
-  function reparer(plan) {
-    let p = Promise.resolve();
-    // supprimer les exemplaires en trop
-    for (const s of plan.supprimer) p = p.then(() => S.supprimer(s.id));
-    // rendre son identifiant d'origine à l'exemplaire conservé
-    for (const r of plan.renommer)
-      p = p.then(() => S.charger(r.ancien).then(c => {
-        if (!c) return;
-        c.id = r.nouveau;
-        return S.enregistrer(c).then(() => S.supprimer(r.ancien));
-      }));
-    return p;
-  }
+  /* Plus de diagnostic « doublons / identifiants à rétablir » : il n'existait que
+     parce que la même carte pouvait vivre en deux exemplaires (copie de travail +
+     fichier du dépôt). Un fichier par carte, un identifiant par fichier : il n'y a
+     plus rien à réparer. */
 
   function alerte(html) {
     const a = $('alerte-fichier');
@@ -181,7 +126,8 @@
   /* Filtre de campagne, mémorisé d'une visite à l'autre. */
   let filtre = '*';
   try { filtre = localStorage.getItem('kj-filtre-campagne') || '*'; } catch (e) {}
-  let campLocales = [], campDepot = [];
+  let campLocales = [];      // toutes les cartes affichées
+  let modifiable = false;    // dossier lié = on peut écrire les fichiers
   /* Le filtre ne doit proposer que des campagnes réellement affichées : une campagne
      qui ne vient que de cartes fournies masquées (car j'en ai une copie) n'existe plus
      à l'écran, la proposer donnerait un filtre vide. */
@@ -259,7 +205,7 @@
 
   /* ---------- renommer / ranger une carte ---------- */
   function dialogueCarte(carte) {
-    const campagnes = M.listeCampagnes(campLocales.concat(campDepot))
+    const campagnes = M.listeCampagnes(campLocales)
       .filter(x => x !== M.SANS_CAMPAGNE);
     ouvrirModale('Renommer et ranger', (corps) => {
       const nom = champInput(corps, 'Nom', carte.nom);
@@ -272,12 +218,12 @@
     }, (ctx) => {
       const nom = ctx.nom.value.trim();
       if (!nom) { alert('Le nom ne peut pas être vide.'); return false; }
-      S.charger(carte.id).then(c => {
+      S.chargerCarte(carte.id).then(c => {
         if (!c) return;
         c.nom = nom;
         c.campagne = ctx.camp.value.trim();
-        return S.enregistrer(c).then(charger);
-      });
+        return S.enregistrerCarte(c).then(charger);
+      }).catch(e => alert('Enregistrement impossible : ' + (e && e.message || e)));
     });
   }
 
@@ -294,10 +240,10 @@
       if (nouveau === (ancien === M.SANS_CAMPAGNE ? '' : ancien)) return;   // rien à faire
       let p = Promise.resolve();
       for (const carte of cartes)
-        p = p.then(() => S.charger(carte.id).then(c => {
+        p = p.then(() => S.chargerCarte(carte.id).then(c => {
           if (!c) return;
           c.campagne = nouveau;
-          return S.enregistrer(c);
+          return S.enregistrerCarte(c);
         }));
       p.then(() => {
         S.renommerCampagneDeclaree(ancien, nouveau);
@@ -313,20 +259,20 @@
 
   /* Déplace une carte dans une campagne (glisser-déposer ou dialogue). */
   function rangerCarte(id, campagne) {
-    return S.charger(id).then(function (c) {
+    return S.chargerCarte(id).then(function (c) {
       if (!c) return;
       c.campagne = (campagne === M.SANS_CAMPAGNE) ? "" : campagne;
-      return S.enregistrer(c).then(charger);
-    });
+      return S.enregistrerCarte(c).then(charger);
+    }).catch(e => alert('Déplacement impossible : ' + (e && e.message || e)));
   }
 
   /* Rendu groupé par campagne : chaque campagne est un « dossier ». */
-  function afficherGroupe(conteneur, cartes, opts) {
+  function afficherGroupe(conteneur, cartes) {
     conteneur.innerHTML = '';
     const groupes = M.parCampagne(cartes);
     let noms = M.listeCampagnes(cartes);
     // un dossier déclaré s'affiche même vide : il doit pouvoir recevoir des cartes
-    if (!opts.depot) {
+    if (modifiable) {
       (S.campagnesDeclarees ? S.campagnesDeclarees() : []).forEach(function (d) { if (noms.indexOf(d) < 0) noms.push(d); });
       noms.sort(trierCampagnes);
     }
@@ -354,7 +300,7 @@
       t.innerHTML = '<span>' + R.esc(nom) + '</span><em>'
         + (lot.length ? lot.length + ' carte' + (lot.length > 1 ? 's' : '') : 'dossier vide')
         + '</em><span class="esp-c"></span>';
-      if (!opts.depot) {
+      if (modifiable) {
         // zone de dépôt : faire glisser une fiche sur ce titre pour l'y ranger
         t.addEventListener('dragover', function (e) { e.preventDefault(); t.classList.add('survol'); });
         t.addEventListener('dragleave', function () { t.classList.remove('survol'); });
@@ -384,74 +330,39 @@
         v.textContent = 'Dossier vide — fais glisser une carte sur son titre pour l’y ranger.';
         conteneur.appendChild(v);
       }
-      for (const carte of lot) conteneur.appendChild(fiche(carte, opts));
+      for (const carte of lot) conteneur.appendChild(fiche(carte));
     }
   }
 
   function charger() {
-    /* Un seul point de rendu, après avoir les DEUX listes : l'affichage d'une carte
-       locale dépend de l'existence d'une carte d'origine du même nom (message du
-       bouton de suppression, masquage du doublon dans la section « fournies »). */
-    Promise.all([
-      S.avecDelai(S.lister(), 1500, []),
-      S.avecDelai(S.catalogueDepot(), 2500, [])
-        .then(cat => Promise.all(cat.map(e => S.chargerDepot(e.fichier).catch(() => null))))
-        .then(l => l.filter(Boolean)),
-    ]).then(([brutes, depot]) => {
-      const locales = brutes.map(x => M.depuisJSON(x));
-      campLocales = locales;
-      campDepot = depot;              // tout le dépôt : sert à savoir si une origine existe
-      const idsLoc = new Set(locales.map(x => x.id));
-      const nomsLoc = new Set(locales.map(x => S.slug(x.nom)));
-      const inedites = depot.filter(x => !idsLoc.has(x.id) && !nomsLoc.has(S.slug(x.nom)));
-      const masquees = depot.length - inedites.length;
-      majFiltre(locales.concat(inedites));
-
-      // ---- mes cartes ----
-      const c = $('liste');
-      if (!locales.length) {
-        c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
-          + 'Aucune carte pour l’instant. Crée-en une, ou importe un fichier .json.</p>';
-      } else afficherGroupe(c, locales, {});
-
-      // ---- cartes fournies, privées de celles dont j'ai déjà une copie ----
-      $('t-depot').hidden = !inedites.length;
-      const note = $('note-depot');
-      if (inedites.length) {
-        afficherGroupe($('liste-depot'), inedites, { depot: true });
-        note.hidden = false;
-        note.innerHTML = 'Cartes livrées avec l’application. <b>Ouvrir</b> en crée une copie dans '
-          + 'ta bibliothèque, seule modifiable — c’est pourquoi elles n’ont pas de bouton de suppression.'
-          + (masquees ? ' <em>' + masquees + ' autre(s) ne sont pas listées ici : tu en as déjà une copie.</em>' : '');
-      } else {
-        $('liste-depot').innerHTML = '';
-        note.hidden = true;
+    return Promise.all([
+      S.avecDelai(S.listerCartes(), 5000, []),
+      S.peutModifier(),
+    ]).then(([cartes, editable]) => {
+      modifiable = editable;
+      campLocales = cartes;
+      $('grp-edition').hidden = !modifiable;
+      const note = $('note-lecture');
+      note.hidden = modifiable;
+      if (!modifiable) {
+        note.innerHTML = S.depotPrisEnCharge()
+          ? '<b>Lecture seule.</b> Ouvre une carte et clique sur 💾 Enregistrer pour lier le '
+            + 'dossier <code>plateforme</code> de ce PC : les cartes deviendront modifiables.'
+          : '<b>Lecture seule sur cet appareil.</b> Les cartes se modifient sur PC (Chrome, Edge '
+            + 'ou Brave) ; ici, elles se consultent et se jouent.';
       }
-
-      // ---- diagnostic doublons / liaisons ----
-      const plan = aReparer(brutes, depot);
-      if (!plan.doublons && !plan.renommer.length) return;
-      const bouts = [];
-      if (plan.doublons) bouts.push(plan.doublons + ' exemplaire(s) en double à supprimer');
-      if (plan.renommer.length) bouts.push(plan.renommer.length
-        + ' identifiant(s) à rétablir (' + plan.renommer.map(r => '« ' + R.esc(r.nom) + ' »').join(', ') + ')');
-      const a = alerte('<b>Bibliothèque à nettoyer.</b> ' + bouts.join(', ')
-        + '. Sans cela, les portails des escaliers peuvent viser la mauvaise version d’une carte. '
-        + 'La version la plus récemment modifiée est conservée. ');
-      const b = document.createElement('button');
-      b.textContent = '⟳ Nettoyer et réparer';
-      b.style.marginLeft = '6px';
-      b.addEventListener('click', () => {
-        b.disabled = true; b.textContent = 'Nettoyage…';
-        reparer(plan).then(() => location.reload())
-          .catch(e => { b.disabled = false; b.textContent = '⟳ Réessayer'; alert('Échec : ' + e); });
-      });
-      a.appendChild(b);
+      majFiltre(cartes);
+      const c = $('liste');
+      if (!cartes.length) {
+        c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
+          + 'Aucune carte dans <code>cartes/</code>.' + (modifiable
+            ? ' Crée-en une, ou importe un fichier .json.' : '') + '</p>';
+      } else afficherGroupe(c, cartes);
     });
   }
 
   $('b-campagne').addEventListener('click', function () {
-    const connues = M.listeCampagnes(campLocales.concat(campDepot))
+    const connues = M.listeCampagnes(campLocales)
       .filter(x => x !== M.SANS_CAMPAGNE).concat((S.campagnesDeclarees ? S.campagnesDeclarees() : []));
     ouvrirModale('Nouvelle campagne', function (corps) {
       const nom = champInput(corps, 'Nom', '');
@@ -474,7 +385,7 @@
   $('fichier').addEventListener('change', (e) => {
     const f = e.target.files[0]; if (!f) return;
     S.importerFichier(f)
-      .then(c => S.enregistrer(c).then(() => location.href = 'editeur.html?id=' + c.id))
+      .then(c => S.enregistrerCarte(c).then(() => location.href = 'editeur.html?id=' + c.id))
       .catch(err => alert('Import impossible : ' + err.message));
   });
 

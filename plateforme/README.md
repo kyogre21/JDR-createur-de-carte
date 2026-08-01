@@ -33,18 +33,29 @@ cartes. Enregistrement automatique, plus un bouton **💾 Enregistrer** qui forc
 le confirme. La **clé numérotée** se remplit dans le panneau de droite (titre + description) et
 accompagne la carte dans les exports.
 
-**Écriture directe sur le disque** (Chrome, Edge ou Brave sur PC — pas Firefox ni Safari, ni
-mobile) : au tout premier clic sur **💾 Enregistrer**, l'éditeur propose de lier le dossier
-`plateforme/` sur le disque — un seul geste, pas de bouton séparé. Une fois lié, chaque
-enregistrement suivant écrit directement les fichiers du dépôt (`cartes/<id>.json` +
-`cartes/index.json`), sans passer par le stockage caché du navigateur ni par un export/import
-manuel. **La publication (commit + push) reste entièrement manuelle, faite par toi via ton
-propre outil git** — l'appli n'y touche pas et ne se connecte à aucun service distant : une fois
-les fichiers à jour sur le disque, tu commites et pousses quand tu le souhaites, et le site
-(Netlify) se redéploie tout seul derrière. Sans ce lien (navigateur non compatible, ou dossier
-non lié), l'enregistrement reste local à ce navigateur — le pied de page le dit explicitement à
-chaque sauvegarde (« Enregistré sur le disque » vs « Enregistré dans la bibliothèque (local à ce
-navigateur) »), justement pour ne pas se retrouver avec des modifications introuvables ailleurs.
+## Où vivent les cartes : dans les fichiers, et nulle part ailleurs
+
+**Une carte = un fichier `cartes/<id>.json`.** Il n'y a pas de « copie de travail » cachée dans
+le navigateur, pas de version « fournie » à côté d'une version « à moi » : ce que tu vois dans la
+bibliothèque est exactement ce que tu commiteras.
+
+| Appareil | Ce qu'il lit | Peut modifier ? |
+|---|---|---|
+| PC (Chrome, Edge, Brave) avec le dossier lié | les fichiers **du disque** | oui |
+| Téléphone, ou navigateur non compatible | les fichiers **servis par le site** | non — lecture seule |
+
+**Lier le dossier** : au premier clic sur **💾 Enregistrer**, l'éditeur demande une fois de
+choisir le dossier `plateforme` (celui qui contient `cartes`). Ensuite, chaque enregistrement
+écrit directement `cartes/<id>.json` et régénère `cartes/index.json`. Rien d'autre à faire.
+
+**Publier** : entièrement manuel, avec ton outil git habituel. Une fois les fichiers à jour sur
+le disque, `git commit` puis `git push` quand tu veux — Netlify redéploie tout seul derrière, et
+le téléphone voit la mise à jour. L'appli ne se connecte jamais d'elle-même à un service distant :
+aucun déploiement ne part sans que tu l'aies décidé.
+
+**Sur le téléphone**, l'appli est explicitement en lecture seule : on y joue et on y consulte. Les
+boutons de création/modification n'y apparaissent pas, plutôt que d'enregistrer dans un coin
+invisible que personne ne retrouverait ensuite.
 
 **Table de jeu** (`table.html`) — on joue : **brouillard de guerre** au pinceau
 (☀ Révéler / ☁ Cacher, « Tout couvrir », « Tout révéler »), jetons déplaçables aimantés

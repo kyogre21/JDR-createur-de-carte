@@ -59,11 +59,9 @@ KJ.stockage = (function () {
     rq.onerror = () => rej(rq.error);
   });
 
-  const enregistrer = (carte) => { carte.maj = Date.now(); return tx('readwrite').then(s => promesse(s.put(carte))); };
-  const charger     = (id) => tx('readonly').then(s => promesse(s.get(id)));
-  const supprimer   = (id) => tx('readwrite').then(s => promesse(s.delete(id)));
-  const lister      = () => tx('readonly').then(s => promesse(s.getAll()))
-    .then(l => l.sort((a, b) => (b.maj || 0) - (a.maj || 0)));
+  /* Le magasin `cartes` d'IndexedDB n'est plus utilisé : les cartes sont des fichiers
+     (voir plus bas). On ne le supprime pas pour autant — d'anciennes copies peuvent y
+     dormir, autant les laisser récupérables plutôt que de les effacer d'office. */
 
   /* ---------- fichiers ---------- */
   function telecharger(nomFichier, contenu, type) {
@@ -94,19 +92,81 @@ KJ.stockage = (function () {
     });
   }
 
-  /* ---------- catalogue du dépôt ----------
-     cartes/index.json liste les cartes livrées avec le site :
-     { "cartes": [ { "fichier": "manoir-rdc.json", "nom": "…" } ] }
-     Indisponible en file:// (bloqué par la politique d'origine) : échec silencieux. */
-  function catalogueDepot() {
+  /* ================= LES CARTES : UNE SEULE SOURCE, LES FICHIERS =================
+     Les cartes vivent dans `cartes/*.json`, et nulle part ailleurs. Il n'existe plus
+     de « copie de travail » cachée dans le navigateur : c'était deux bibliothèques en
+     parallèle, jamais synchronisées entre appareils, et c'est ce qui faisait qu'un
+     téléphone (ou un PC) continuait d'afficher une vieille version d'une carte
+     pourtant à jour dans le dépôt, sans le moindre signe visible.
+
+     Deux façons de lire les mêmes fichiers, selon l'appareil :
+     - dossier lié (PC, navigateur Chromium) → on lit/écrit les fichiers du DISQUE,
+       donc ce qu'on voit est exactement ce qui sera commité ;
+     - sinon (téléphone, autre navigateur) → on lit les fichiers SERVIS par le site,
+       en lecture seule : le téléphone sert à jouer, pas à préparer.
+     Le passage de l'un à l'autre, c'est le push — un geste explicite, jamais implicite.
+
+     `cartes/index.json` reste nécessaire pour la lecture par le site (on ne peut pas
+     lister un dossier en HTTP) : il est reconstruit à chaque écriture. */
+
+  const estCarteJSON = (nom) => /\.json$/i.test(nom) && nom.toLowerCase() !== 'index.json';
+  const triCartes = (a, b) => String(a.nom).localeCompare(String(b.nom), 'fr', { sensitivity: 'base' });
+
+  function listerParHTTP() {
     return fetch('cartes/index.json', { cache: 'no-cache' })
       .then(r => r.ok ? r.json() : Promise.reject())
-      .then(j => j.cartes || [])
+      .then(j => Promise.all((j.cartes || []).map(e =>
+        fetch('cartes/' + e.fichier, { cache: 'no-cache' })
+          .then(r => r.json()).then(KJ.modele.depuisJSON).catch(() => null))))
+      .then(l => l.filter(Boolean).sort(triCartes))
       .catch(() => []);
   }
-  function chargerDepot(fichier) {
-    return fetch('cartes/' + fichier, { cache: 'no-cache' })
-      .then(r => r.json()).then(KJ.modele.depuisJSON);
+  async function listerParDossier(poignee) {
+    const dir = await poignee.getDirectoryHandle('cartes');
+    const cartes = [];
+    for await (const [nom, h] of dir.entries()) {
+      if (h.kind !== 'file' || !estCarteJSON(nom)) continue;
+      try { cartes.push(KJ.modele.depuisJSON(await (await h.getFile()).text())); } catch (e) {}
+    }
+    return cartes.sort(triCartes);
+  }
+  /* Toutes les cartes disponibles, dans l'ordre alphabétique. */
+  function listerCartes() {
+    return dossierDepotActif(false)
+      .then(poignee => poignee ? listerParDossier(poignee) : listerParHTTP())
+      .catch(() => listerParHTTP());
+  }
+  function chargerCarte(id) {
+    return listerCartes().then(l => l.find(c => c.id === id) || null);
+  }
+
+  /* Modifier une carte suppose d'écrire son fichier : possible uniquement quand le
+     dossier est lié. Ailleurs, l'appli est explicitement en lecture seule plutôt que
+     d'enregistrer dans un coin invisible que personne ne retrouvera. */
+  function peutModifier() {
+    return dossierDepotActif(false).then(p => !!p).catch(() => false);
+  }
+  async function reconstruireIndex(poignee) {
+    const cartes = await listerParDossier(poignee);
+    await ecrireFichierDepot(poignee, 'cartes/index.json', JSON.stringify({
+      _lisez_moi: 'Catalogue régénéré par l’application à chaque enregistrement. '
+        + 'Il sert à lister les cartes depuis le site (impossible d’y lister un dossier).',
+      cartes: cartes.map(c => ({ fichier: c.id + '.json', nom: c.nom })),
+    }, null, 2) + '\n');
+  }
+  async function enregistrerCarte(carte) {
+    const poignee = await dossierDepotActif(false);
+    if (!poignee) throw new Error('lecture seule');
+    carte.maj = Date.now();
+    await ecrireFichierDepot(poignee, 'cartes/' + carte.id + '.json', KJ.modele.versJSON(carte));
+    await reconstruireIndex(poignee);
+  }
+  async function supprimerCarte(id) {
+    const poignee = await dossierDepotActif(false);
+    if (!poignee) throw new Error('lecture seule');
+    const dir = await poignee.getDirectoryHandle('cartes');
+    await dir.removeEntry(id + '.json');
+    await reconstruireIndex(poignee);
   }
 
   /* ---------- catalogue d'images ----------
@@ -194,7 +254,12 @@ KJ.stockage = (function () {
   async function lierDossierDepot() {
     const poignee = await window.showDirectoryPicker({ id: 'kj-depot', mode: 'readwrite' });
     await poignee.getDirectoryHandle('cartes');   // vérifie que c'est bien le dossier plateforme/
-    await sauverDossierDepot(poignee);
+    /* Mémoriser la poignée (pour ne plus la redemander) passe par IndexedDB, qui peut
+       rester muet. Ce n'est qu'un confort : si ça échoue, la liaison reste valable pour
+       cette session et sera simplement redemandée la prochaine fois. Ne jamais faire
+       dépendre la liaison elle-même de cette écriture — sinon le clic « Enregistrer »
+       se fige sans que rien ne l'explique. */
+    await avecDelai(sauverDossierDepot(poignee).catch(() => {}), 2500, null);
     return poignee;
   }
   async function permissionDossier(poignee, demander) {
@@ -204,11 +269,20 @@ KJ.stockage = (function () {
     return (await poignee.requestPermission(opts)) === 'granted';
   }
   /* demander=true seulement depuis un clic (contrainte du navigateur) ;
-     demander=false pour les vérifications silencieuses (démarrage, autosave). */
+     demander=false pour les vérifications silencieuses (démarrage, autosave).
+
+     Le délai de secours est posé ICI, et pas chez les appelants : cette fonction est
+     le passage obligé vers le dossier, et elle lit IndexedDB (qui peut rester muet —
+     onglet concurrent, quota, navigation privée). Sans ce filet, c'est TOUT ce qui en
+     dépend — lister les cartes, enregistrer, savoir si on est en lecture seule — qui
+     se figeait sans le moindre message. Un garde par appelant, c'est un garde qu'on
+     oublie : celui-ci couvre tout le monde d'un coup. */
   async function dossierDepotActif(demander) {
-    const poignee = await chargerDossierDepot();
+    const poignee = await avecDelai(chargerDossierDepot(), 2500, null);
     if (!poignee) return null;
-    return (await permissionDossier(poignee, demander)) ? poignee : null;
+    try {
+      return (await permissionDossier(poignee, demander)) ? poignee : null;
+    } catch (e) { return null; }
   }
   async function ecrireFichierDepot(poignee, cheminRelatif, contenu) {
     const segs = cheminRelatif.split('/');
@@ -219,37 +293,6 @@ KJ.stockage = (function () {
     await w.write(contenu);
     await w.close();
   }
-  async function lireFichierDepotSiExiste(poignee, cheminRelatif) {
-    try {
-      const segs = cheminRelatif.split('/');
-      let dir = poignee;
-      for (let i = 0; i < segs.length - 1; i++) dir = await dir.getDirectoryHandle(segs[i]);
-      const fh = await dir.getFileHandle(segs[segs.length - 1]);
-      return await (await fh.getFile()).text();
-    } catch (e) { return null; }
-  }
-  /* Écrit cartes/<id>.json (convention déjà suivie par toutes les cartes du dépôt)
-     et complète cartes/index.json si la carte n'y figure pas encore — une carte
-     neuve créée dans l'éditeur devient ainsi visible partout dès l'enregistrement. */
-  async function ecrireCarteDansDepot(poignee, carte) {
-    const fichier = carte.id + '.json';
-    await ecrireFichierDepot(poignee, 'cartes/' + fichier, KJ.modele.versJSON(carte));
-    let cat = null;
-    try { cat = JSON.parse(await lireFichierDepotSiExiste(poignee, 'cartes/index.json')); } catch (e) {}
-    if (!cat || !Array.isArray(cat.cartes)) {
-      cat = {
-        _lisez_moi: 'Catalogue des cartes livrées avec le site. Ajoute une entrée par fichier '
-          + '.json déposé dans ce dossier, puis commite : le site les proposera partout, y '
-          + 'compris sur mobile.',
-        cartes: [],
-      };
-    }
-    const i = cat.cartes.findIndex(e => e.fichier === fichier);
-    const entree = { fichier, nom: carte.nom };
-    if (i === -1) cat.cartes.push(entree); else cat.cartes[i] = entree;
-    await ecrireFichierDepot(poignee, 'cartes/index.json', JSON.stringify(cat, null, 2) + '\n');
-  }
-
   /* ---------- service worker ----------
      Il sert à l'usage hors-ligne du site publié. En local il est nuisible :
      il peut resservir une version périmée de l'application (ancienne page sans
@@ -270,10 +313,11 @@ KJ.stockage = (function () {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  return { enregistrer, charger, supprimer, lister, avecDelai, gererServiceWorker,
+  return { avecDelai, gererServiceWorker,
+           // les cartes : une seule source, les fichiers de cartes/
+           listerCartes, chargerCarte, enregistrerCarte, supprimerCarte, peutModifier,
            campagnesDeclarees, declarerCampagne, oublierCampagne, renommerCampagneDeclaree,
            exporterJSON, exporterSVG, importerFichier, telecharger, slug,
-           catalogueDepot, chargerDepot, catalogueImages, arboreImages,
-           depotPrisEnCharge, lierDossierDepot, oublierDossierDepot, dossierDepotActif,
-           ecrireCarteDansDepot };
+           catalogueImages, arboreImages,
+           depotPrisEnCharge, lierDossierDepot, oublierDossierDepot, dossierDepotActif };
 })();

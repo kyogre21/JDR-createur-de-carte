@@ -40,21 +40,11 @@
   let destinations = [];
   let campagnesConnues = [];
   function chargerDestinations() {
-    return Promise.all([
-      S.avecDelai(S.lister(), 1500, []),
-      S.avecDelai(S.catalogueDepot(), 2500, [])
-        .then(cat => Promise.all(cat.map(e => S.chargerDepot(e.fichier).catch(() => null))))
-        .then(l => l.filter(Boolean)),
-    ]).then(([loc, dep]) => {
-      const toutes = loc.concat(dep);
+    return S.avecDelai(S.listerCartes(), 3000, []).then(toutes => {
       campagnesConnues = M.listeCampagnes(toutes.concat([carte]));
-      const vus = new Set();
-      destinations = [];
-      for (const c of toutes) {
-        if (vus.has(c.id) || c.id === carte.id) continue;
-        vus.add(c.id);
-        destinations.push({ id: c.id, nom: c.nom, campagne: M.campagneDe(c) });
-      }
+      destinations = toutes
+        .filter(c => c.id !== carte.id)
+        .map(c => ({ id: c.id, nom: c.nom, campagne: M.campagneDe(c) }));
       majCartePanneau();
     });
   }
@@ -746,31 +736,24 @@
     toast._t = setTimeout(() => t.classList.remove('vu'), 1800);
   }
   const RATE = Symbol('delai-depasse');
+  /* Écrit le fichier de la carte. Une seule destination possible : cartes/<id>.json
+     sur le disque. En lecture seule (dossier non lié), on le dit franchement plutôt
+     que d'enregistrer dans un stockage invisible — c'est exactement ce faux filet qui
+     faisait croire à des modifications enregistrées puis introuvables ailleurs. */
   function ecrire() {
-    // avecDelai ici aussi : S.enregistrer dépend d'IndexedDB, pas plus fiable ici
-    // qu'ailleurs dans ce fichier — sans filet, un blocage y laissait tout le
-    // parcours de sauvegarde silencieux, y compris le message d'échec.
-    return S.avecDelai(S.enregistrer(carte), 3000, RATE).then((r) => {
-      if (r === RATE) throw new Error('stockage local indisponible (délai dépassé)');
-    }).then(() => {
+    return S.avecDelai(S.enregistrerCarte(carte), 5000, RATE).then((r) => {
+      if (r === RATE) throw new Error('le disque n’a pas répondu');
       try { localStorage.setItem('kj-derniere-carte', carte.id); } catch (e) {}
       majLienJouer();
-      const heure = new Date().toLocaleTimeString('fr-FR');
-      // écriture silencieuse (demander=false) : jamais de popup de permission
-      // depuis l'enregistrement automatique, seulement depuis un clic explicite.
-      // avecDelai : IndexedDB peut rester muet (onglet concurrent qui bloque la
-      // montée de version, entre autres) — sans filet, tout le reste de
-      // l'enregistrement restait bloqué en silence, sans même une erreur visible.
-      return S.avecDelai(S.dossierDepotActif(false), 1500, null).then(poignee => {
-        if (!poignee) {
-          $('etat').textContent = 'Enregistré dans la bibliothèque (local à ce navigateur) à ' + heure;
-          return;
-        }
-        return S.ecrireCarteDansDepot(poignee, carte)
-          .then(() => { $('etat').textContent = 'Enregistré sur le disque à ' + heure; })
-          .catch(() => { $('etat').textContent = 'Enregistré dans la bibliothèque — échec de l’écriture sur le disque à ' + heure; });
-      });
-    }).catch(e => { $('etat').textContent = 'Échec de l’enregistrement : ' + e; throw e; });
+      $('etat').textContent = 'Enregistré dans cartes/' + carte.id + '.json à '
+        + new Date().toLocaleTimeString('fr-FR');
+    }).catch(e => {
+      const lectureSeule = e && /lecture seule/.test(e.message || '');
+      $('etat').textContent = lectureSeule
+        ? 'Lecture seule : aucun dossier lié sur cet appareil — rien n’a été enregistré.'
+        : 'Échec de l’enregistrement : ' + (e && e.message || e);
+      throw e;
+    });
   }
   function enregistrerPlusTard() {
     clearTimeout(tmr);
@@ -794,27 +777,22 @@
      dossier), propose de lier le dossier plateforme/ sur ce PC — un seul geste,
      pas un bouton séparé à comprendre. Un refus (Échap sur le sélecteur) n'est
      redemandé qu'à la prochaine visite de la page, pas à chaque clic. */
-  let depotDejaPropose = false;
   function enregistrerMaintenant() {
     clearTimeout(tmr);
-    const nonSupporte = !S.depotPrisEnCharge() && !depotDejaPropose;
-    if (nonSupporte) depotDejaPropose = true;
-    const avantEcriture = (S.depotPrisEnCharge() && !depotDejaPropose)
-      ? S.avecDelai(S.dossierDepotActif(false), 1500, null).then(poignee => {
-          depotDejaPropose = true;
-          if (poignee) return;
-          return S.lierDossierDepot().catch(() => {});
-        })
-      : Promise.resolve();
-    avantEcriture.then(() => ecrire())
-      .then(() => {
-        // le diagnostic « navigateur non compatible » prime sur la confirmation
-        // habituelle, sinon le toast générique l'efface avant que ce soit lisible.
-        if (nonSupporte) {
-          toast('Ce navigateur ne permet pas l’écriture directe sur le disque (utilise Chrome, Edge ou Brave récent, sur PC) — la carte reste dans la bibliothèque du navigateur.');
-        } else toast('Carte enregistrée.');
-      })
-      .catch(() => toast('Échec de l’enregistrement.'));
+    if (!S.depotPrisEnCharge()) {
+      toast('Cet appareil est en lecture seule : pour modifier des cartes, ouvre l’appli sur PC avec Chrome, Edge ou Brave.');
+      return;
+    }
+    // le sélecteur de dossier n'a le droit de s'ouvrir que depuis un vrai clic :
+    // c'est donc ici, et seulement ici, qu'on propose de lier le dossier.
+    S.avecDelai(S.dossierDepotActif(false), 1500, null)
+      .then(poignee => poignee || S.lierDossierDepot())
+      .then(() => ecrire())
+      .then(() => toast('Carte enregistrée.'))
+      .catch((e) => {
+        if (e && e.name === 'AbortError') return;   // dossier non choisi : silence
+        toast('Échec de l’enregistrement — vérifie que le dossier choisi est bien « plateforme ».');
+      });
   }
   function majLienJouer() { $('b-jouer').href = 'table.html?carte=' + encodeURIComponent(carte.id); }
   /* Un seul point d'entrée après chaque modification : complète la clé,
@@ -918,17 +896,17 @@
   }
 
   const p = new URLSearchParams(location.search);
-  const idDepot = p.get('depot'), id = p.get('id');
-  if (idDepot) {
-    S.chargerDepot(idDepot).then(demarrer).catch(() => demarrer(M.nouvelleCarte({ nom: 'Nouvelle carte' })));
-  } else if (id === 'nouveau') {
-    demarrer(M.nouvelleCarte({ nom: 'Nouvelle carte', w: 560, h: 466, cell: 40 }));
+  const neuve = () => M.nouvelleCarte({ nom: 'Nouvelle carte', w: 560, h: 466, cell: 40 });
+  // ?depot=xxx.json : ancienne forme des liens, gardée valide (les favoris existent)
+  const idDepot = (p.get('depot') || '').replace(/\.json$/i, ''), id = p.get('id');
+  if (id === 'nouveau') {
+    demarrer(neuve());
   } else {
-    let cible = id;
+    let cible = idDepot || id;
     try { cible = cible || localStorage.getItem('kj-derniere-carte'); } catch (e) {}
-    (cible ? S.charger(cible) : Promise.resolve(null))
-      .then(c => demarrer(c ? M.depuisJSON(c) : M.nouvelleCarte({ nom: 'Nouvelle carte', w: 560, h: 466, cell: 40 })))
-      .catch(() => demarrer(M.nouvelleCarte({ nom: 'Nouvelle carte', w: 560, h: 466, cell: 40 })));
+    (cible ? S.avecDelai(S.chargerCarte(cible), 4000, null) : Promise.resolve(null))
+      .then(c => demarrer(c || neuve()))
+      .catch(() => demarrer(neuve()));
   }
   construireOutils();
 

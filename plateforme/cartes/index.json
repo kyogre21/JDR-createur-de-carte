@@ -1,13 +1,13 @@
 {
-  "_lisez_moi": "Catalogue des cartes livrées avec le site. Ajoute une entrée par fichier .json déposé dans ce dossier, puis commite : le site les proposera partout, y compris sur mobile.",
+  "_lisez_moi": "Catalogue régénéré par l’application à chaque enregistrement. Il sert à lister les cartes depuis le site (impossible d’y lister un dossier).",
   "cartes": [
-    {
-      "fichier": "manoir-cygnus-rdc.json",
-      "nom": "Manoir Cygnus — Rez-de-chaussée"
-    },
     {
       "fichier": "manoir-cygnus-etage.json",
       "nom": "Manoir Cygnus — Étage"
+    },
+    {
+      "fichier": "manoir-cygnus-rdc.json",
+      "nom": "Manoir Cygnus — Rez-de-chaussée"
     },
     {
       "fichier": "village.json",

@@ -293,15 +293,12 @@
       jetonsEl.appendChild(d);
     }
   }
-  /* Résolution d'une liaison : par identifiant, sinon par nom (ou son slug).
-     Si plusieurs cartes correspondent, la version locale — celle que le MJ
-     édite — a la priorité sur celle du dépôt. */
+  /* Résolution d'une liaison : par identifiant, sinon par nom (ou son slug) — les
+     anciennes cartes visent parfois un nom plutôt qu'un identifiant. */
   function resoudre(vers) {
     if (!vers) return null;
     const v = S.slug(vers);
-    const cands = catalogue.filter(c => c.id === vers || S.slug(c.id) === v || S.slug(c.nom) === v);
-    if (!cands.length) return null;
-    return cands.find(c => c.source === 'locale') || cands[0];
+    return catalogue.find(c => c.id === vers || S.slug(c.id) === v || S.slug(c.nom) === v) || null;
   }
   /* Portail à moins d'une case du point donné (le jeton qu'on vient de lâcher) — ignore un
      portail inerte (carte de destination introuvable), rien à déclencher. Une case entière,
@@ -341,48 +338,33 @@
 
   /* ---------------- chargement des cartes ---------------- */
   function chargerCatalogue() {
-    return Promise.all([
-      S.avecDelai(S.lister(), 1500, []),          // ne jamais rester bloqué sur le stockage local
-      S.avecDelai(S.catalogueDepot(), 2500, []),
-    ]).then(([locales, depot]) => {
-      catalogue = locales.map(c => ({ id: c.id, nom: c.nom, campagne: c.campagne, source: 'locale' }));
-      const vus = new Set(catalogue.map(c => c.id));
-      const noms = new Set(catalogue.map(c => S.slug(c.nom)));
-      return Promise.all(depot.map(e => S.chargerDepot(e.fichier).catch(() => null)))
-        .then(cartes => {
-          cartes.filter(Boolean).forEach(c => {
-            // une carte de travail locale masque celle du dépôt (même identifiant
-            // OU même nom) : jamais deux entrées pour un même lieu dans le sélecteur
-            if (!vus.has(c.id) && !noms.has(S.slug(c.nom)))
-              catalogue.push({ id: c.id, nom: c.nom, campagne: c.campagne, source: 'depot', fichier: c.id, carte: c });
-          });
-          /* Sélecteur groupé par campagne : le MJ retrouve ses lieux par aventure. */
-          const sel = $('choix-carte'); sel.innerHTML = '';
-          const groupes = M.parCampagne(catalogue.map(c => ({ campagne: c.campagne, _ref: c })));
-          for (const nom of M.listeCampagnes(catalogue)) {
-            const g = document.createElement('optgroup');
-            g.label = nom;
-            for (const item of groupes[nom]) {
-              const c = item._ref;
-              const o = document.createElement('option');
-              o.value = c.id;
-              o.textContent = c.nom;
-              g.appendChild(o);
-            }
-            sel.appendChild(g);
-          }
-        });
+    // une seule source : les fichiers de cartes/ (disque si dossier lié, sinon le site)
+    return S.avecDelai(S.listerCartes(), 4000, []).then(cartes => {
+      catalogue = cartes;
+      /* Sélecteur groupé par campagne : le MJ retrouve ses lieux par aventure. */
+      const sel = $('choix-carte'); sel.innerHTML = '';
+      const groupes = M.parCampagne(catalogue.map(c => ({ campagne: c.campagne, _ref: c })));
+      for (const nom of M.listeCampagnes(catalogue)) {
+        const g = document.createElement('optgroup');
+        g.label = nom;
+        for (const item of groupes[nom]) {
+          const o = document.createElement('option');
+          o.value = item._ref.id;
+          o.textContent = item._ref.nom;
+          g.appendChild(o);
+        }
+        sel.appendChild(g);
+      }
     });
   }
   function chargerCarte(id) {
-    const e = catalogue.find(c => c.id === id) || catalogue[0];
-    if (!e) return Promise.reject(new Error('Aucune carte disponible.'));
-    const p = e.source === 'depot' ? Promise.resolve(e.carte) : S.charger(e.id).then(M.depuisJSON);
-    return p.then(c => {
+    const c = catalogue.find(x => x.id === id) || catalogue[0];
+    if (!c) return Promise.reject(new Error('Aucune carte disponible.'));
+    return Promise.resolve(c).then(c => {
       carte = c;
       partie.carte = c.id;
       $('choix-carte').value = c.id;
-      $('b-editer').href = 'editeur.html?' + (e.source === 'depot' ? 'depot=' + encodeURIComponent(c.id) + '.json' : 'id=' + encodeURIComponent(c.id));
+      $('b-editer').href = 'editeur.html?id=' + encodeURIComponent(c.id);
       dessinerPlan(); dessinerFog(); dessinerJetons(); dessinerPins(); dessinerImages();
       // pas dans la vraie fenêtre séparée : elle reste un pur miroir, jamais productrice
       // d'état — un PJ déjà présent dans une pièce au chargement doit être détecté, mais

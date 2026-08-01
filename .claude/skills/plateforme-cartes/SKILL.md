@@ -140,35 +140,45 @@ locale, ce n'était pas la peine de traiter les deux cas séparément ici, contr
 `sauverPartie(true)` sur la création, comme sur le déplacement (point 16) : un jeton créé côté
 joueur doit remonter jusqu'au MJ.
 
-**Enregistrement et publication (`js/stockage.js` + `js/editeur.js`)** : trois niveaux bien
-distincts, à ne pas confondre entre eux.
-1. **Bibliothèque du navigateur** (IndexedDB, `S.enregistrer/charger/supprimer/lister`) —
-   toujours actif, quel que soit le navigateur/appareil. **Jamais synchronisé entre deux
-   navigateurs ou deux appareils** : PC et téléphone ont chacun leur propre base, indépendante.
-2. **Disque, en direct** (`S.depotPrisEnCharge/lierDossierDepot/dossierDepotActif/
-   ecrireCarteDansDepot`, File System Access API — Chromium PC uniquement, pas Firefox/Safari/
-   mobile) : quand le dossier `plateforme/` est lié, chaque `ecrire()` (dans `editeur.js`) écrit
-   **aussi** `cartes/<id>.json` (convention : le nom de fichier est toujours `<id>.json`) et met à
-   jour `cartes/index.json` en conséquence, en plus de l'IndexedDB. La liaison se propose d'elle-
-   même au premier clic explicite sur **💾 Enregistrer** (`enregistrerMaintenant()`) — jamais
-   depuis l'enregistrement automatique (`enregistrerPlusTard()`), qui n'a pas de geste utilisateur
-   pour autoriser un sélecteur de fichier ; un refus n'est redemandé qu'à la prochaine visite de
-   la page (`depotDejaPropose`), pas à chaque clic. Poignée persistée dans IndexedDB (nouveau
-   store `parametres`, v2 du schéma) ; la permission peut être perdue entre deux sessions
-   (`queryPermission`), et ne peut être redemandée (`requestPermission`) que depuis un geste
-   utilisateur réel — jamais silencieusement.
-3. **Publication : entièrement manuelle, hors de l'appli — ne pas en refaire une dans l'appli.**
-   Une version antérieure ajoutait un bouton `📲 Vers ton téléphone` qui commitait directement sur
-   GitHub via son API (jeton d'accès personnel en `localStorage`). **Supprimé à la demande
-   explicite de l'utilisateur** : *« tu va me supprimer ce putain de bouton inutile »* — il gère
-   lui-même `git commit`/`git push` avec ses propres outils, une fois le disque à jour via le
-   point 2. Deux boutons de sauvegarde (un local, un qui publie) avaient déjà été rejetés une
-   première fois comme trop compliqués (point 17) ; le bouton de publication en un clic,
-   pourtant plus simple, l'a été aussi à l'usage — **ne pas réintroduire un mécanisme de
-   publication dans l'appli sans qu'il soit redemandé explicitement**, ce n'est pas un manque à
-   combler de sa propre initiative. Le seul bouton de sauvegarde à conserver est
-   **💾 Enregistrer** (point 2 ci-dessus) ; Netlify est déjà connecté au dépôt GitHub et redéploie
-   tout seul dès que l'utilisateur pousse, quel que soit l'outil git qu'il utilise pour ça.
+**Les cartes : UNE seule source, les fichiers (`js/stockage.js`)** — invariant à ne pas casser.
+
+Une carte = un fichier `cartes/<id>.json` (le nom de fichier est **toujours** `<id>.json`). Il
+n'existe plus de bibliothèque IndexedDB en parallèle : ce doublon de stockage a été la cause
+directe des points 17 et 19 ci-dessous, et sa suppression a été demandée explicitement
+(*« je n'ai pas besoin de "fausse" version des cartes »*). **Ne pas réintroduire un stockage de
+cartes dans le navigateur**, sous aucune forme (cache, brouillon, copie de travail).
+
+API : `S.listerCartes()` / `chargerCarte(id)` / `enregistrerCarte(c)` / `supprimerCarte(id)` /
+`peutModifier()`. Deux chemins de lecture derrière la même API :
+- **dossier lié** (File System Access, Chromium PC) → lit/écrit les fichiers **du disque** ;
+  `enregistrerCarte` écrit `cartes/<id>.json` puis **régénère** `cartes/index.json` à partir du
+  contenu réel du dossier (pas de patch incrémental : la suppression d'un fichier se reflète
+  toute seule) ;
+- **sinon** (téléphone, navigateur non compatible) → lit les fichiers **servis en HTTP** via
+  `cartes/index.json` (on ne peut pas lister un dossier en HTTP : d'où ce fichier), et
+  `enregistrerCarte`/`supprimerCarte` **rejettent** avec `lecture seule`. L'interface doit alors
+  masquer ses commandes d'édition (`peutModifier()` → `#grp-edition`, boutons de fiche) plutôt
+  que d'écrire dans un coin invisible.
+
+La liaison du dossier se propose au premier clic explicite sur **💾 Enregistrer** — jamais depuis
+l'enregistrement automatique, qui n'a pas de geste utilisateur pour ouvrir un sélecteur de
+fichier. Poignée persistée dans le store `parametres` d'IndexedDB (v2 du schéma) ; la permission
+peut être perdue entre deux sessions (`queryPermission`) et ne peut être redemandée
+(`requestPermission`) que depuis un geste réel.
+
+**Tout ce qui touche IndexedDB passe par `avecDelai`** — et le garde est posé **dans
+`dossierDepotActif()`**, passage obligé vers le dossier, plutôt que chez chaque appelant : un
+garde par appelant est un garde qu'on oublie (constaté trois fois de suite dans la même session,
+à chaque fois avec le même symptôme : blocage total et silencieux). `lierDossierDepot()` ne fait
+pas non plus dépendre la liaison de la mémorisation de la poignée : si l'écriture IndexedDB
+échoue, la liaison vaut au moins pour la session.
+
+**Publication : entièrement manuelle, hors de l'appli — ne pas en refaire une dedans.** Une
+version antérieure ajoutait un bouton `📲 Vers ton téléphone` (API GitHub, jeton personnel en
+`localStorage`), supprimé à la demande explicite de l'utilisateur : *« tu va me supprimer ce
+putain de bouton inutile »*. Il gère lui-même `git commit`/`git push`. Netlify est connecté au
+dépôt et redéploie seul dès qu'il pousse. **Le seul bouton de sauvegarde de l'éditeur est
+💾 Enregistrer** ; ne pas en ajouter un second, quel qu'en soit le prétexte.
 
 **Ordre des couches en jeu** (non négociable, hérité de Foundry/Roll20) :
 `plan < portails < images < brouillard < jetons < pings/mesure < interface`. Le brouillard couvre
@@ -219,6 +229,14 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
   vu en concluant à tort « aucune carte n'a d'image » après un `grep` sans résultat sur le premier
   fichier, qui a empêché le `grep` du second fichier de s'exécuter. Séparer les commandes (ou
   utiliser `;`) dès qu'un résultat vide d'une étape est un cas normal à ne pas court-circuiter.
+- **Stubber `S.xxx` ne remplace PAS l'appel interne du même nom.** `stockage.js` est une IIFE :
+  `purgerCopiesObsoletes` appelle le `supprimer` **interne**, pas `KJ.stockage.supprimer`.
+  Réécrire la propriété exportée depuis un banc d'essai ne détourne donc rien de ce qui se passe
+  à l'intérieur du module — le test paraît « passer » sans avoir exercé la moindre ligne visée.
+  Pour tester du code interne à `stockage.js`, stubber **sous** lui (remplacer `window.indexedDB`)
+  ou appeler directement la fonction exportée avec des données fabriquées. Corollaire : un test
+  qui recopie la fonction dans le fichier de test ne teste que la copie, jamais le code livré —
+  le dire explicitement plutôt que d'annoncer une vérification qui n'a pas eu lieu.
 - Un `pointerdown` de test doit être émis **sur l'élément SVG visé** : sinon `closest('[data-id]')`
   ne trouve rien et la sélection échoue silencieusement.
 - L'historique enregistre l'état **après** modification, via l'unique point d'entrée `apresModif()`.
@@ -436,6 +454,41 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
     une fonction de `stockage.js` qui touche IndexedDB doit passer par `S.avecDelai(...)` dès
     l'écriture initiale, pas seulement après qu'un symptôme le révèle — et avant de suspecter
     l'utilisateur d'une erreur de manipulation, relire le code du chemin concerné.
+
+19. **« J'ai poussé mes modifications et je ne les vois pas » — cause finale : la copie locale
+    masquait indéfiniment une carte du dépôt pourtant plus récente.** Le masquage (points 2/5)
+    était inconditionnel : `if (!vus.has(c.id) && !noms.has(slug(c.nom)))`. Comme chaque appareil
+    a son propre IndexedDB, un téléphone ayant ouvert une carte une fois affichait sa copie
+    figée pour toujours, quels que soient les push suivants — **sans aucun signe visible**, ce
+    qui a coûté une longue série d'échanges où le cache, Netlify et le navigateur ont tous été
+    suspectés à tort (ils étaient corrects : `git show origin/main:…` et le tableau Netlify le
+    confirmaient à chaque fois). Corrigé par `S.purgerCopiesObsoletes(locales, cartesDepot)`
+    (stockage.js), appelée **avant** la fusion dans `index.html` et `table.js` : une copie locale
+    strictement plus ancienne (`maj`) que la carte du dépôt correspondante (par id **ou** par nom)
+    est supprimée — le dépôt contient déjà mieux. Une copie locale plus récente (travail en cours)
+    est gardée ; une carte du dépôt sans `maj` ne périme jamais rien (rétrocompatibilité).
+    **Conséquence à ne pas oublier** : l'éditeur pouvait alors ouvrir une carte vierge quand sa
+    copie locale venait d'être purgée (`S.charger` → `null` → « Nouvelle carte », l'utilisateur
+    croit son travail perdu). D'où le repli explicite sur `S.chargerDepot(id + '.json')` avant de
+    créer une carte neuve. Règle générale : **toute suppression automatique de données locales
+    doit s'accompagner d'un repli sur la source qui l'a rendue obsolète**, partout où ces données
+    étaient lues.
+
+20. **La vraie leçon des points 17 et 19 : la complexité venait d'un doublon de stockage, pas
+    d'un enchaînement de bugs.** Bibliothèque IndexedDB *et* fichiers `cartes/*.json` coexistaient ;
+    toute la machinerie qui a occupé une session entière — copies qui masquent l'originale,
+    diagnostic de doublons/identifiants (`aReparer`/`reparer`), purge des copies périmées, section
+    « Cartes fournies » distincte de « Mes cartes », repli de l'éditeur sur le dépôt — n'existait
+    que pour faire cohabiter ces deux sources. Chaque correctif ajoutait un mécanisme au lieu
+    d'enlever la cause. L'utilisateur a fini par poser la bonne question (*« pourquoi c'est si
+    compliqué ? pourquoi ne pas avoir un système simple ? »*), et la réponse honnête était que
+    la moitié du code servait à réparer une décision d'architecture, pas un besoin.
+    **Supprimé** : le stockage IndexedDB des cartes (le magasin `cartes` est laissé en place mais
+    plus jamais lu/écrit — on n'efface pas des données qui peuvent encore servir de secours), le
+    diagnostic de doublons, la purge, la double section de la bibliothèque, l'ancienne API
+    `S.enregistrer/charger/supprimer/lister`. **Réflexe à garder** : quand un troisième correctif
+    de suite s'ajoute au même endroit, s'arrêter et se demander si ce n'est pas la structure qui
+    est fausse — et proposer de l'enlever plutôt que d'empiler un garde-fou de plus.
 
 ## Style
 
