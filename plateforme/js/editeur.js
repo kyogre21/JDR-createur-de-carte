@@ -736,21 +736,22 @@
     toast._t = setTimeout(() => t.classList.remove('vu'), 1800);
   }
   const RATE = Symbol('delai-depasse');
-  /* Écrit le fichier de la carte. Une seule destination possible : cartes/<id>.json
-     sur le disque. En lecture seule (dossier non lié), on le dit franchement plutôt
-     que d'enregistrer dans un stockage invisible — c'est exactement ce faux filet qui
-     faisait croire à des modifications enregistrées puis introuvables ailleurs. */
+  /* Écrit la carte : bibliothèque en ligne (compte MJ connecté) et/ou fichier
+     cartes/<id>.json du dossier lié — voir stockage.enregistrerCarte. En lecture
+     seule (ni l'un ni l'autre), on le dit franchement plutôt que d'enregistrer dans
+     un stockage invisible — c'est exactement ce faux filet qui faisait croire à des
+     modifications enregistrées puis introuvables ailleurs. */
   function ecrire() {
-    return S.avecDelai(S.enregistrerCarte(carte), 5000, RATE).then((r) => {
-      if (r === RATE) throw new Error('le disque n’a pas répondu');
+    return S.avecDelai(S.enregistrerCarte(carte), 9000, RATE).then((r) => {
+      if (r === RATE) throw new Error('l’enregistrement n’a pas répondu');
       try { localStorage.setItem('kj-derniere-carte', carte.id); } catch (e) {}
       majLienJouer();
-      $('etat').textContent = 'Enregistré dans cartes/' + carte.id + '.json à '
-        + new Date().toLocaleTimeString('fr-FR');
+      $('etat').textContent = 'Enregistré à ' + new Date().toLocaleTimeString('fr-FR')
+        + ' (bibliothèque en ligne et/ou dossier lié)';
     }).catch(e => {
       const lectureSeule = e && /lecture seule/.test(e.message || '');
       $('etat').textContent = lectureSeule
-        ? 'Lecture seule : aucun dossier lié sur cet appareil — rien n’a été enregistré.'
+        ? 'Lecture seule : ni compte MJ connecté, ni dossier lié — rien n’a été enregistré.'
         : 'Échec de l’enregistrement : ' + (e && e.message || e);
       throw e;
     });
@@ -779,20 +780,29 @@
      redemandé qu'à la prochaine visite de la page, pas à chaque clic. */
   function enregistrerMaintenant() {
     clearTimeout(tmr);
-    if (!S.depotPrisEnCharge()) {
-      toast('Cet appareil est en lecture seule : pour modifier des cartes, ouvre l’appli sur PC avec Chrome, Edge ou Brave.');
-      return;
-    }
-    // le sélecteur de dossier n'a le droit de s'ouvrir que depuis un vrai clic :
-    // c'est donc ici, et seulement ici, qu'on propose de lier le dossier.
-    S.avecDelai(S.dossierDepotActif(false), 1500, null)
-      .then(poignee => poignee || S.lierDossierDepot())
-      .then(() => ecrire())
-      .then(() => toast('Carte enregistrée.'))
-      .catch((e) => {
-        if (e && e.name === 'AbortError') return;   // dossier non choisi : silence
-        toast('Échec de l’enregistrement — vérifie que le dossier choisi est bien « plateforme ».');
-      });
+    // avec un compte MJ connecté, l'enregistrement va dans la bibliothèque en ligne :
+    // rien à lier, ça marche dans tous les navigateurs. Le dossier lié (Chromium)
+    // reste proposé sinon — et alimente de toute façon la copie git quand il existe.
+    const pConnecte = (window.KJ && KJ.session && KJ.session.configuree() && KJ.session.mjProbable())
+      ? KJ.session.quiEstConnecte().catch(() => null) : Promise.resolve(null);
+    S.avecDelai(pConnecte, 8000, null).then(connecte => {
+      if (connecte)
+        return ecrire().then(() => toast('Carte enregistrée dans ta bibliothèque en ligne.'));
+      if (!S.depotPrisEnCharge()) {
+        toast('Connecte-toi à ton compte MJ (bibliothèque → 🛡 Espace MJ) pour enregistrer '
+          + 'tes cartes en ligne — disponible dans tous les navigateurs.');
+        return;
+      }
+      // le sélecteur de dossier n'a le droit de s'ouvrir que depuis un vrai clic :
+      // c'est donc ici, et seulement ici, qu'on propose de lier le dossier.
+      return S.avecDelai(S.dossierDepotActif(false), 1500, null)
+        .then(poignee => poignee || S.lierDossierDepot())
+        .then(() => ecrire())
+        .then(() => toast('Carte enregistrée.'));
+    }).catch((e) => {
+      if (e && e.name === 'AbortError') return;   // dossier non choisi : silence
+      toast('Échec de l’enregistrement — vérifie ta connexion ou le dossier choisi.');
+    });
   }
   function majLienJouer() { $('b-jouer').href = 'table.html?carte=' + encodeURIComponent(carte.id); }
   /* Un seul point d'entrée après chaque modification : complète la clé,

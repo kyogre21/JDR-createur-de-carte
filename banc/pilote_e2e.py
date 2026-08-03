@@ -57,13 +57,13 @@ try:
 
     jo = chrome(9334, "profil-joueur", "500,900",
                 BASE + "/banc/banc-e2e-joueur.html?session=" + CODE)
-    fini = False
-    for i in range(75):
+    for i in range(120):
         tj, tm = titre(9334), titre(9333)
-        if i % 5 == 0 or "PASSE" in tj or "timeout" in tj:
-            print("t=%2ds  MJ %s\n       J  %s" % (i, tm, tj))
-        if "PASSE" in tj or "timeout" in tj or "erreur" in tj:
-            fini = True
+        if i % 5 == 0 or "PASSE" in tj or "REPRISE" in tm or "timeout" in tj:
+            print("t=%3ds  MJ %s\n        J  %s" % (i, tm, tj))
+        # succès complet : traversée joueur ET reprise + bibliothèque prouvées
+        if ("REPRISE" in tm and "PASSE" in tj) or "timeout" in tj or "timeout" in tm \
+                or "erreur" in tj or "ERREUR" in tm:
             break
         time.sleep(1)
     print("\n=== RESULTAT ===")

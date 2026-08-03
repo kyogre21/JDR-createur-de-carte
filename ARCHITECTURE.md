@@ -140,3 +140,26 @@ Le modèle « session jetable » a été remplacé :
   « Rejoindre une partie » et « Espace MJ » ; la table d'un joueur charge les cartes
   demandées par l'état du MJ directement par fichier (pas de catalogue côté invité).
 - Le flux d'édition PC (dossier lié → fichiers → git) est INCHANGÉ.
+
+## Étape 2 (2026-08) : les cartes vivent dans le compte
+
+Le dossier local n'est plus un passage obligé — verdict utilisateur : « il faut que tout
+se fasse automatiquement, sinon c'est inutile ».
+
+- **Bibliothèque en ligne** : chaque carte est stockée dans `mj/<uid>/cartes/<id>`
+  sous forme de **chaîne JSON intacte** (jamais l'objet : Firebase ampute les champs
+  vides). Créée/modifiée n'importe où (Firefox compris), une carte est disponible sur
+  tous les appareils du MJ. C'est la source de vérité.
+- **Le dossier lié devient un bonus** : s'il existe (PC Chromium), chaque
+  enregistrement y écrit AUSSI le fichier (copie git), et les fichiers locaux plus
+  récents migrent automatiquement vers le compte au listage.
+- **La carte affichée voyage avec la partie** (`parties/<code>/carte`, publiée par le
+  MJ à chaque changement) : les joueurs invités n'ont ni compte ni bibliothèque, et
+  les cartes récentes n'existent plus en fichiers publiés. Le fetch direct
+  `cartes/<id>.json` reste un dernier recours pour les anciennes cartes déployées.
+- **Marqueur local `kj-mj-connecte`** : posé à la connexion, retiré à la déconnexion.
+  Il évite aux visiteurs/invités de payer l'initialisation du SDK juste pour apprendre
+  qu'il n'y a rien à attendre — et aux pages du MJ d'expirer leurs délais au premier
+  démarrage à froid.
+- Import en lot (`↑ Importer`, multi-fichiers) = chemin de migration depuis n'importe
+  quel navigateur.

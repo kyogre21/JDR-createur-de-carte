@@ -24,7 +24,7 @@
     <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
     <button id="b-importer">↑ Importer un .json</button>
   </span>
-  <input type="file" id="fichier" accept=".json,application/json" hidden>
+  <input type="file" id="fichier" accept=".json,application/json" multiple hidden>
 </header>
 
 <div id="alerte-fichier"></div>
@@ -97,8 +97,8 @@
       sup.textContent = '✕'; sup.className = 'danger';
       sup.title = 'Supprimer le fichier de cette carte';
       sup.addEventListener('click', () => {
-        if (!confirm('Supprimer « ' + carte.nom + ' » ?\n\nLe fichier cartes/' + carte.id
-          + '.json sera effacé du disque. Tant que ce n’est pas commité, un « git checkout » le rétablit.')) return;
+        if (!confirm('Supprimer « ' + carte.nom + ' » ?\n\nElle sera retirée de ta bibliothèque '
+          + '(et du dossier lié s’il y en a un — tant que ce n’est pas commité, « git checkout » rétablit le fichier).')) return;
         S.supprimerCarte(carte.id).then(charger)
           .catch(e => alert('Suppression impossible : ' + (e && e.message || e)));
       });
@@ -397,36 +397,30 @@
     /* Chien de garde : si rien n'est rendu au bout de 9 s (permission de dossier
        jamais accordée, stockage muet…), on le dit au lieu de laisser un écran noir. */
     setTimeout(function () {
-      ecranPanne('Le chargement n’aboutit pas.',
+      ecranPanne('Le chargement n’aboutit pas.',   // 16 s : le premier démarrage charge le SDK
         'Deux causes, par ordre de fréquence :<br>'
         + '<b>1. Le cache du navigateur</b> sert une ancienne version de l’application — '
         + 'commence par vider le cache ci-dessous, ou fais <b>Ctrl+Maj+R</b>.<br>'
         + '<b>2. Un dossier lié devenu inaccessible</b> (déplacé, renommé, autorisation '
         + 'expirée) : délie-le, puis relie-le depuis l’éditeur avec 💾 Enregistrer.');
-    }, 9000);
+    }, 16000);
 
-    return Promise.all([
-      S.avecDelai(S.listerCartes(), 5000, []),
-      S.avecDelai(S.peutModifier(), 4000, false),   // ne jamais rester suspendu ici non plus
-    ]).then(async ([cartes, editable]) => {
+    /* Qui est là ? Trois publics : le MJ connecté (bibliothèque en ligne), le MJ sur
+       SON PC (dossier lié), et tout le monde d'autre — qui ne voit RIEN d'autre que
+       la porte d'entrée. La connexion s'établit EN PREMIER : c'est elle qui charge le
+       SDK — le faire pendant la liste faisait expirer les délais au premier démarrage
+       (bibliothèque à tort vide, à froid). */
+    const pConnecte = (KJ.session && KJ.session.configuree() && KJ.session.mjProbable())
+      ? S.avecDelai(KJ.session.quiEstConnecte().catch(() => null), 12000, null)
+      : Promise.resolve(null);   // sans marqueur MJ : porte d'entrée immédiate, pas de SDK
+    return pConnecte.then(connecte => Promise.all([
+      connecte,
+      S.avecDelai(S.listerCartes(), 12000, []),
+      S.avecDelai(S.peutModifier(), 6000, false),   // ne jamais rester suspendu ici non plus
+    ])).then(async ([connecte, cartes, editable]) => {
       modifiable = editable;
-      /* Qui est là ? Trois publics : le MJ sur SON PC (dossier lié — accès physique,
-         pas besoin de compte pour voir ses fichiers), le MJ connecté (bibliothèque
-         via son index privé), et tout le monde d'autre — qui ne voit RIEN d'autre
-         que la porte d'entrée : la bibliothèque est privée. */
-      let connecte = null;
-      if (KJ.session && KJ.session.configuree()) {
-        try { connecte = await S.avecDelai(KJ.session.quiEstConnecte(), 8000, null); } catch (e) {}
-      }
       majBoutonMJ(connecte);
       if (!modifiable && !connecte) { rendu = true; return porteEntree(); }
-      if (!modifiable && !cartes.length && connecte) {
-        // appareil sans dossier lié (téléphone…) : la liste vient de l'index privé
-        try {
-          const idx = await KJ.session.lireIndexCartes();
-          if (idx) cartes = await S.listerDepuisListe(idx);
-        } catch (e) {}
-      }
       campLocales = cartes;
       $('grp-edition').hidden = !modifiable;
       const note = $('note-lecture');
@@ -455,23 +449,11 @@
       majFiltre(cartes);
       const c = $('liste');
       if (!cartes.length) {
-        let quoiFaire;
-        if (modifiable) quoiFaire = ' Crée-en une, ou importe un fichier .json.';
-        else if (S.depotPrisEnCharge())
-          // un PC : soit ce navigateur n'a pas (ou plus) le dossier lié (bouton du
-          // bandeau ci-dessus), soit l'index privé n'a pas encore été rempli
-          quoiFaire = ' Si tes cartes sont sur ce PC, clique <b>🔗 Lier le dossier</b> juste '
-            + 'au-dessus et désigne ton dossier <code>plateforme</code>. Sinon, ouvre la '
-            + 'bibliothèque, connecté, sur le PC où elles vivent : elle se synchronisera '
-            + 'pour tes autres appareils.';
-        else quoiFaire = ' Ouvre la bibliothèque une fois sur ton PC, connecté à ce compte : '
-            + 'elle deviendra disponible ici automatiquement.';
         c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
-          + 'Aucune carte ici pour l’instant.' + quoiFaire + '</p>';
+          + 'Ta bibliothèque est vide. Crée une carte (＋ Nouvelle carte), ou importe tes '
+          + 'fichiers .json d’un coup (↑ Importer — plusieurs fichiers à la fois) : ils '
+          + 'seront enregistrés dans ton compte et disponibles sur tous tes appareils.</p>';
       } else afficherGroupe(c, cartes);
-      // PC + compte : l'index privé se met à jour tout seul — c'est lui qui rend la
-      // bibliothèque disponible sur les autres appareils du MJ
-      if (modifiable && connecte) synchroniserIndex(cartes);
       rendu = true;                    // succès constaté, pas seulement espéré
     }).catch(function (err) {
       ecranPanne('Le chargement a échoué.',
@@ -579,23 +561,25 @@
       return false;   // fermeture uniquement en cas de succès (asynchrone)
     });
   }
-  /* L'index privé : la liste {id, nom, campagne} des cartes du MJ, dans son espace.
-     Poussé depuis le PC (les fichiers font foi) ; lu par ses autres appareils. */
-  function synchroniserIndex(cartes) {
-    const liste = cartes.map(function (c) {
-      return { id: c.id, nom: c.nom, fichier: c.id + '.json', campagne: c.campagne || '', maj: c.maj || 0 };
-    });
-    KJ.session.publierIndexCartes(liste).catch(function () {});
-  }
-
   $('b-rejoindre').addEventListener('click', demanderCode);
 
   $('b-importer').addEventListener('click', () => $('fichier').click());
+  /* Import en lot : sélectionner d'un coup tous ses fichiers de cartes — c'est aussi
+     le chemin de migration vers la bibliothèque en ligne depuis n'importe quel
+     navigateur (Firefox compris, qui ne sait pas lier de dossier). */
   $('fichier').addEventListener('change', (e) => {
-    const f = e.target.files[0]; if (!f) return;
-    S.importerFichier(f)
-      .then(c => S.enregistrerCarte(c).then(() => location.href = 'editeur.html?id=' + c.id))
-      .catch(err => alert('Import impossible : ' + err.message));
+    const fichiers = [...e.target.files];
+    if (!fichiers.length) return;
+    e.target.value = '';
+    let p = Promise.resolve(0);
+    for (const f of fichiers)
+      p = p.then(n => S.importerFichier(f).then(c => S.enregistrerCarte(c)).then(() => n + 1)
+        .catch(err => { alert('« ' + f.name + '» : import impossible — ' + err.message); return n; }));
+    p.then(n => {
+      if (fichiers.length === 1 && n === 1) return charger();
+      alert(n + ' carte' + (n > 1 ? 's' : '') + ' importée' + (n > 1 ? 's' : '') + ' sur ' + fichiers.length + '.');
+      charger();
+    });
   });
 
   if (location.protocol === 'file:') {

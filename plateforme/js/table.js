@@ -399,16 +399,10 @@
 
   /* ---------------- chargement des cartes ---------------- */
   function chargerCatalogue() {
-    // les fichiers de cartes/ (disque si dossier lié), sinon l'index PRIVÉ du MJ
-    // connecté (la liste publique n'existe plus : bibliothèque privée) ; les joueurs
-    // invités n'ont pas de catalogue, leurs cartes arrivent par l'état du MJ
-    return S.avecDelai(S.listerCartes(), 4000, []).then(cartes => {
-      if (cartes.length || codeSessionURL || !KJ.session || !KJ.session.configuree())
-        return cartes;
-      return KJ.session.lireIndexCartes()
-        .then(l => (l ? S.listerDepuisListe(l) : []))
-        .catch(() => []);
-    }).then(cartes => {
+    // bibliothèque en ligne du MJ connecté, sinon dossier lié, sinon fichiers du
+    // site (voir stockage.listerCartes) ; les joueurs invités n'ont pas de
+    // catalogue, la carte affichée leur arrive par la partie elle-même
+    return S.avecDelai(S.listerCartes(), 12000, []).then(cartes => {
       catalogue = cartes;
       /* Sélecteur groupé par campagne : le MJ retrouve ses lieux par aventure. */
       const sel = $('choix-carte'); sel.innerHTML = '';
@@ -426,14 +420,19 @@
       }
     });
   }
+  let carteRecue = null;   // côté joueur : la carte transportée par la partie
   function chargerCarte(id) {
     const c = catalogue.find(x => x.id === id) || catalogue[0];
-    /* Les joueurs invités n'ont pas de catalogue (la bibliothèque est privée) : la
-       carte demandée par l'état du MJ se charge alors directement par son fichier. */
-    const promesse = c ? Promise.resolve(c)
-      : fetch('cartes/' + encodeURIComponent(id) + '.json', { cache: 'no-cache' })
-          .then(r => { if (!r.ok) throw new Error('Carte introuvable.'); return r.json(); })
-          .then(KJ.modele.depuisJSON);
+    /* Les joueurs invités n'ont pas de catalogue (bibliothèque privée) : la carte
+       affichée leur est TRANSPORTÉE par la partie (publierCartePartie). Le fichier
+       servi par le site reste un dernier recours (anciennes cartes déployées). */
+    let promesse;
+    if (c) promesse = Promise.resolve(c);
+    else if (carteRecue && carteRecue.id === id)
+      promesse = Promise.resolve(KJ.modele.depuisJSON(carteRecue.json));
+    else promesse = fetch('cartes/' + encodeURIComponent(id) + '.json', { cache: 'no-cache' })
+      .then(r => { if (!r.ok) throw new Error('Carte introuvable.'); return r.json(); })
+      .then(KJ.modele.depuisJSON);
     return promesse.then(c => {
       carte = c;
       partie.carte = c.id;
@@ -450,6 +449,10 @@
       requestAnimationFrame(cadrer);
       setTimeout(cadrer, 150);
       sauverPartie();
+      // en partie, la carte affichée voyage avec elle : les joueurs n'ont ni compte
+      // ni bibliothèque, c'est la partie qui la leur apporte
+      if (KJ.session && KJ.session.active() && KJ.session.estMJ())
+        KJ.session.publierCartePartie(c.id, KJ.modele.versJSON(c));
       // dire une fois où cliquer : les portails ne sautent pas aux yeux
       if (!vueJoueurs && !chargerCarte._dit) {
         const n = pinsEl.querySelectorAll('.pin:not(.inerte)').length;
@@ -1028,6 +1031,8 @@
     });
     if (etatConserve) appliquerEtatDistant(etatConserve);   // reprise : la base fait foi
     else KJ.session.publier(partie);                        // partie neuve : l'état courant part
+    // la carte affichée part aussi : c'est elle que les joueurs recevront
+    if (carte) KJ.session.publierCartePartie(carte.id, KJ.modele.versJSON(carte));
   }
   function annoncerCode(code, reprise) {
     const lien = location.origin + location.pathname + '?session=' + code;
@@ -1197,6 +1202,13 @@
     }
     KJ.session.rejoindre(codeSessionURL, {
       onEtat: appliquerEtatDistant,
+      // la carte affichée, transportée par la partie : si l'état l'attendait
+      // (chargement resté vide faute de fichier), on la charge dès qu'elle arrive
+      onCarte: (c) => {
+        carteRecue = c;
+        if (partie.carte === c.id && (!carte || carte.id !== c.id))
+          chargerCarte(c.id).catch(() => {});
+      },
       onPing: (p) => { if (carte && p.carte === carte.id) montrerPing(p.x, p.y); },
       // la partie SURVIT aux absences du MJ : on montre la table telle qu'il l'a
       // laissée, on signale seulement s'il est là ou non

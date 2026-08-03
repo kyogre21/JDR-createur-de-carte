@@ -67,6 +67,7 @@ KJ.session = (function () {
         const off = firebase.auth().onAuthStateChanged(u => { off(); res(u); });
       });
       if (!utilisateur) utilisateur = (await firebase.auth().signInAnonymously()).user;
+      poserMarqueurMJ();
     })().catch(e => { pInit = null; throw e; });
     return pInit;
   }
@@ -78,6 +79,19 @@ KJ.session = (function () {
      et les parties PRIVÉES — un visiteur ou un invité anonyme n'y a pas accès. */
   const estMJconnecte = () => !!(utilisateur && !utilisateur.isAnonymous);
   const emailMJ = () => (estMJconnecte() ? utilisateur.email : null);
+  /* Marqueur local « un MJ est (probablement) connecté ici » : il permet aux pages
+     de savoir AVANT de charger le SDK si la bibliothèque en ligne vaut d'être
+     attendue — sans lui, chaque visiteur et chaque invité payait l'initialisation
+     complète juste pour apprendre qu'il n'y avait rien à attendre. */
+  function poserMarqueurMJ() {
+    try {
+      if (estMJconnecte()) localStorage.setItem('kj-mj-connecte', '1');
+      else localStorage.removeItem('kj-mj-connecte');
+    } catch (e) {}
+  }
+  const mjProbable = () => {
+    try { return localStorage.getItem('kj-mj-connecte') === '1'; } catch (e) { return false; }
+  };
 
   function traduireErreurAuth(e) {
     const codes = {
@@ -99,6 +113,7 @@ KJ.session = (function () {
     try {
       utilisateur = (await firebase.auth().signInWithEmailAndPassword(email.trim(), mdp)).user;
     } catch (e) { throw traduireErreurAuth(e); }
+    poserMarqueurMJ();
     return utilisateur.email;
   }
   async function creerCompteMJ(email, mdp) {
@@ -109,6 +124,7 @@ KJ.session = (function () {
       // c'est le pseudo qui s'affiche dans l'application, jamais l'adresse complète
       await utilisateur.updateProfile({ displayName: email.trim().split('@')[0] }).catch(() => {});
     } catch (e) { throw traduireErreurAuth(e); }
+    poserMarqueurMJ();
     return utilisateur.email;
   }
   async function definirPseudo(nom) {
@@ -122,6 +138,7 @@ KJ.session = (function () {
     await fermer();
     try { await firebase.auth().signOut(); } catch (e) {}
     utilisateur = null;
+    poserMarqueurMJ();
     pInit = null;   // le prochain usage repartira en invité anonyme
   }
   /* À appeler pour savoir qui est là (charge le SDK au besoin). Renvoie le PSEUDO
@@ -242,6 +259,15 @@ KJ.session = (function () {
       if (etat && handlers.onEtat) handlers.onEtat(etat);
     });
     etatSession.refs.push(() => rEtat.off('value', hEtat));
+    // la carte affichée, transportée par la partie (voir publierCartePartie)
+    if (handlers.onCarte) {
+      const rCarte = ref.child('carte');
+      const hCarte = rCarte.on('value', snap => {
+        const c = snap.val();
+        if (c && c.json && handlers.onCarte) handlers.onCarte(c);
+      });
+      etatSession.refs.push(() => rCarte.off('value', hCarte));
+    }
     // pings éphémères du MJ
     if (handlers.onPing) {
       const rPing = ref.child('ping');
@@ -288,21 +314,40 @@ KJ.session = (function () {
       .catch(() => {});
   }
 
-  /* ---------- index privé des cartes ----------
-     La LISTE des cartes du MJ vit dans son espace privé : sans compte, rien à
-     parcourir. (Les fichiers de cartes restent servis par le site à qui connaît
-     leur adresse exacte — discrétion, pas coffre-fort ; voir ARCHITECTURE.md.) */
-  async function publierIndexCartes(liste) {
+  /* ---------- les cartes du MJ (bibliothèque en ligne) ----------
+     La SOURCE DE VÉRITÉ des cartes est le compte : créée ou modifiée n'importe où,
+     une carte est disponible sur tous les appareils du MJ, sans dossier à lier ni
+     synchronisation manuelle. Chaque carte est stockée en une CHAÎNE JSON intacte
+     (Firebase ampute les objets de leurs champs vides — voir erreur n°24 du skill).
+     Le dossier lié (PC) reste un bonus : une copie fichiers pour git. */
+  const cleCarte = (id) => String(id).replace(/[.#$\[\]\/]/g, '_');
+  async function listerCartesMJ() {
+    await init();
+    if (!estMJconnecte()) return null;   // null = « pas de bibliothèque en ligne ici »
+    const v = (await db.ref('mj/' + uid() + '/cartes').get()).val() || {};
+    return Object.keys(v).map(k => v[k] && v[k].json).filter(Boolean);
+  }
+  async function enregistrerCarteMJ(id, nom, campagne, maj, json) {
+    await init();
+    if (!estMJconnecte()) throw new Error('Connecte-toi (compte MJ) pour enregistrer dans ta bibliothèque.');
+    await db.ref('mj/' + uid() + '/cartes/' + cleCarte(id))
+      .set({ id: id, nom: nom || '', campagne: campagne || '', maj: maj || Date.now(), json: json });
+  }
+  async function supprimerCarteMJ(id) {
     await init();
     if (!estMJconnecte()) return false;
-    await db.ref('mj/' + uid() + '/cartes').set({ maj: TS(), liste: liste });
+    await db.ref('mj/' + uid() + '/cartes/' + cleCarte(id)).remove();
     return true;
   }
-  async function lireIndexCartes() {
-    await init();
-    if (!estMJconnecte()) return null;
-    const v = (await db.ref('mj/' + uid() + '/cartes').get()).val();
-    return (v && v.liste) || null;
+
+  /* ---------- la carte affichée, transportée par la partie ----------
+     Les joueurs n'ont ni compte ni bibliothèque : la partie leur apporte la carte
+     elle-même. Le MJ la publie à chaque changement (rare), les joueurs l'écoutent. */
+  function publierCartePartie(id, json) {
+    if (!etatSession || !etatSession.mj || !db) return;
+    db.ref('parties/' + etatSession.code + '/carte')
+      .set({ id: id, json: json, maj: TS() })
+      .catch(() => {});
   }
 
   /* ---------- commun ----------
@@ -328,11 +373,13 @@ KJ.session = (function () {
     // compte MJ
     connexionMJ, creerCompteMJ, deconnexion, quiEstConnecte, definirPseudo,
     estMJconnecte: () => estMJconnecte(),
+    mjProbable,
     // parties persistantes
     creerPartie, reprendrePartie, listerParties, supprimerPartie, estProprietaire,
     // jeu en direct
     publier, rejoindre, fermer, ping, surJoueurs, surMouvements, envoyerMouvement,
-    // bibliothèque privée
-    publierIndexCartes, lireIndexCartes,
+    publierCartePartie,
+    // bibliothèque en ligne
+    listerCartesMJ, enregistrerCarteMJ, supprimerCarteMJ,
   };
 })();

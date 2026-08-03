@@ -32,8 +32,9 @@ fr.onload = () => {
       const W = fr.contentWindow, doc = fr.contentDocument;
       if (!W.KJ || !W.KJ.session) return;
       const sel = doc.getElementById('choix-carte');
-      const carte = sel ? sel.value : '';
-      document.title = 'MJ|phase=' + phase + '|carte=' + carte
+      const carte = (W.KJ_TABLE && W.KJ_TABLE.carte) ? W.KJ_TABLE.carte.id : '';
+      const cat = W.KJ_TABLE ? W.KJ_TABLE.catalogue.length : '?';
+      document.title = 'MJ|phase=' + phase + '|carte=' + carte + '|cat=' + cat
         + (W.KJ.session.active() ? '|code=' + W.KJ.session.code() : '')
         + (reprise ? '|' + reprise : '');
 
@@ -61,14 +62,24 @@ fr.onload = () => {
         phase = 'reprise';
         // laisser partir la dernière publication, puis quitter et reprendre
         setTimeout(() => {
+          let resultat = '';
           W.KJ.session.fermer()
             .then(() => W.KJ.session.reprendrePartie(CODE))
             .then(etat => {
-              reprise = 'REPRISE:' + (etat && etat.carte);
+              resultat = 'REPRISE:' + (etat && etat.carte);
               return W.KJ.session.supprimerPartie(CODE);   // nettoyage du banc
             })
-            .then(() => { reprise += ':NETTOYE'; })
-            .catch(e => { reprise = 'REPRISE-ERREUR:' + e.message; });
+            // la bibliothèque en ligne : écrire, relire, supprimer
+            .then(() => W.KJ.session.enregistrerCarteMJ('banc-carte', 'Banc', '', Date.now(),
+              JSON.stringify({ id: 'banc-carte', nom: 'Banc', taille: { w: 100, h: 100 },
+                grille: { cell: 20, metres: 1.5 }, elements: [] })))
+            .then(() => W.KJ.session.listerCartesMJ())
+            .then(l => {
+              resultat += (l && l.some(j => j.indexOf('banc-carte') >= 0)) ? '|BIBLIO-OK' : '|BIBLIO-VIDE';
+              return W.KJ.session.supprimerCarteMJ('banc-carte');
+            })
+            .then(() => { reprise = resultat + '|NETTOYE'; })
+            .catch(e => { reprise = (resultat || 'REPRISE-ERREUR') + '|ERREUR:' + e.message; });
         }, 1500);
       }
       if (Date.now() - t0 > 110000) { clearInterval(iv); document.title = 'MJ|timeout|phase=' + phase; }

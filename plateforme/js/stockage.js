@@ -130,30 +130,57 @@ KJ.stockage = (function () {
     }
     return cartes.sort(triCartes);
   }
-  /* Toutes les cartes disponibles, dans l'ordre alphabétique. */
-  function listerCartes() {
+  /* La bibliothèque en ligne (compte MJ) est la SOURCE DE VÉRITÉ : une carte créée
+     ou modifiée n'importe où est disponible partout, sans rien lier ni synchroniser.
+     Le dossier lié (PC, navigateurs Chromium) n'est plus qu'un BONUS : une copie
+     fichiers tenue à jour automatiquement, pour l'historique git. */
+  const sessionDispo = () => ((window.KJ && KJ.session && KJ.session.configuree()) ? KJ.session : null);
+
+  /* Toutes les cartes disponibles, dans l'ordre alphabétique :
+     1. MJ connecté → sa bibliothèque en ligne ; les cartes du dossier lié qui n'y
+        sont pas encore (ou y sont plus anciennes) MIGRENT automatiquement ;
+     2. sinon dossier lié (PC hors connexion) ; 3. sinon fichiers servis par le site. */
+  async function listerCartes() {
+    const s = sessionDispo();
+    let enLigne = null;
+    // mjProbable : ne pas payer l'initialisation du SDK quand aucun MJ n'est
+    // connu ici (visiteur, invité) — la réponse serait de toute façon « rien »
+    if (s && s.mjProbable()) { try { enLigne = await s.listerCartesMJ(); } catch (e) { enLigne = null; } }
+    if (enLigne !== null) {
+      const parId = new Map();
+      for (const j of enLigne) {
+        try { const c = KJ.modele.depuisJSON(j); parId.set(c.id, c); } catch (e) {}
+      }
+      let poignee = null;
+      try { poignee = await dossierDepotActif(false); } catch (e) {}
+      if (poignee) {
+        // migration silencieuse : le disque rejoint la bibliothèque en ligne
+        for (const l of await listerParDossier(poignee)) {
+          const en = parId.get(l.id);
+          if (!en || (l.maj || 0) > (en.maj || 0)) {
+            try {
+              await s.enregistrerCarteMJ(l.id, l.nom, l.campagne || '', l.maj || Date.now(),
+                KJ.modele.versJSON(l));
+              parId.set(l.id, l);
+            } catch (e) {}
+          }
+        }
+      }
+      return [...parId.values()].sort(triCartes);
+    }
     return dossierDepotActif(false)
       .then(poignee => poignee ? listerParDossier(poignee) : listerParHTTP())
       .catch(() => listerParHTTP());
-  }
-  /* Charge les cartes d'une liste d'entrées { fichier } ou { id } — utilisé avec
-     l'index PRIVÉ du MJ (KJ.session.lireIndexCartes) : cartes/index.json n'est
-     plus publié, la bibliothèque n'est découvrable qu'avec le compte. */
-  function listerDepuisListe(entrees) {
-    return Promise.all((entrees || []).map(e =>
-      fetch('cartes/' + (e.fichier || e.id + '.json'), { cache: 'no-cache' })
-        .then(r => r.ok ? r.json() : Promise.reject())
-        .then(KJ.modele.depuisJSON).catch(() => null)))
-      .then(l => l.filter(Boolean).sort(triCartes));
   }
   function chargerCarte(id) {
     return listerCartes().then(l => l.find(c => c.id === id) || null);
   }
 
-  /* Modifier une carte suppose d'écrire son fichier : possible uniquement quand le
-     dossier est lié. Ailleurs, l'appli est explicitement en lecture seule plutôt que
-     d'enregistrer dans un coin invisible que personne ne retrouvera. */
-  function peutModifier() {
+  /* Modifier une carte : possible avec un compte MJ connecté (bibliothèque en ligne)
+     OU un dossier lié. Sinon, l'appli est explicitement en lecture seule. */
+  async function peutModifier() {
+    const s = sessionDispo();
+    if (s && s.mjProbable()) { try { if (await s.quiEstConnecte()) return true; } catch (e) {} }
     return dossierDepotActif(false).then(p => !!p).catch(() => false);
   }
   async function reconstruireIndex(poignee) {
@@ -164,19 +191,41 @@ KJ.stockage = (function () {
       cartes: cartes.map(c => ({ fichier: c.id + '.json', nom: c.nom })),
     }, null, 2) + '\n');
   }
+  /* Enregistrer : bibliothèque en ligne d'abord (si connecté), copie fichiers en
+     plus si le dossier est lié (git). Échec seulement si NI l'un NI l'autre. */
   async function enregistrerCarte(carte) {
-    const poignee = await dossierDepotActif(false);
-    if (!poignee) throw new Error('lecture seule');
     carte.maj = Date.now();
-    await ecrireFichierDepot(poignee, 'cartes/' + carte.id + '.json', KJ.modele.versJSON(carte));
-    await reconstruireIndex(poignee);
+    const json = KJ.modele.versJSON(carte);
+    let enLigne = false, disque = false;
+    const s = sessionDispo();
+    if (s) {
+      try {
+        await s.enregistrerCarteMJ(carte.id, carte.nom, carte.campagne || '', carte.maj, json);
+        enLigne = true;
+      } catch (e) {}
+    }
+    let poignee = null;
+    try { poignee = await dossierDepotActif(false); } catch (e) {}
+    if (poignee) {
+      await ecrireFichierDepot(poignee, 'cartes/' + carte.id + '.json', json);
+      await reconstruireIndex(poignee);
+      disque = true;
+    }
+    if (!enLigne && !disque) throw new Error('lecture seule');
   }
   async function supprimerCarte(id) {
-    const poignee = await dossierDepotActif(false);
-    if (!poignee) throw new Error('lecture seule');
-    const dir = await poignee.getDirectoryHandle('cartes');
-    await dir.removeEntry(id + '.json');
-    await reconstruireIndex(poignee);
+    let enLigne = false, disque = false;
+    const s = sessionDispo();
+    if (s) { try { enLigne = await s.supprimerCarteMJ(id); } catch (e) {} }
+    let poignee = null;
+    try { poignee = await dossierDepotActif(false); } catch (e) {}
+    if (poignee) {
+      const dir = await poignee.getDirectoryHandle('cartes');
+      await dir.removeEntry(id + '.json').catch(() => {});
+      await reconstruireIndex(poignee);
+      disque = true;
+    }
+    if (!enLigne && !disque) throw new Error('lecture seule');
   }
 
   /* ---------- catalogue d'images ----------
@@ -325,7 +374,7 @@ KJ.stockage = (function () {
 
   return { avecDelai, gererServiceWorker,
            // les cartes : une seule source, les fichiers de cartes/
-           listerCartes, listerDepuisListe, chargerCarte, enregistrerCarte, supprimerCarte, peutModifier,
+           listerCartes, chargerCarte, enregistrerCarte, supprimerCarte, peutModifier,
            campagnesDeclarees, declarerCampagne, oublierCampagne, renommerCampagneDeclaree,
            exporterJSON, exporterSVG, importerFichier, telecharger, slug,
            catalogueImages, arboreImages,
