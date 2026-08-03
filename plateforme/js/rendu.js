@@ -83,7 +83,7 @@ KJ.rendu = (function () {
       .kj-portail-los{fill:${or};stroke:#0d0a07;stroke-width:1.5}
       .kj-portail-lbl{fill:${or};font:600 9px "Palatino Linotype",Georgia,serif;text-anchor:middle;
         font-variant:small-caps;letter-spacing:.06em}
-      .kj-secret{fill:none;stroke:${sang};stroke-width:1.6;stroke-dasharray:4 3}
+      .kj-secret{fill:none;stroke:${sang};stroke-width:1.6;stroke-dasharray:4 3;pointer-events:all}
       .kj-secret-lbl{fill:${sang};font:italic 9px "Palatino Linotype",Georgia,serif;text-anchor:middle}
       .kj-image-cadre{fill:${salle};stroke:${or};stroke-width:1.6}
       .kj-image-glyphe{fill:none;stroke:${or};stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}

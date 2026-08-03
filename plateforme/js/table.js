@@ -40,9 +40,10 @@
   let catalogue = [];               // [{ id, nom, source:'locale'|'depot', ref }]
   let galCatalogue = [];             // images/index.json : galerie indépendante du plan
   let galChemin = [];                // navigation dans le catalogue (chemin de dossiers) ; [] = racine
-  let partie = { carte: null, fog: {}, jetons: [], reveles: {} };
+  let partie = { carte: null, fog: {}, jetons: [], reveles: {}, masques: {} };
   try { const s = localStorage.getItem(CLE_PARTIE); if (s) partie = JSON.parse(s); } catch (e) {}
   if (!partie.reveles) partie.reveles = {};   // sessions sauvegardées avant l'ajout de ce champ
+  if (!partie.masques) partie.masques = {};   // idem : re-cachés à la main, prioritaires sur l'auto
 
   // diffuser: undefined = comportement par défaut (jamais depuis la vraie fenêtre séparée,
   // qui ne fait normalement que refléter le MJ) ; true = forcer la diffusion même depuis
@@ -57,11 +58,22 @@
   // éléments MJ (secret, image) révélés en permanence aux joueurs pour la carte affichée :
   // une session de partie, comme le brouillard — pas une donnée de la carte elle-même.
   const opsReveles = () => (partie.reveles[carte.id] = partie.reveles[carte.id] || []);
+  const opsMasques = () => (partie.masques[carte.id] = partie.masques[carte.id] || []);
   function basculerRevele(id) {
-    const liste = opsReveles();
+    const liste = opsReveles(), masques = opsMasques();
     const i = liste.indexOf(id);
-    if (i >= 0) { liste.splice(i, 1); toast('Caché de nouveau aux joueurs.'); }
-    else { liste.push(id); toast('Révélé aux joueurs.'); }
+    if (i >= 0) {
+      liste.splice(i, 1);
+      // cacher À LA MAIN doit tenir : sans cette exclusion, la révélation automatique
+      // (PJ présent dans la pièce) annulait le choix du MJ au mouvement suivant.
+      if (!masques.includes(id)) masques.push(id);
+      toast('Caché de nouveau aux joueurs.');
+    } else {
+      liste.push(id);
+      const m = masques.indexOf(id);
+      if (m >= 0) masques.splice(m, 1);   // re-révéler à la main réarme l'automatisme
+      toast('Révélé aux joueurs.');
+    }
     dessinerPlan(); dessinerImages(); sauverPartie();
   }
   /* Révélation automatique : dès qu'un jeton PJ entre dans la pièce (élément 'piece') qui
@@ -77,8 +89,9 @@
     // auto !== false : un élément sans le champ (anciens fichiers) reste éligible par défaut ;
     // el.auto = false l'exclut explicitement (ex. une trappe qui ne doit jamais se révéler
     // toute seule) — reste quand même révélable à la main, par clic droit.
+    const masques = opsMasques();   // cachés à la main : l'automatisme ne les touche plus
     const cibles = carte.elements.filter(e => (e.type === 'secret' || e.type === 'image')
-      && e.auto !== false && !revelees.includes(e.id));
+      && e.auto !== false && !revelees.includes(e.id) && !masques.includes(e.id));
     if (!cibles.length) return;
     const pieces = carte.elements.filter(e => e.type === 'piece');
     let changement = false;
@@ -467,7 +480,9 @@
     bouge = 0;
 
     if (!vueJoueurs && pin && pin.dataset.vers) { mode = 'pin'; pinEnCours = pin.dataset.vers; return; }
-    if (!vueJoueurs && imgPin) {
+    // une image révélée se consulte aussi côté joueurs (tap → plein écran) ;
+    // non révélée, elle reste réservée au MJ.
+    if (imgPin && (!vueJoueurs || imgPin.classList.contains('revele'))) {
       mode = 'img'; imgEnCours = { src: imgPin.dataset.src, titre: imgPin.title }; return;
     }
     // un joueur peut déplacer son propre jeton PJ, même dans la vraie fenêtre séparée ;

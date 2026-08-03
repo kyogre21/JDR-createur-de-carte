@@ -71,7 +71,8 @@
     font-size:14px;box-shadow:0 0 8px rgba(0,0,0,.55)}
   .img-pin.revele .ic{border-color:#7fa070}
   body[data-vue="joueurs"] .img-pin:not(.revele){opacity:0}
-  body.fenetre-joueurs .img-pin{pointer-events:none;cursor:default}
+  /* joueurs : seules les images RÉVÉLÉES sont touchables ; le reste demeure inerte */
+  body.fenetre-joueurs .img-pin:not(.revele){pointer-events:none;cursor:default}
 
   /* lightbox : agrandit l'image au clic, le plan reste visible en dessous */
   #lightbox{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -83,7 +84,8 @@
   #lightbox .legende:empty{display:none}
   /* réservée à la vraie fenêtre séparée (voir plus haut) : la préview locale doit
      pouvoir l'afficher, c'est tout l'intérêt de #b-galerie et du clic sur une icône. */
-  body.fenetre-joueurs #lightbox{display:none !important}
+  /* la lightbox est permise aux joueurs : elle ne s'ouvre que depuis une image révélée.
+     La galerie complète (catalogue) reste, elle, réservée au MJ. */
 
   /* boîte de dialogue générique (galerie d'images, nouveau jeton…) : réutilise le modale
      de commun.css, avec une variante plus large (.large) pour une grille d'images. */

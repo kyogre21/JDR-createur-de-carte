@@ -454,7 +454,7 @@
   });
 
   $('b-rejoindre').addEventListener('click', function () {
-    const code = (prompt('Code de session donné par le MJ (ex. KDR-583) :', '') || '').trim();
+    const code = (prompt('Code de session donné par le MJ (ex. 4827) :', '') || '').trim();
     if (code) location.href = 'table.html?session=' + encodeURIComponent(code.toUpperCase());
   });
 

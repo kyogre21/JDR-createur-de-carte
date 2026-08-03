@@ -63,11 +63,11 @@ KJ.session = (function () {
   const chargeDeja = (src) => !!document.querySelector('script[src="' + src + '"]');
 
   /* ---------- code de session ----------
-     Lisible à voix haute autour d'une table : pas de O/0, I/1, L. */
-  const LETTRES = 'BCDFGHJKMNPRSTVWXZ', CHIFFRES = '23456789';
+     4 chiffres : vite dicté, vite tapé sur un téléphone. 10 000 combinaisons,
+     très au-delà du nombre de sessions simultanées d'une table de JDR — et la
+     création re-tire un code si celui-ci est déjà pris par une session récente. */
   function genererCode() {
-    const t = (a) => a[Math.floor(Math.random() * a.length)];
-    return t(LETTRES) + t(LETTRES) + t(LETTRES) + '-' + t(CHIFFRES) + t(CHIFFRES) + t(CHIFFRES);
+    return String(Math.floor(1000 + Math.random() * 9000));
   }
 
   /* ---------- côté MJ ---------- */
@@ -112,8 +112,8 @@ KJ.session = (function () {
   /* ---------- côté joueur ---------- */
   async function rejoindre(code, handlers) {
     await init();
-    code = String(code || '').trim().toUpperCase();
-    // tolère la saisie sans tiret
+    // tolère espaces et tirets ; les anciens codes lettres+chiffres restent acceptés
+    code = String(code || '').toUpperCase().replace(/[\s-]+/g, '');
     if (/^[A-Z]{3}[0-9]{3}$/.test(code)) code = code.slice(0, 3) + '-' + code.slice(3);
     const ref = db.ref('sessions/' + code);
     const s = (await ref.get()).val();
