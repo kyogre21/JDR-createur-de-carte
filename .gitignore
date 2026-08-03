@@ -1,2 +1,5 @@
 # archive régénérable, inutile de la versionner
 cartographe-knight-a-deposer.zip
+
+# cache local du deploiement Firebase Hosting
+.firebase/
