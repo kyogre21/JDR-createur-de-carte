@@ -1,7 +1,7 @@
 {
   "name": "Cartographe Knight",
   "short_name": "Cartographe",
-  "description": "Éditeur de cartes de jeu de rôle pour la campagne Knight — La Forêt Noire.",
+  "description": "Éditeur de cartes de jeu de rôle et table de jeu : plans, brouillard de guerre, jetons.",
   "lang": "fr",
   "start_url": "index.html",
   "scope": "./",
@@ -11,10 +11,36 @@
   "theme_color": "#221b11",
   "icons": [
     {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23221b11'/%3E%3Cg fill='none' stroke='%23d3c5a4' stroke-width='7'%3E%3Crect x='28' y='28' width='136' height='136'/%3E%3Cpath d='M28 96h44M120 96h44M96 28v44M96 120v44'/%3E%3C/g%3E%3Ccircle cx='96' cy='96' r='16' fill='%23c9a227'/%3E%3C/svg%3E",
+      "src": "icone-192.png",
       "sizes": "192x192",
-      "type": "image/svg+xml",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Table de jeu",
+      "short_name": "Jouer",
+      "url": "table.html",
+      "description": "Ouvrir la table de jeu"
+    },
+    {
+      "name": "Vue joueurs",
+      "short_name": "Joueurs",
+      "url": "table.html?vue=joueurs",
+      "description": "Affichage destiné aux joueurs"
     }
   ]
 }

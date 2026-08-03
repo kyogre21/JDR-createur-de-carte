@@ -338,6 +338,20 @@ En ligne immédiatement ; il faut redéposer l'archive à chaque mise à jour
 bord pour les nouveaux projets. Il faut passer par *Workers + static assets*, ce qui demande
 l'outil `wrangler` et un fichier de configuration — inutilement compliqué pour un site statique.
 
+### Installer sur le téléphone de quelqu'un d'autre
+
+L'application est un site : **toute personne à qui tu donnes l'adresse peut l'ouvrir et
+l'installer** sur son propre téléphone, sans compte ni magasin d'applications. Il faut juste
+l'adresse `https://….netlify.app` — l'installation exige `https`, donc elle ne fonctionne pas
+via l'adresse locale `192.168.x.x`.
+
+- **Android / Chrome** : menu ⋮ → *Installer l'application* (ou *Ajouter à l'écran d'accueil*).
+- **iPhone / Safari** : bouton Partager → *Sur l'écran d'accueil*. À faire depuis Safari.
+
+Chacun obtient une icône et une application en plein écran. Attention : **chaque appareil a
+sa propre session de jeu** (son brouillard, ses jetons). Le partage en direct entre plusieurs
+appareils demanderait un service de synchronisation — voir « Suites possibles ».
+
 ### Installer sur le téléphone
 Ouvrir l'adresse dans Chrome (Android) ou Safari (iOS) → menu → **Ajouter à l'écran
 d'accueil**. L'application s'ouvre alors en plein écran et **fonctionne hors-ligne**
