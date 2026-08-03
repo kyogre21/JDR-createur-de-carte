@@ -270,7 +270,16 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
    n'avait **aucun moyen de s'en sortir**. Règle : tout état persistant qui restreint un affichage
    doit être **validé au chargement** contre les valeurs réellement disponibles et réinitialisé
    sinon ; et tout état « vide » doit offrir une action de sortie visible.
-7. **Rendre l'affichage en deux passes** (locales puis dépôt) : une fiche locale a besoin de savoir
+7. **Une promesse d'accès au dossier restée pendante = écran noir.** `peutModifier()` était
+   attendue sans délai de garde dans `charger()` : une autorisation de dossier suspendue
+   (dossier renommé, permission expirée) laissait `Promise.all` sans réponse — aucun rendu,
+   aucun message, même pas le sélecteur rempli. Règle : **tout** appel touchant au dossier lié
+   ou au stockage passe par `S.avecDelai`, et le chargement possède un chien de garde qui
+   affiche un écran de panne (cause + « Réessayer » / « Délier le dossier » /
+   « Réinitialiser les réglages »). Un indicateur de succès (`rendu = true`) se positionne
+   **après** l'affichage effectif, jamais à l'entrée du `then` — sinon il neutralise le filet
+   qu'il est censé armer.
+8. **Rendre l'affichage en deux passes** (locales puis dépôt) : une fiche locale a besoin de savoir
    si une originale existe. Un seul point de rendu, après `Promise.all` des deux sources.
 8. **Un élément ponctuel posé hors du plan (clic dans le fond du `#canevas`, hors du parchemin)
    devenait invisible et inatteignable dans l'éditeur** — le `viewBox` du SVG `#plan` le clippe —

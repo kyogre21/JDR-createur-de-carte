@@ -334,10 +334,55 @@
     }
   }
 
+  /* Écran de panne : une page vide ne dit rien à personne. Dès que le chargement
+     échoue ou n'aboutit pas, on affiche la cause et des sorties de secours. */
+  let rendu = false;
+  function ecranPanne(titre, detail) {
+    if (rendu) return;
+    const c = $('liste');
+    c.innerHTML = '';
+    const p = document.createElement('div');
+    p.className = 'alerte';
+    p.style.cssText = 'grid-column:1/-1;margin:12px 18px;border-radius:8px;border:1px solid var(--sang)';
+    p.innerHTML = '<b>' + titre + '</b><br>' + (detail || '')
+      + '<br><br>Essaie dans cet ordre :';
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:7px;flex-wrap:wrap;margin-top:10px';
+    function bouton(txt, fn) {
+      const b = document.createElement('button');
+      b.textContent = txt;
+      b.addEventListener('click', fn);
+      actions.appendChild(b);
+    }
+    bouton('↻ Réessayer', function () { location.reload(); });
+    bouton('⛓ Délier le dossier', function () {
+      Promise.resolve(S.oublierDossierDepot ? S.oublierDossierDepot() : null)
+        .catch(function () {})
+        .then(function () { location.reload(); });
+    });
+    bouton('⌫ Réinitialiser les réglages', function () {
+      try {
+        localStorage.removeItem('kj-filtre-campagne');
+        localStorage.removeItem('kj-campagnes');
+      } catch (e) {}
+      location.reload();
+    });
+    p.appendChild(actions);
+    c.appendChild(p);
+  }
+
   function charger() {
+    /* Chien de garde : si rien n'est rendu au bout de 9 s (permission de dossier
+       jamais accordée, stockage muet…), on le dit au lieu de laisser un écran noir. */
+    setTimeout(function () {
+      ecranPanne('Le chargement n’aboutit pas.',
+        'La bibliothèque n’a pas répondu. C’est le plus souvent un dossier lié devenu '
+        + 'inaccessible (déplacé, renommé, ou autorisation expirée).');
+    }, 9000);
+
     return Promise.all([
       S.avecDelai(S.listerCartes(), 5000, []),
-      S.peutModifier(),
+      S.avecDelai(S.peutModifier(), 4000, false),   // ne jamais rester suspendu ici non plus
     ]).then(([cartes, editable]) => {
       modifiable = editable;
       campLocales = cartes;
@@ -358,6 +403,10 @@
           + 'Aucune carte dans <code>cartes/</code>.' + (modifiable
             ? ' Crée-en une, ou importe un fichier .json.' : '') + '</p>';
       } else afficherGroupe(c, cartes);
+      rendu = true;                    // succès constaté, pas seulement espéré
+    }).catch(function (err) {
+      ecranPanne('Le chargement a échoué.',
+        'Détail technique : ' + ((err && err.message) || err));
     });
   }
 
