@@ -148,6 +148,23 @@ KJ.session = (function () {
     return code;
   }
 
+  /* Un joueur déplace son jeton : il n'a pas le droit d'écrire l'état (le MJ est
+     seul maître), mais il dépose son geste dans une boîte aux lettres à son nom —
+     le MJ l'applique à l'état officiel, qui redescend ensuite vers tout le monde. */
+  function envoyerMouvement(m) {
+    if (!etatSession || etatSession.mj || !db) return;
+    db.ref('sessions/' + etatSession.code + '/mouvements/' + uid)
+      .set(Object.assign({}, m, { t: firebase.database.ServerValue.TIMESTAMP }))
+      .catch(() => {});
+  }
+  function surMouvements(cb) {
+    if (!etatSession || !etatSession.mj || !db) return;
+    const ref = db.ref('sessions/' + etatSession.code + '/mouvements');
+    const h = ref.on('child_added', s => cb(s.val()));
+    const h2 = ref.on('child_changed', s => cb(s.val()));
+    etatSession.refs.push(() => { ref.off('child_added', h); ref.off('child_changed', h2); });
+  }
+
   function ping(x, y, carteId) {
     if (!etatSession || !etatSession.mj || !db) return;
     db.ref('sessions/' + etatSession.code + '/ping')
@@ -172,5 +189,6 @@ KJ.session = (function () {
     estMJ: () => !!(etatSession && etatSession.mj),
     code: () => (etatSession ? etatSession.code : null),
     creer, rejoindre, publier, ping, surJoueurs, fermer,
+    envoyerMouvement, surMouvements,
   };
 })();

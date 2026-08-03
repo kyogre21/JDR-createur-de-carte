@@ -110,7 +110,9 @@
     width:42px;height:42px;margin:-21px 0 0 -21px;border-radius:50%;
     transform:scale(var(--inv,1))}
   /* le halo ne doit pas passer devant l'étiquette d'un portail, qui reste lisible */
-  .pin .lab,.jeton{z-index:1}
+  /* seuls les jetons flottent au-dessus du brouillard ; les libellés de portail
+     appartiennent au décor et doivent disparaître sous lui comme leur losange */
+  .jeton{z-index:1}
   /* réservé aux jetons PJ, et seulement dans la vraie fenêtre séparée : la préview locale
      du MJ (même écran) doit rester entièrement manipulable, comme le reste des outils
      exemptés plus haut — c'est là-dessus que ce bug se voyait (un clic sur le jeton

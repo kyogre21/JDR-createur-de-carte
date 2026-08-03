@@ -14,6 +14,12 @@
           }
         },
 
+        "mouvements": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        },
+
         "$autre": {
           ".validate": true
         }

@@ -568,6 +568,10 @@
       // c'est un joueur qui vient de le déplacer depuis la vraie fenêtre séparée.
       sauverPartie(true);
       if (jDrag.pj) {
+        // en session réseau, le geste du joueur remonte au MJ, qui l'applique à
+        // l'état officiel — y compris la révélation automatique, calculée chez lui
+        if (KJ.session && KJ.session.active() && !KJ.session.estMJ())
+          KJ.session.envoyerMouvement({ id: jDrag.id, x: jDrag.x, y: jDrag.y, carte: carte.id });
         verifierDeclencheurs();
         // le groupe marche sur le losange : change de carte tout seul, PJ amenés avec lui
         if (portail) {
@@ -863,7 +867,9 @@
     if (!partie.reveles) partie.reveles = {};
     sauverPartie(false);
     if (changeCarte) chargerCarte(partie.carte).catch(() => {});
-    else if (carte) { dessinerFog(); dessinerJetons(); dessinerPins(); dessinerPlan(); }
+    // dessinerImages en fait partie : sans lui, une image révélée par le MJ (ou par
+    // l'automatisme) n'apparaissait chez les joueurs qu'au rechargement de la carte
+    else if (carte) { dessinerFog(); dessinerJetons(); dessinerPins(); dessinerPlan(); dessinerImages(); }
   }
 
   function majBadgeSession(nb) {
@@ -894,6 +900,16 @@
       btnSession.classList.add('actif');
       majBadgeSession(0);
       KJ.session.surJoueurs(majBadgeSession);
+      KJ.session.surMouvements((m) => {
+        if (!m || !m.id) return;
+        const j = partie.jetons.find(x => x.id === m.id);
+        if (!j || !j.pj) return;   // seuls les jetons PJ sont déplaçables par les joueurs
+        j.x = m.x; j.y = m.y;
+        if (m.carte) j.carte = m.carte;
+        dessinerJetons();
+        verifierDeclencheurs();   // la révélation automatique se joue ici, chez le MJ
+        sauverPartie();           // et l'état officiel redescend vers tous les joueurs
+      });
       KJ.session.publier(partie);   // l'état courant part immédiatement
       const lien = location.origin + location.pathname + '?session=' + code;
       if (navigator.clipboard && navigator.clipboard.writeText)
