@@ -367,13 +367,14 @@ versionné, en « réseau d'abord » sur le HTML.
 
 | Donnée | Emplacement | Portée |
 |---|---|---|
-| Cartes en cours d'édition | IndexedDB du navigateur | l'appareil et le navigateur utilisés |
-| Cartes de la campagne | `cartes/*.json` dans git | tous les appareils, versionné |
+| Cartes | `cartes/*.json` dans git — le dossier lié EST le dépôt | tous les appareils une fois publié |
+| Session de partie (brouillard, jetons, révélations) | `localStorage` du navigateur | l'appareil utilisé |
+| Liaison du dossier | IndexedDB (une poignée d'accès, pas des données) | ce navigateur |
 | Export SVG | fichier téléchargé | pour les PDF de Codex |
-| Bloc de scène | presse-papier | à coller dans la table de jeu |
 
-Un navigateur ne partage pas son IndexedDB avec un autre appareil : pour retrouver une
-carte sur le téléphone, elle doit passer par le dépôt (ou par un export/import de fichier).
+Enregistrer (💾) écrit sur le disque ; **publier** est un second geste : double-clique sur
+`Publier sur le site.bat` (à la racine du projet) — il fait le commit et l'envoi, et Netlify
+met le site à jour derrière. Vue d'ensemble complète : `ARCHITECTURE.md`.
 
 ## Raccourcis clavier
 
@@ -393,8 +394,8 @@ Manques connus, par ordre d'utilité :
    pointe désormais vers `village.json`, qui existe).
 2. **Image de fond** dans une carte (plan scanné, illustration) : le format le prévoit,
    l'éditeur ne l'expose pas encore.
-3. **Publication** : rien n'est en ligne. Il faut un dépôt git puis Cloudflare Pages
-   (voir plus bas) — c'est ce qui donnera l'accès depuis le téléphone.
+3. **Session multi-appareils** : les joueurs ne peuvent pas encore rejoindre la partie du MJ
+   depuis leur téléphone — c'est le prochain chantier (voir `ARCHITECTURE.md` à la racine).
 4. **Les sources de lumière ne percent pas le brouillard** : les ✷ sont décoratives.
 5. **Les murs n'arrêtent pas la révélation** : le pinceau traverse les cloisons. Le vrai
    calcul de ligne de vue est volontairement hors périmètre (c'est le poste le plus coûteux).
@@ -411,5 +412,5 @@ Manques connus, par ordre d'utilité :
 - Import d'une **image de fond** dans une carte (plan scanné, illustration).
 - Sources de lumière qui percent le brouillard (halos autour des torches).
 - Tuiles réutilisables (un modèle de chambre qu'on repose).
-- Synchronisation multi-appareils : n'est utile que pour jouer à distance ; demande un
-  backend (Supabase ou Cloudflare D1, tous deux avec une offre gratuite).
+- Synchronisation multi-appareils (sessions MJ/joueurs) : décidée, architecture retenue dans
+  `ARCHITECTURE.md` (Firebase Realtime Database, gratuit, sans compte pour les joueurs).
