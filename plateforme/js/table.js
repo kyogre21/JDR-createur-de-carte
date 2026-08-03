@@ -214,11 +214,17 @@
     if (!lb) {
       lb = document.createElement('div'); lb.id = 'lightbox';
       lb.innerHTML = '<img alt=""><p class="legende"></p>';
-      lb.addEventListener('click', () => lb.classList.remove('vu'));
+      lb.addEventListener('click', () => {
+        // le tap qui vient d'ouvrir la visionneuse génère aussi un « clic » qui
+        // atterrit sur elle (elle recouvre alors l'écran) et la refermait aussitôt
+        if (Date.now() - (lb._ouverte || 0) < 500) return;
+        lb.classList.remove('vu');
+      });
       document.body.appendChild(lb);
     }
     lb.querySelector('img').src = src;
     lb.querySelector('.legende').textContent = titre || '';
+    lb._ouverte = Date.now();
     lb.classList.add('vu');
   }
 
@@ -570,15 +576,22 @@
       if (jDrag.pj) {
         // en session réseau, le geste du joueur remonte au MJ, qui l'applique à
         // l'état officiel — y compris la révélation automatique, calculée chez lui
-        if (KJ.session && KJ.session.active() && !KJ.session.estMJ())
-          KJ.session.envoyerMouvement({ id: jDrag.id, x: jDrag.x, y: jDrag.y, carte: carte.id });
+        const enReseau = KJ.session && KJ.session.active() && !KJ.session.estMJ();
+        if (enReseau)
+          KJ.session.envoyerMouvement({ id: jDrag.id, x: jDrag.x, y: jDrag.y, carte: carte.id,
+            portail: portail ? portail.vers : null });
         verifierDeclencheurs();
         // le groupe marche sur le losange : change de carte tout seul, PJ amenés avec lui
         if (portail) {
           const dest = resoudre(portail.vers);
           toast('Passage : ' + (portail.label || dest.nom) + '…');
-          chargerCarte(portail.vers).then(() => { amenerPJ(); sauverPartie(true); })
-            .catch(() => toast('Carte introuvable.'));
+          // en réseau, changer de carte localement désynchronisait les deux vues :
+          // l'état officiel du MJ, resté sur l'ancienne carte, ramenait les joueurs
+          // en arrière. C'est le MJ qui traverse (voir surMouvements) et la nouvelle
+          // carte redescend vers tout le monde par l'état.
+          if (!enReseau)
+            chargerCarte(portail.vers).then(() => { amenerPJ(); sauverPartie(true); })
+              .catch(() => toast('Carte introuvable.'));
         }
       }
       jDrag = null;
@@ -906,6 +919,15 @@
         if (!j || !j.pj) return;   // seuls les jetons PJ sont déplaçables par les joueurs
         j.x = m.x; j.y = m.y;
         if (m.carte) j.carte = m.carte;
+        // le joueur a lâché son jeton sur un portail : le MJ traverse pour tout le
+        // monde — la nouvelle carte part dans l'état officiel et chaque fenêtre suit
+        if (m.portail) {
+          const dest = resoudre(m.portail);
+          toast('Les PJ passent : ' + (dest ? dest.nom : m.portail) + '…');
+          chargerCarte(m.portail).then(() => { amenerPJ(); sauverPartie(true); })
+            .catch(() => toast('Carte « ' + m.portail + ' » introuvable.'));
+          return;
+        }
         dessinerJetons();
         verifierDeclencheurs();   // la révélation automatique se joue ici, chez le MJ
         sauverPartie();           // et l'état officiel redescend vers tous les joueurs
