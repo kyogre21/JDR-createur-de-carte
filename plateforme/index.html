@@ -16,8 +16,9 @@
   <div class="marque">Cartographe <span>Knight</span></div>
   <select id="filtre-campagne" title="Afficher une seule campagne"></select>
   <div class="esp"></div>
-  <a class="btn" href="table.html" title="Ouvrir la table de jeu">▶ Table de jeu</a>
-  <button id="b-rejoindre" title="Rejoindre la session ouverte par le MJ">📡 Rejoindre</button>
+  <a class="btn" id="lien-table" href="table.html" title="Ouvrir la table de jeu">▶ Table de jeu</a>
+  <button id="b-rejoindre" title="Rejoindre la partie ouverte par le MJ">📡 Rejoindre</button>
+  <button id="b-mj" title="Compte MJ : cartes et parties privées">🛡 Espace MJ</button>
   <span id="grp-edition" hidden>
     <button id="b-campagne" title="Créer un dossier de campagne">🗀 Nouvelle campagne</button>
     <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
@@ -47,6 +48,8 @@
 <script src="js/modele.js"></script>
 <script src="js/rendu.js"></script>
 <script src="js/stockage.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/session.js"></script>
 <script>
 (function () {
   const M = KJ.modele, R = KJ.rendu, S = KJ.stockage;
@@ -168,6 +171,7 @@
   function ouvrirModale(titre, construire, valider) {
     const m = $('modale'), corps = $('modale-corps');
     $('modale-titre').textContent = titre;
+    $('modale-ok').textContent = 'Enregistrer';   // libellé par défaut, un dialogue peut le changer
     corps.innerHTML = '';
     const ctx = construire(corps);
     m.hidden = false;
@@ -404,8 +408,25 @@
     return Promise.all([
       S.avecDelai(S.listerCartes(), 5000, []),
       S.avecDelai(S.peutModifier(), 4000, false),   // ne jamais rester suspendu ici non plus
-    ]).then(([cartes, editable]) => {
+    ]).then(async ([cartes, editable]) => {
       modifiable = editable;
+      /* Qui est là ? Trois publics : le MJ sur SON PC (dossier lié — accès physique,
+         pas besoin de compte pour voir ses fichiers), le MJ connecté (bibliothèque
+         via son index privé), et tout le monde d'autre — qui ne voit RIEN d'autre
+         que la porte d'entrée : la bibliothèque est privée. */
+      let connecte = null;
+      if (KJ.session && KJ.session.configuree()) {
+        try { connecte = await S.avecDelai(KJ.session.quiEstConnecte(), 8000, null); } catch (e) {}
+      }
+      majBoutonMJ(connecte);
+      if (!modifiable && !connecte) { rendu = true; return porteEntree(); }
+      if (!modifiable && !cartes.length && connecte) {
+        // appareil sans dossier lié (téléphone…) : la liste vient de l'index privé
+        try {
+          const idx = await KJ.session.lireIndexCartes();
+          if (idx) cartes = await S.listerDepuisListe(idx);
+        } catch (e) {}
+      }
       campLocales = cartes;
       $('grp-edition').hidden = !modifiable;
       const note = $('note-lecture');
@@ -422,8 +443,12 @@
       if (!cartes.length) {
         c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
           + 'Aucune carte dans <code>cartes/</code>.' + (modifiable
-            ? ' Crée-en une, ou importe un fichier .json.' : '') + '</p>';
+            ? ' Crée-en une, ou importe un fichier .json.'
+            : ' Ouvre la bibliothèque une fois sur ton PC (connecté) pour la rendre disponible ici.') + '</p>';
       } else afficherGroupe(c, cartes);
+      // PC + compte : l'index privé se met à jour tout seul — c'est lui qui rend la
+      // bibliothèque disponible sur les autres appareils du MJ
+      if (modifiable && connecte) synchroniserIndex(cartes);
       rendu = true;                    // succès constaté, pas seulement espéré
     }).catch(function (err) {
       ecranPanne('Le chargement a échoué.',
@@ -453,10 +478,94 @@
     });
   });
 
-  $('b-rejoindre').addEventListener('click', function () {
-    const code = (prompt('Code de session donné par le MJ (ex. 4827) :', '') || '').trim();
+  /* ---------- porte d'entrée et compte MJ ----------
+     Sans dossier lié ni compte, la bibliothèque n'existe pas à l'écran : un joueur
+     entre avec un code, un MJ se connecte. */
+  function porteEntree() {
+    $('grp-edition').hidden = true;
+    $('note-lecture').hidden = true;
+    $('filtre-campagne').style.display = 'none';
+    $('lien-table').style.display = 'none';
+    const c = $('liste');
+    c.innerHTML = '';
+    const d = document.createElement('div');
+    d.style.cssText = 'grid-column:1/-1;display:flex;flex-direction:column;align-items:center;'
+      + 'gap:16px;padding:56px 18px;text-align:center';
+    const p = document.createElement('p');
+    p.className = 'aide';
+    p.style.cssText = 'margin:0;max-width:52ch';
+    p.innerHTML = '<b>Bienvenue à la table.</b><br>Joueur : entre le code donné par ton MJ. '
+      + 'Maître de jeu : connecte-toi pour retrouver tes cartes et tes parties.';
+    d.appendChild(p);
+    const b1 = document.createElement('button');
+    b1.textContent = '📡 Rejoindre une partie';
+    b1.style.cssText = 'font-size:15px;padding:12px 22px;min-height:46px';
+    b1.addEventListener('click', demanderCode);
+    d.appendChild(b1);
+    const b2 = document.createElement('button');
+    b2.textContent = '🛡 Espace MJ — connexion';
+    b2.style.cssText = 'font-size:13px;padding:9px 18px';
+    b2.addEventListener('click', dialogueConnexion);
+    d.appendChild(b2);
+    c.appendChild(d);
+  }
+  function demanderCode() {
+    const code = (prompt('Code de la partie donné par le MJ (ex. 4827) :', '') || '').trim();
     if (code) location.href = 'table.html?session=' + encodeURIComponent(code.toUpperCase());
-  });
+  }
+  function majBoutonMJ(email) {
+    const b = $('b-mj');
+    b.textContent = email ? '🛡 ' + email : '🛡 Espace MJ';
+    b.classList.toggle('actif', !!email);
+    b.onclick = email
+      ? function () {
+          if (confirm('Connecté en tant que ' + email + '.\n\nSe déconnecter ?'))
+            KJ.session.deconnexion().then(function () { location.reload(); });
+        }
+      : dialogueConnexion;
+  }
+  function dialogueConnexion() {
+    if (!KJ.session || !KJ.session.configuree()) { alert('Configuration Firebase absente.'); return; }
+    ouvrirModale('Espace MJ', function (corps) {
+      noteModale(corps, 'Ton compte garde tes cartes et tes parties privées. '
+        + 'Les joueurs n’en ont pas besoin : un code de partie leur suffit.');
+      const em = champInput(corps, 'E-mail', '');
+      em.type = 'email';
+      const mp = champInput(corps, 'Mot de passe', '');
+      mp.type = 'password';
+      const err = document.createElement('p');
+      err.className = 'aide'; err.style.color = 'var(--sang)';
+      corps.appendChild(err);
+      const pc = document.createElement('p'); pc.className = 'aide';
+      const bc = document.createElement('button');
+      bc.textContent = 'Première fois ? Créer un compte MJ';
+      bc.addEventListener('click', function () {
+        err.textContent = '';
+        KJ.session.creerCompteMJ(em.value, mp.value)
+          .then(function () { $('modale-annuler').click(); charger(); })
+          .catch(function (e) { err.textContent = e.message; });
+      });
+      pc.appendChild(bc); corps.appendChild(pc);
+      $('modale-ok').textContent = 'Se connecter';
+      return { em: em, mp: mp, err: err };
+    }, function (ctx) {
+      ctx.err.textContent = '';
+      KJ.session.connexionMJ(ctx.em.value, ctx.mp.value)
+        .then(function () { $('modale-annuler').click(); charger(); })
+        .catch(function (e) { ctx.err.textContent = e.message; });
+      return false;   // fermeture uniquement en cas de succès (asynchrone)
+    });
+  }
+  /* L'index privé : la liste {id, nom, campagne} des cartes du MJ, dans son espace.
+     Poussé depuis le PC (les fichiers font foi) ; lu par ses autres appareils. */
+  function synchroniserIndex(cartes) {
+    const liste = cartes.map(function (c) {
+      return { id: c.id, nom: c.nom, fichier: c.id + '.json', campagne: c.campagne || '', maj: c.maj || 0 };
+    });
+    KJ.session.publierIndexCartes(liste).catch(function () {});
+  }
+
+  $('b-rejoindre').addEventListener('click', demanderCode);
 
   $('b-importer').addEventListener('click', () => $('fichier').click());
   $('fichier').addEventListener('change', (e) => {

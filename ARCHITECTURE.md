@@ -115,3 +115,28 @@ de campagne (une session par semaine ou quinzaine).
   fonctionnelle — le tenir à jour fait partie de toute livraison.
 - `sw.js` : réseau d'abord, cache en secours. Ne jamais revenir à « cache d'abord » (déjà
   causé deux pannes de « correctif fantôme »).
+
+## Étape franchie (2026-08) : comptes MJ, parties persistantes, bibliothèque privée
+
+Le modèle « session jetable » a été remplacé :
+
+- **Compte MJ** (e-mail + mot de passe, Firebase Auth) : les parties et la LISTE des
+  cartes vivent dans l'espace privé `mj/<uid>` de la base. Les joueurs restent des
+  invités anonymes — un code suffit.
+- **Parties persistantes** (`parties/<code>`) : le code à 4 chiffres est STABLE pour
+  toute la campagne ; brouillard, révélations et jetons sont conservés d'une séance à
+  l'autre (« Reprendre » remet la table telle qu'elle a été laissée). Quitter la table
+  ne détruit rien ; `mjEnLigne` signale seulement la présence du MJ. Seule la
+  suppression explicite efface une partie. Création réservée aux comptes
+  (`sign_in_provider === 'password'` dans les règles).
+- **Bibliothèque privée (niveau 1)** : `cartes/index.json` n'est PLUS déployé
+  (ignore de firebase.json) — sans la liste, rien n'est découvrable ni parcourable.
+  L'index privé est poussé automatiquement depuis le PC (dossier lié + connecté)
+  vers `mj/<uid>/cartes`, et lu par les autres appareils du MJ. Les fichiers
+  `cartes/<id>.json` restent servis à qui connaît l'adresse EXACTE : c'est de la
+  discrétion, pas un coffre-fort — le niveau 2 (cartes dans la base, vrai secret,
+  vrai multi-MJ) reste à faire si le besoin se confirme.
+- **Porte d'entrée** (`index.html`) : sans dossier lié ni compte, on ne voit que
+  « Rejoindre une partie » et « Espace MJ » ; la table d'un joueur charge les cartes
+  demandées par l'état du MJ directement par fichier (pas de catalogue côté invité).
+- Le flux d'édition PC (dossier lié → fichiers → git) est INCHANGÉ.

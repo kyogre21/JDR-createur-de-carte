@@ -363,8 +363,11 @@
   function trouverPortailProche(pt) {
     if (!carte) return null;
     const seuil = cellule() || 40;
+    // un joueur en partie n'a pas de catalogue pour résoudre la destination : c'est
+    // le MJ qui la résoudra — on ne filtre les portails inertes que hors partie
+    const enPartie = KJ.session && KJ.session.active() && !KJ.session.estMJ();
     for (const p of carte.elements) {
-      if (p.type !== 'portail' || !resoudre(p.vers)) continue;
+      if (p.type !== 'portail' || (!enPartie && !resoudre(p.vers))) continue;
       if (Math.hypot(pt.x - p.x, pt.y - p.y) <= seuil) return p;
     }
     return null;
@@ -373,13 +376,17 @@
   function dessinerPins() {
     pinsEl.innerHTML = '';
     const portails = carte.elements.filter(e => e.type === 'portail');
+    // un joueur en partie n'a pas de catalogue : la destination sera résolue par le
+    // MJ, ses losanges restent donc dorés (jamais « inertes » faute d'index)
+    const enPartie = KJ.session && KJ.session.active() && !KJ.session.estMJ();
     for (const p of portails) {
       const dest = resoudre(p.vers);
       const d = document.createElement('div');
-      d.className = 'pin' + (dest ? '' : ' inerte');
+      d.className = 'pin' + (dest || enPartie ? '' : ' inerte');
       d.style.left = p.x + 'px'; d.style.top = p.y + 'px';
       if (dest) d.dataset.vers = dest.id;
-      d.title = dest ? 'Aller à : ' + dest.nom : 'Carte « ' + p.vers + ' » absente de la bibliothèque';
+      d.title = dest ? 'Aller à : ' + dest.nom
+        : (enPartie ? 'Passage' : 'Carte « ' + p.vers + ' » absente de la bibliothèque');
       d.innerHTML = `<span class="los"></span><span class="lab">${R.esc(p.label || (dest ? dest.nom : p.vers))}</span>`;
       pinsEl.appendChild(d);
     }
@@ -391,8 +398,16 @@
 
   /* ---------------- chargement des cartes ---------------- */
   function chargerCatalogue() {
-    // une seule source : les fichiers de cartes/ (disque si dossier lié, sinon le site)
+    // les fichiers de cartes/ (disque si dossier lié), sinon l'index PRIVÉ du MJ
+    // connecté (la liste publique n'existe plus : bibliothèque privée) ; les joueurs
+    // invités n'ont pas de catalogue, leurs cartes arrivent par l'état du MJ
     return S.avecDelai(S.listerCartes(), 4000, []).then(cartes => {
+      if (cartes.length || codeSessionURL || !KJ.session || !KJ.session.configuree())
+        return cartes;
+      return KJ.session.lireIndexCartes()
+        .then(l => (l ? S.listerDepuisListe(l) : []))
+        .catch(() => []);
+    }).then(cartes => {
       catalogue = cartes;
       /* Sélecteur groupé par campagne : le MJ retrouve ses lieux par aventure. */
       const sel = $('choix-carte'); sel.innerHTML = '';
@@ -412,8 +427,13 @@
   }
   function chargerCarte(id) {
     const c = catalogue.find(x => x.id === id) || catalogue[0];
-    if (!c) return Promise.reject(new Error('Aucune carte disponible.'));
-    return Promise.resolve(c).then(c => {
+    /* Les joueurs invités n'ont pas de catalogue (la bibliothèque est privée) : la
+       carte demandée par l'état du MJ se charge alors directement par son fichier. */
+    const promesse = c ? Promise.resolve(c)
+      : fetch('cartes/' + encodeURIComponent(id) + '.json', { cache: 'no-cache' })
+          .then(r => { if (!r.ok) throw new Error('Carte introuvable.'); return r.json(); })
+          .then(KJ.modele.depuisJSON);
+    return promesse.then(c => {
       carte = c;
       partie.carte = c.id;
       $('choix-carte').value = c.id;
@@ -946,77 +966,215 @@
     else if (carte) { dessinerFog(); dessinerJetons(); dessinerPins(); dessinerPlan(); dessinerImages(); }
   }
 
+  let mjPresent = null;   // côté joueur : le MJ est-il à la table ? (null = pas encore su)
   function majBadgeSession(nb) {
     const b = $('badge-session');
     if (!b) return;
     if (!KJ.session || !KJ.session.active()) { b.hidden = true; return; }
     b.hidden = false;
     b.textContent = '📡 ' + KJ.session.code()
-      + (KJ.session.estMJ() ? ' · ' + (nb || 0) + ' joueur' + (nb > 1 ? 's' : '') : '');
+      + (KJ.session.estMJ() ? ' · ' + (nb || 0) + ' joueur' + (nb > 1 ? 's' : '')
+        : (mjPresent === false ? ' · MJ absent' : ''));
+  }
+
+  /* Branche la table sur la partie que le MJ vient d'ouvrir : présence des joueurs,
+     boîte aux lettres des gestes, et état initial (celui CONSERVÉ par la base pour
+     une reprise, ou l'état local publié pour une partie neuve). */
+  function brancherPartie(etatConserve) {
+    btnSession.classList.add('actif');
+    majBadgeSession(0);
+    KJ.session.surJoueurs(majBadgeSession);
+    KJ.session.surMouvements((m) => {
+      if (!m || !m.id) return;
+      const j = partie.jetons.find(x => x.id === m.id);
+      if (!j || !j.pj) return;   // seuls les jetons PJ sont déplaçables par les joueurs
+      j.x = m.x; j.y = m.y;
+      if (m.carte) j.carte = m.carte;
+      // le joueur a lâché son jeton sur un portail : le MJ traverse pour tout le
+      // monde — la nouvelle carte part dans l'état officiel et chaque fenêtre suit
+      if (m.portail) {
+        const dest = resoudre(m.portail);
+        toast('Les PJ passent : ' + (dest ? dest.nom : m.portail) + '…');
+        chargerCarte(m.portail).then(() => { amenerPJ(); sauverPartie(true); })
+          .catch(() => toast('Carte « ' + m.portail + ' » introuvable.'));
+        return;
+      }
+      dessinerJetons();
+      verifierDeclencheurs();   // la révélation automatique se joue ici, chez le MJ
+      sauverPartie();           // et l'état officiel redescend vers tous les joueurs
+    });
+    if (etatConserve) appliquerEtatDistant(etatConserve);   // reprise : la base fait foi
+    else KJ.session.publier(partie);                        // partie neuve : l'état courant part
+  }
+  function annoncerCode(code, reprise) {
+    const lien = location.origin + location.pathname + '?session=' + code;
+    if (navigator.clipboard && navigator.clipboard.writeText)
+      navigator.clipboard.writeText(lien).catch(() => {});
+    alert((reprise ? 'Partie reprise : ' : 'Partie créée : ') + code + '\n\n'
+      + 'Le code ne changera plus : les joueurs peuvent garder ce lien (copié)\n'
+      + 'en favori pour toute la campagne :\n' + lien);
+  }
+
+  /* ---------------- écran « Partie » (MJ) ---------------- */
+  function champModale(corps, label, type, placeholder) {
+    const d = document.createElement('div'); d.className = 'champ';
+    const l = document.createElement('label'); l.textContent = label;
+    const i = document.createElement('input'); i.type = type || 'text';
+    if (placeholder) i.placeholder = placeholder;
+    d.appendChild(l); d.appendChild(i); corps.appendChild(d);
+    return i;
+  }
+  function noteModale(corps, texte) {
+    const p = document.createElement('p'); p.className = 'aide';
+    p.textContent = texte; corps.appendChild(p);
+    return p;
+  }
+  function rendreEcranPartie(corps) {
+    corps.innerHTML = '';
+    const attente = noteModale(corps, 'Connexion…');
+    KJ.session.quiEstConnecte().then(email => {
+      corps.innerHTML = '';
+      if (!email) rendreConnexion(corps);
+      else rendreParties(corps, email);
+    }).catch(e => { attente.textContent = e.message; });
+  }
+  function rendreConnexion(corps) {
+    noteModale(corps, 'Ton compte MJ garde tes parties et ta bibliothèque privées. '
+      + 'Les joueurs, eux, n’ont besoin que du code de la partie — aucun compte.');
+    const em = champModale(corps, 'E-mail', 'email');
+    const mp = champModale(corps, 'Mot de passe', 'password');
+    const err = noteModale(corps, ''); err.style.color = 'var(--sang)';
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:7px;justify-content:flex-end;margin-top:12px';
+    const tenter = (fn) => {
+      err.textContent = '';
+      if (!em.value.trim() || !mp.value) { err.textContent = 'E-mail et mot de passe requis.'; return; }
+      fn(em.value, mp.value)
+        .then(() => rendreEcranPartie(corps))
+        .catch(e => { err.textContent = e.message; });
+    };
+    actions.appendChild(bouton('Créer un compte', () => tenter(KJ.session.creerCompteMJ)));
+    const co = bouton('Se connecter', () => tenter(KJ.session.connexionMJ));
+    co.classList.add('actif');
+    actions.appendChild(co);
+    corps.appendChild(actions);
+    mp.addEventListener('keydown', (e) => { if (e.key === 'Enter') co.click(); });
+  }
+  function rendreParties(corps, email) {
+    const entete = document.createElement('div');
+    entete.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px';
+    const qui = document.createElement('span'); qui.className = 'aide';
+    qui.style.margin = '0'; qui.textContent = email;
+    entete.appendChild(qui);
+    const esp = document.createElement('span'); esp.style.cssText = 'flex:1 1 auto';
+    entete.appendChild(esp);
+    entete.appendChild(bouton('Se déconnecter', () => {
+      KJ.session.deconnexion().then(() => { majBadgeSession(0); btnSession.classList.remove('actif'); fermerModale(); toast('Déconnecté.'); });
+    }));
+    corps.appendChild(entete);
+
+    if (KJ.session.active()) {
+      const enCours = document.createElement('div');
+      enCours.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px';
+      const t = document.createElement('b'); t.textContent = 'À la table : partie ' + KJ.session.code();
+      enCours.appendChild(t);
+      enCours.appendChild(bouton('Quitter la table', () => {
+        KJ.session.fermer().then(() => {
+          majBadgeSession(0); btnSession.classList.remove('actif');
+          toast('Table quittée — la partie et son état restent conservés.');
+          rendreEcranPartie(corps);
+        });
+      }));
+      corps.appendChild(enCours);
+    }
+
+    const listeEl = document.createElement('div');
+    corps.appendChild(listeEl);
+    const attente = noteModale(listeEl, 'Chargement des parties…');
+    KJ.session.listerParties().then(parties => {
+      listeEl.innerHTML = '';
+      if (!parties.length)
+        noteModale(listeEl, 'Aucune partie pour l’instant — crée la première ci-dessous.');
+      for (const p of parties) {
+        const ligne = document.createElement('div');
+        ligne.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;'
+          + 'border-bottom:1px solid var(--bord)';
+        const inf = document.createElement('div');
+        inf.style.cssText = 'flex:1 1 auto;min-width:0';
+        const quand = p.modifiee ? new Date(p.modifiee).toLocaleDateString('fr-FR') : '';
+        inf.innerHTML = '<b>' + R.esc(p.nom || 'Partie') + '</b>'
+          + '<div class="aide" style="margin:0">code ' + R.esc(p.code) + (quand ? ' · ' + quand : '') + '</div>';
+        ligne.appendChild(inf);
+        const rep = bouton('▶ Reprendre', () => {
+          rep.disabled = true;
+          KJ.session.reprendrePartie(p.code).then(etat => {
+            fermerModale(); brancherPartie(etat); annoncerCode(p.code, true);
+          }).catch(e => { rep.disabled = false; alert(e.message); });
+        });
+        ligne.appendChild(rep);
+        const sup = bouton('✕', () => {
+          if (!confirm('Supprimer la partie « ' + (p.nom || p.code) + ' » ?\n\n'
+            + 'Son brouillard, ses révélations et son code seront définitivement perdus.')) return;
+          KJ.session.supprimerPartie(p.code).then(() => {
+            majBadgeSession(0);
+            if (!KJ.session.active()) btnSession.classList.remove('actif');
+            rendreEcranPartie(corps);
+          });
+        });
+        sup.className = 'danger';
+        ligne.appendChild(sup);
+        listeEl.appendChild(ligne);
+      }
+      const creation = document.createElement('div');
+      creation.style.cssText = 'display:flex;gap:7px;margin-top:12px';
+      const nom = document.createElement('input');
+      nom.type = 'text'; nom.placeholder = 'Nom de la nouvelle partie (ex. Forêt Noire)';
+      nom.style.cssText = 'flex:1 1 auto;min-width:0;background:#241d14;border:1px solid '
+        + 'var(--bord-clair);border-radius:5px;color:var(--encre);padding:6px 9px';
+      creation.appendChild(nom);
+      const cr = bouton('＋ Créer', () => {
+        cr.disabled = true;
+        KJ.session.creerPartie(nom.value.trim() || 'Partie').then(code => {
+          fermerModale(); brancherPartie(null); annoncerCode(code, false);
+        }).catch(e => { cr.disabled = false; alert(e.message); });
+      });
+      creation.appendChild(cr);
+      listeEl.appendChild(creation);
+      noteModale(listeEl, 'Une partie garde son code et tout ce qui a été découvert '
+        + 'd’une séance à l’autre. « Reprendre » te remet à la table telle que tu l’as laissée.');
+    }).catch(e => { attente.textContent = e.message; });
   }
 
   const btnSession = $('b-session');
   if (btnSession) btnSession.addEventListener('click', () => {
     if (!KJ.session) return;
-    if (KJ.session.active()) {
-      if (confirm('Fermer la session ' + KJ.session.code() + ' ?\n\nLes joueurs seront déconnectés.'))
-        KJ.session.fermer().then(() => { majBadgeSession(0); toast('Session fermée.'); });
-      return;
-    }
     if (!KJ.session.configuree()) {
-      alert('Les sessions multi-appareils ne sont pas encore configurées.\n\n'
+      alert('Les parties multi-appareils ne sont pas encore configurées.\n\n'
         + 'Il manque la configuration Firebase dans js/firebase-config.js — voir ARCHITECTURE.md.');
       return;
     }
-    btnSession.disabled = true;
-    KJ.session.creer().then(code => {
-      btnSession.disabled = false;
-      btnSession.classList.add('actif');
-      majBadgeSession(0);
-      KJ.session.surJoueurs(majBadgeSession);
-      KJ.session.surMouvements((m) => {
-        if (!m || !m.id) return;
-        const j = partie.jetons.find(x => x.id === m.id);
-        if (!j || !j.pj) return;   // seuls les jetons PJ sont déplaçables par les joueurs
-        j.x = m.x; j.y = m.y;
-        if (m.carte) j.carte = m.carte;
-        // le joueur a lâché son jeton sur un portail : le MJ traverse pour tout le
-        // monde — la nouvelle carte part dans l'état officiel et chaque fenêtre suit
-        if (m.portail) {
-          const dest = resoudre(m.portail);
-          toast('Les PJ passent : ' + (dest ? dest.nom : m.portail) + '…');
-          chargerCarte(m.portail).then(() => { amenerPJ(); sauverPartie(true); })
-            .catch(() => toast('Carte « ' + m.portail + ' » introuvable.'));
-          return;
-        }
-        dessinerJetons();
-        verifierDeclencheurs();   // la révélation automatique se joue ici, chez le MJ
-        sauverPartie();           // et l'état officiel redescend vers tous les joueurs
-      });
-      KJ.session.publier(partie);   // l'état courant part immédiatement
-      const lien = location.origin + location.pathname + '?session=' + code;
-      if (navigator.clipboard && navigator.clipboard.writeText)
-        navigator.clipboard.writeText(lien).catch(() => {});
-      alert('Session ouverte : ' + code + '\n\n'
-        + 'Les joueurs ouvrent l’application sur leur téléphone et entrent ce code\n'
-        + '(bouton « Rejoindre une session »), ou suivent ce lien (copié) :\n' + lien);
-    }).catch(e => {
-      btnSession.disabled = false;
-      alert('Impossible d’ouvrir la session : ' + e.message);
-    });
+    ouvrirModale('Partie', false, rendreEcranPartie);
   });
 
   if (codeSessionURL && KJ.session) {
     KJ.session.rejoindre(codeSessionURL, {
       onEtat: appliquerEtatDistant,
       onPing: (p) => { if (carte && p.carte === carte.id) montrerPing(p.x, p.y); },
-      onFin: (raison) => {
+      // la partie SURVIT aux absences du MJ : on montre la table telle qu'il l'a
+      // laissée, on signale seulement s'il est là ou non
+      onPresence: (present) => {
+        if (mjPresent !== null)
+          toast(present ? 'Le MJ est à la table.' : 'Le MJ a quitté la table — la partie reste consultable.');
+        mjPresent = present;
         majBadgeSession(0);
-        toast(raison === 'fermee' ? 'Le MJ a fermé la session.' : 'Le MJ s’est déconnecté.');
+      },
+      onFin: () => {
+        majBadgeSession(0);
+        toast('Le MJ a supprimé cette partie.');
       },
     }).then(() => {
       majBadgeSession(0);
-      toast('Session rejointe : le MJ contrôle ce que tu vois.');
+      toast('Partie rejointe : le MJ contrôle ce que tu vois.');
       // en réseau, cette fenêtre reflète le MJ : le suivi de caméra locale n'a pas de sens
       if ($('b-suivre')) $('b-suivre').style.display = 'none';
     }).catch(e => {

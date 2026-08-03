@@ -570,14 +570,26 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
     Firebase est normalisé à la réception ET à la relecture du localStorage** (`fog`, `jetons`,
     `reveles`, `masques`) — jamais supposer qu'un champ écrit vide revient présent.
 
-25. **Le banc de bout en bout `banc/pilote_e2e.py` teste la session réelle** : deux Chrome
+25. **Le banc de bout en bout `banc/pilote_e2e.py` teste la partie réelle** : deux Chrome
     headless à profils séparés (un MJ 1000 px, un joueur 500 px « mobile ») reliés uniquement
     par la vraie base Firebase — aucun BroadcastChannel/localStorage partagé ne fausse le test.
-    Le pilote force le code de session (stub de `Math.random` avant le clic sur `b-session`),
-    pré-sème `kj-partie`, et les pages banc rapportent leur progression dans `document.title`,
-    lu par l'API DevTools (`http://127.0.0.1:93xx/json`). Le joueur fait glisser son jeton sur
-    un portail avec de vrais `PointerEvent{pointerType:'touch'}`. C'est ce banc qui a trouvé le
-    point 24 — le réutiliser avant de livrer tout changement touchant aux sessions.
+    Le pilote force le code de partie (stub de `Math.random`), pré-sème `kj-partie`, et les
+    pages banc rapportent leur progression dans `document.title`, lu par l'API DevTools
+    (`http://127.0.0.1:93xx/json`). Le MJ de banc se connecte au compte `mj-banc@test.local`
+    (créé au premier passage), crée la partie PAR L'INTERFACE, le joueur glisse son jeton sur
+    un portail (`PointerEvent{pointerType:'touch'}`), puis la reprise de partie est prouvée
+    (quitter → `reprendrePartie` → l'état conservé porte la carte traversée). C'est ce banc
+    qui a trouvé le point 24 — le réutiliser avant de livrer tout changement touchant aux
+    parties.
+
+26. **Architecture v2 (2026-08) : comptes MJ et parties persistantes** — voir la section
+    dédiée d'ARCHITECTURE.md. À retenir en travaillant ici : `sessions/*` n'existe plus
+    (c'est `parties/<code>`, persistant, code stable) ; `cartes/index.json` n'est PLUS
+    déployé (bibliothèque privée — l'index vit dans `mj/<uid>/cartes`, poussé du PC
+    connecté) ; un joueur invité n'a PAS de catalogue (les cartes se chargent par fichier
+    à la demande de l'état, et ses portails ne sont jamais « inertes ») ; la création de
+    partie exige un compte e-mail (`sign_in_provider === 'password'` dans les règles) ;
+    « fermer » = quitter la table (rien n'est détruit), détruire = `supprimerPartie`.
 
 ## Style
 

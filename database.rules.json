@@ -3,10 +3,10 @@
     ".read": false,
     ".write": false,
 
-    "sessions": {
+    "parties": {
       "$code": {
         ".read": "auth != null",
-        ".write": "auth != null && (!data.exists() || data.child('mj').val() === auth.uid)",
+        ".write": "auth != null && (data.exists() ? data.child('mj').val() === auth.uid : auth.token.firebase.sign_in_provider === 'password')",
 
         "joueurs": {
           "$uid": {
@@ -23,6 +23,13 @@
         "$autre": {
           ".validate": true
         }
+      }
+    },
+
+    "mj": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && auth.token.firebase.sign_in_provider === 'password'"
       }
     }
   }

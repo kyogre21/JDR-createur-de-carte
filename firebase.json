@@ -4,7 +4,10 @@
   },
   "hosting": {
     "public": "plateforme",
-    "ignore": ["**/.*"],
+    "ignore": [
+      "**/.*",
+      "cartes/index.json"
+    ],
     "headers": [
       {
         "source": "**/*.html",

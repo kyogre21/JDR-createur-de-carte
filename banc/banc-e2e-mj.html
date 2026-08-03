@@ -3,11 +3,17 @@
 <title>MJ:init</title>
 <body>
 <script>
-/* Banc d'essai (temporaire, non versionné) : fenêtre MJ pilotée.
-   ?code=XXXX force le code de session (Math.random stubé) pour que le
-   pilote Python connaisse le code sans lire la page. */
+/* Banc d'essai : fenêtre MJ pilotée sur le parcours RÉEL des parties persistantes.
+   1. connexion au compte de banc (créé au premier passage) ;
+   2. création d'une partie PAR L'INTERFACE (bouton Partie → ＋ Créer),
+      code forcé par ?code=XXXX (stub de Math.random) ;
+   3. jeu : le pilote fait marcher un joueur (autre Chrome) sur un portail ;
+   4. quand la carte du MJ bascule (traversée), preuve de PERSISTANCE :
+      quitter la table puis reprendrePartie(code) → l'état conservé doit
+      porter la nouvelle carte ; la partie de banc est ensuite supprimée. */
 const q = new URLSearchParams(location.search);
 const CODE = q.get('code') || '5500';
+const EMAIL = 'mj-banc@test.local', MDP = 'banc-knight-123';
 localStorage.clear();
 localStorage.setItem('kj-partie', JSON.stringify({
   carte: 'manoir-cygnus-etage', fog: {}, reveles: {}, masques: {},
@@ -18,32 +24,54 @@ const fr = document.createElement('iframe');
 fr.src = '../plateforme/table.html';
 fr.style.cssText = 'width:960px;height:640px;border:0';
 document.body.appendChild(fr);
-let clique = false;
+let phase = 'demarrage', reprise = null;
 const t0 = Date.now();
 fr.onload = () => {
   const iv = setInterval(() => {
     try {
       const W = fr.contentWindow, doc = fr.contentDocument;
-      if (!W.KJ || !W.KJ.session) { document.title = 'MJ|pas-de-KJ'; return; }
+      if (!W.KJ || !W.KJ.session) return;
       const sel = doc.getElementById('choix-carte');
-      if (!W.KJ.session.active())
-        document.title = 'MJ|carte=' + (sel ? sel.value : '?') + '|clique=' + clique
-          + '|alerte=' + (W.__alerte || '');
-      if (!clique && sel && sel.value) {
-        clique = true;
-        W.alert = (m) => { W.__alerte = String(m).slice(0, 120); };
-        // code déterministe : genererCode() = 1000 + random*9000
+      const carte = sel ? sel.value : '';
+      document.title = 'MJ|phase=' + phase + '|carte=' + carte
+        + (W.KJ.session.active() ? '|code=' + W.KJ.session.code() : '')
+        + (reprise ? '|' + reprise : '');
+
+      if (phase === 'demarrage' && sel && carte) {
+        phase = 'connexion';
+        W.alert = () => {};
+        W.KJ.session.connexionMJ(EMAIL, MDP)
+          .catch(() => W.KJ.session.creerCompteMJ(EMAIL, MDP))
+          .then(() => { phase = 'connecte'; })
+          .catch(e => { phase = 'ERREUR-connexion:' + e.message; });
+      }
+      if (phase === 'connecte') {
+        phase = 'dialogue';
         W.Math.random = () => (Number(CODE) - 1000) / 9000 + 1e-9;
         doc.getElementById('b-session').click();
       }
-      if (W.KJ.session.active()) {
-        const p = JSON.parse(W.localStorage.getItem('kj-partie') || '{}');
-        const j = (p.jetons || []).find(x => x.id === 'pj-test') || {};
-        document.title = 'MJ|code=' + W.KJ.session.code()
-          + '|carte=' + (sel ? sel.value : '?')
-          + '|jeton=' + (j.carte || '?') + ',' + Math.round(j.x || -1) + ',' + Math.round(j.y || -1);
+      if (phase === 'dialogue') {
+        // le dialogue s'est rempli (asynchrone) : cliquer « ＋ Créer »
+        const b = [...doc.querySelectorAll('#modale-corps button')]
+          .find(x => x.textContent.indexOf('Créer') >= 0 && x.textContent.indexOf('＋') >= 0);
+        if (b) { phase = 'creation'; b.click(); }
       }
-      if (Date.now() - t0 > 90000) { clearInterval(iv); document.title = 'MJ|timeout'; }
+      if (phase === 'creation' && W.KJ.session.active()) phase = 'en-jeu';
+      if (phase === 'en-jeu' && carte === 'manoir-cygnus-rdc') {
+        phase = 'reprise';
+        // laisser partir la dernière publication, puis quitter et reprendre
+        setTimeout(() => {
+          W.KJ.session.fermer()
+            .then(() => W.KJ.session.reprendrePartie(CODE))
+            .then(etat => {
+              reprise = 'REPRISE:' + (etat && etat.carte);
+              return W.KJ.session.supprimerPartie(CODE);   // nettoyage du banc
+            })
+            .then(() => { reprise += ':NETTOYE'; })
+            .catch(e => { reprise = 'REPRISE-ERREUR:' + e.message; });
+        }, 1500);
+      }
+      if (Date.now() - t0 > 110000) { clearInterval(iv); document.title = 'MJ|timeout|phase=' + phase; }
     } catch (e) { document.title = 'MJ|erreur=' + e.message; }
   }, 400);
 };

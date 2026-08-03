@@ -136,6 +136,16 @@ KJ.stockage = (function () {
       .then(poignee => poignee ? listerParDossier(poignee) : listerParHTTP())
       .catch(() => listerParHTTP());
   }
+  /* Charge les cartes d'une liste d'entrées { fichier } ou { id } — utilisé avec
+     l'index PRIVÉ du MJ (KJ.session.lireIndexCartes) : cartes/index.json n'est
+     plus publié, la bibliothèque n'est découvrable qu'avec le compte. */
+  function listerDepuisListe(entrees) {
+    return Promise.all((entrees || []).map(e =>
+      fetch('cartes/' + (e.fichier || e.id + '.json'), { cache: 'no-cache' })
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(KJ.modele.depuisJSON).catch(() => null)))
+      .then(l => l.filter(Boolean).sort(triCartes));
+  }
   function chargerCarte(id) {
     return listerCartes().then(l => l.find(c => c.id === id) || null);
   }
@@ -315,7 +325,7 @@ KJ.stockage = (function () {
 
   return { avecDelai, gererServiceWorker,
            // les cartes : une seule source, les fichiers de cartes/
-           listerCartes, chargerCarte, enregistrerCarte, supprimerCarte, peutModifier,
+           listerCartes, listerDepuisListe, chargerCarte, enregistrerCarte, supprimerCarte, peutModifier,
            campagnesDeclarees, declarerCampagne, oublierCampagne, renommerCampagneDeclaree,
            exporterJSON, exporterSVG, importerFichier, telecharger, slug,
            catalogueImages, arboreImages,

@@ -1,18 +1,22 @@
 /* ============================================================
-   Cartographe Knight — sessions multi-appareils (Firebase RTDB)
+   Cartographe Knight — comptes MJ et parties persistantes (Firebase)
    ------------------------------------------------------------
-   Le MJ ouvre une session et obtient un code court ; les joueurs le
-   saisissent (ou ouvrent table.html?session=CODE) et reçoivent l'état
-   de partie en direct, en vue joueurs imposée.
+   Le MJ a un compte (e-mail + mot de passe) ; il crée des PARTIES qui
+   restent ouvertes d'une soirée à l'autre : brouillard, révélations et
+   jetons sont conservés dans la base, et le code à 4 chiffres reste le
+   même toute la campagne — les joueurs gardent le lien en favori.
+   Les joueurs, eux, entrent en INVITÉS (connexion anonyme) : un code
+   suffit, aucun compte à créer.
 
    Principes (voir ARCHITECTURE.md) :
    - seul l'ÉTAT DE PARTIE transite (brouillard, jetons, carte affichée,
      révélations) — jamais les cartes elles-mêmes, servies par le site ;
-   - seul le MJ écrit (règles de sécurité : database.rules.json) ;
-   - couche OPTIONNELLE : sans configuration ou sans réseau, l'application
-     fonctionne comme avant (BroadcastChannel sur un même PC) ;
+   - seul le MJ propriétaire écrit (règles : database.rules.json) ; les
+     joueurs déposent leurs gestes dans mouvements/<uid>, le MJ applique ;
+   - l'espace privé du MJ (mj/<uid>) porte sa liste de parties et l'index
+     de ses cartes : sans compte, la bibliothèque n'est pas découvrable ;
    - le SDK Firebase n'est chargé qu'à la première utilisation : la table
-     reste légère et utilisable hors ligne tant qu'on n'ouvre pas de session.
+     reste légère et utilisable hors ligne tant qu'on ne touche pas au réseau.
 
    Expose window.KJ.session
    ============================================================ */
@@ -26,11 +30,12 @@ KJ.session = (function () {
     'https://www.gstatic.com/firebasejs/' + VERSION_SDK + '/firebase-database-compat.js',
   ];
 
-  let db = null, uid = null;
+  let db = null, utilisateur = null;
   let etatSession = null;   // { code, mj: bool, refs: [fonctions de désabonnement] }
   let publierTimer = null, publierDernier = null;
 
   const configuree = () => !!window.KJ_FIREBASE_CONFIG;
+  const TS = () => firebase.database.ServerValue.TIMESTAMP;
 
   /* ---------- chargement paresseux du SDK ---------- */
   function chargerScript(src) {
@@ -52,42 +57,127 @@ KJ.session = (function () {
       if (!configuree())
         throw new Error('Sessions non configurées : remplir js/firebase-config.js (voir ARCHITECTURE.md).');
       if (!navigator.onLine)
-        throw new Error('Pas de connexion internet : les sessions multi-appareils en ont besoin.');
+        throw new Error('Pas de connexion internet : les parties multi-appareils en ont besoin.');
       for (const s of SDK) if (!window.firebase || !chargeDeja(s)) await chargerScript(s);
-      firebase.initializeApp(window.KJ_FIREBASE_CONFIG);
-      // connexion anonyme : aucun compte à créer pour personne,
-      // mais un identifiant stable qui permet de réserver l'écriture au MJ
-      const cred = await firebase.auth().signInAnonymously();
-      uid = cred.user.uid;
+      if (!firebase.apps.length) firebase.initializeApp(window.KJ_FIREBASE_CONFIG);
       db = firebase.database();
+      // le navigateur mémorise la connexion : un MJ connecté le reste d'une visite
+      // à l'autre — on attend ce qu'il a en réserve avant de créer un anonyme
+      utilisateur = await new Promise(res => {
+        const off = firebase.auth().onAuthStateChanged(u => { off(); res(u); });
+      });
+      if (!utilisateur) utilisateur = (await firebase.auth().signInAnonymously()).user;
     })().catch(e => { pInit = null; throw e; });
     return pInit;
   }
   const chargeDeja = (src) => !!document.querySelector('script[src="' + src + '"]');
+  const uid = () => (utilisateur ? utilisateur.uid : null);
 
-  /* ---------- code de session ----------
-     4 chiffres : vite dicté, vite tapé sur un téléphone. 10 000 combinaisons,
-     très au-delà du nombre de sessions simultanées d'une table de JDR — et la
-     création re-tire un code si celui-ci est déjà pris par une session récente. */
+  /* ---------- compte MJ ----------
+     Un vrai compte (e-mail + mot de passe) : c'est lui qui rend la bibliothèque
+     et les parties PRIVÉES — un visiteur ou un invité anonyme n'y a pas accès. */
+  const estMJconnecte = () => !!(utilisateur && !utilisateur.isAnonymous);
+  const emailMJ = () => (estMJconnecte() ? utilisateur.email : null);
+
+  function traduireErreurAuth(e) {
+    const codes = {
+      'auth/invalid-email': 'Adresse e-mail invalide.',
+      'auth/user-not-found': 'Aucun compte avec cette adresse.',
+      'auth/wrong-password': 'Mot de passe incorrect.',
+      'auth/invalid-credential': 'E-mail ou mot de passe incorrect.',
+      'auth/invalid-login-credentials': 'E-mail ou mot de passe incorrect.',
+      'auth/email-already-in-use': 'Un compte existe déjà avec cette adresse — connecte-toi.',
+      'auth/weak-password': 'Mot de passe trop court : 6 caractères minimum.',
+      'auth/too-many-requests': 'Trop d’essais — réessaie dans quelques minutes.',
+      'auth/operation-not-allowed': 'La connexion par e-mail n’est pas activée sur le projet '
+        + 'Firebase (console → Authentication → Sign-in method).',
+    };
+    return new Error(codes[e && e.code] || (e && e.message) || 'Connexion impossible.');
+  }
+  async function connexionMJ(email, mdp) {
+    await init();
+    try {
+      utilisateur = (await firebase.auth().signInWithEmailAndPassword(email.trim(), mdp)).user;
+    } catch (e) { throw traduireErreurAuth(e); }
+    return utilisateur.email;
+  }
+  async function creerCompteMJ(email, mdp) {
+    await init();
+    try {
+      utilisateur = (await firebase.auth().createUserWithEmailAndPassword(email.trim(), mdp)).user;
+    } catch (e) { throw traduireErreurAuth(e); }
+    return utilisateur.email;
+  }
+  async function deconnexion() {
+    await fermer();
+    try { await firebase.auth().signOut(); } catch (e) {}
+    utilisateur = null;
+    pInit = null;   // le prochain usage repartira en invité anonyme
+  }
+  /* À appeler pour savoir qui est là (charge le SDK au besoin). Renvoie l'e-mail
+     du MJ connecté, ou null (visiteur/invité). */
+  async function quiEstConnecte() {
+    await init();
+    return emailMJ();
+  }
+
+  /* ---------- code de partie ----------
+     4 chiffres : vite dicté, vite tapé sur un téléphone. Le code est STABLE pour
+     toute la vie de la partie — le lien donné aux joueurs au premier soir reste
+     valable toute la campagne. */
   function genererCode() {
     return String(Math.floor(1000 + Math.random() * 9000));
   }
 
-  /* ---------- côté MJ ---------- */
-  async function creer() {
+  /* ---------- côté MJ : parties persistantes ---------- */
+  function brancherMJ(code) {
+    etatSession = { code, mj: true, refs: [] };
+    // présence : les joueurs voient si le MJ est à la table ; la partie, elle, RESTE
+    const r = db.ref('parties/' + code + '/mjEnLigne');
+    r.onDisconnect().set(false);
+    etatSession.refs.push(() => r.onDisconnect().cancel());
+  }
+  async function creerPartie(nom) {
     await init();
-    for (let essai = 0; essai < 5; essai++) {
+    if (!estMJconnecte()) throw new Error('Connecte-toi avec ton compte MJ pour créer une partie.');
+    for (let essai = 0; essai < 8; essai++) {
       const code = genererCode();
-      const ref = db.ref('sessions/' + code);
-      const existante = (await ref.get()).val();
-      // un code déjà pris par une session récente (< 24 h) : on en tire un autre
-      if (existante && Date.now() - (existante.creee || 0) < 86400000) continue;
-      await ref.set({ mj: uid, creee: firebase.database.ServerValue.TIMESTAMP, etat: null });
-      ref.onDisconnect().update({ mjParti: firebase.database.ServerValue.TIMESTAMP });
-      etatSession = { code, mj: true, refs: [] };
+      const ref = db.ref('parties/' + code);
+      if ((await ref.get()).exists()) continue;   // code déjà pris par une partie vivante
+      await ref.set({ mj: uid(), nom: nom || 'Partie', creee: TS(), modifiee: TS(),
+        mjEnLigne: true, etat: null });
+      await db.ref('mj/' + uid() + '/parties/' + code)
+        .set({ nom: nom || 'Partie', creee: TS(), modifiee: TS() });
+      brancherMJ(code);
       return code;
     }
     throw new Error('Impossible de trouver un code libre — réessaie.');
+  }
+  /* Reprendre une partie existante : rend l'état conservé (à appliquer localement),
+     ou null si la partie n'a encore jamais publié d'état. */
+  async function reprendrePartie(code) {
+    await init();
+    const ref = db.ref('parties/' + code);
+    const p = (await ref.get()).val();
+    if (!p || p.mj !== uid()) throw new Error('Partie « ' + code + ' » introuvable sur ce compte.');
+    // les gestes des joueurs sont ceux d'une soirée : on ne rejoue pas ceux d'avant
+    await ref.child('mouvements').remove().catch(() => {});
+    await ref.update({ mjEnLigne: true, modifiee: TS() });
+    brancherMJ(code);
+    return p.etat || null;
+  }
+  async function listerParties() {
+    await init();
+    if (!estMJconnecte()) return [];
+    const v = (await db.ref('mj/' + uid() + '/parties').get()).val() || {};
+    return Object.keys(v).map(code => Object.assign({ code: code }, v[code]))
+      .sort((a, b) => (b.modifiee || 0) - (a.modifiee || 0));
+  }
+  async function supprimerPartie(code) {
+    await init();
+    if (etatSession && etatSession.code === code) await fermer();
+    await db.ref('parties/' + code).remove();
+    await db.ref('mj/' + uid() + '/parties/' + code).remove();
   }
 
   /* Publication de l'état, avec lissage : peindre le brouillard déclenche des
@@ -99,34 +189,33 @@ KJ.session = (function () {
     if (publierTimer) return;
     publierTimer = setTimeout(() => {
       publierTimer = null;
-      db.ref('sessions/' + etatSession.code + '/etat')
-        .set(JSON.parse(JSON.stringify(publierDernier)))
+      db.ref('parties/' + etatSession.code)
+        .update({ etat: JSON.parse(JSON.stringify(publierDernier)), modifiee: TS() })
         .catch(() => {});
     }, 300);
   }
 
   function surJoueurs(cb) {
     if (!etatSession || !db) return;
-    const ref = db.ref('sessions/' + etatSession.code + '/joueurs');
+    const ref = db.ref('parties/' + etatSession.code + '/joueurs');
     const h = ref.on('value', s => cb(s.numChildren()));
     etatSession.refs.push(() => ref.off('value', h));
   }
 
-  /* ---------- côté joueur ---------- */
+  /* ---------- côté joueur (invité) ---------- */
   async function rejoindre(code, handlers) {
     await init();
-    // tolère espaces et tirets ; les anciens codes lettres+chiffres restent acceptés
-    code = String(code || '').toUpperCase().replace(/[\s-]+/g, '');
-    if (/^[A-Z]{3}[0-9]{3}$/.test(code)) code = code.slice(0, 3) + '-' + code.slice(3);
-    const ref = db.ref('sessions/' + code);
+    code = String(code || '').replace(/\D+/g, '');
+    const ref = db.ref('parties/' + code);
     const s = (await ref.get()).val();
-    if (!s || !s.mj) throw new Error('Aucune session « ' + code + ' ». Vérifie le code avec le MJ.');
+    if (!s || !s.mj) throw new Error('Aucune partie « ' + code + ' ». Vérifie le code avec le MJ.');
     etatSession = { code, mj: false, refs: [] };
     // présence : le MJ voit combien de joueurs suivent ; départ propre à la déconnexion
-    const moi = ref.child('joueurs/' + uid);
-    moi.set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});
+    const moi = ref.child('joueurs/' + uid());
+    moi.set(TS()).catch(() => {});
     moi.onDisconnect().remove();
-    // l'état de partie, en continu
+    // l'état de partie, en continu — y compris l'état CONSERVÉ d'une soirée
+    // précédente, servi immédiatement même si le MJ n'est pas encore là
     const rEtat = ref.child('etat');
     const hEtat = rEtat.on('value', snap => {
       const etat = snap.val();
@@ -142,10 +231,14 @@ KJ.session = (function () {
       });
       etatSession.refs.push(() => rPing.off('value', hPing));
     }
-    // fin de session : le MJ a fermé, ou s'est déconnecté
+    // présence du MJ (la partie survit à ses absences) et suppression de la partie
+    if (handlers.onPresence) {
+      const rL = ref.child('mjEnLigne');
+      const hL = rL.on('value', snap => handlers.onPresence(!!snap.val()));
+      etatSession.refs.push(() => rL.off('value', hL));
+    }
     const hFin = ref.on('value', snap => {
-      const v = snap.val();
-      if ((!v || v.mjParti) && handlers.onFin) handlers.onFin(!v ? 'fermee' : 'mj-deconnecte');
+      if (!snap.val() && handlers.onFin) handlers.onFin('fermee');
     });
     etatSession.refs.push(() => ref.off('value', hFin));
     return code;
@@ -156,13 +249,13 @@ KJ.session = (function () {
      le MJ l'applique à l'état officiel, qui redescend ensuite vers tout le monde. */
   function envoyerMouvement(m) {
     if (!etatSession || etatSession.mj || !db) return;
-    db.ref('sessions/' + etatSession.code + '/mouvements/' + uid)
-      .set(Object.assign({}, m, { t: firebase.database.ServerValue.TIMESTAMP }))
+    db.ref('parties/' + etatSession.code + '/mouvements/' + uid())
+      .set(Object.assign({}, m, { t: TS() }))
       .catch(() => {});
   }
   function surMouvements(cb) {
     if (!etatSession || !etatSession.mj || !db) return;
-    const ref = db.ref('sessions/' + etatSession.code + '/mouvements');
+    const ref = db.ref('parties/' + etatSession.code + '/mouvements');
     const h = ref.on('child_added', s => cb(s.val()));
     const h2 = ref.on('child_changed', s => cb(s.val()));
     etatSession.refs.push(() => { ref.off('child_added', h); ref.off('child_changed', h2); });
@@ -170,18 +263,39 @@ KJ.session = (function () {
 
   function ping(x, y, carteId) {
     if (!etatSession || !etatSession.mj || !db) return;
-    db.ref('sessions/' + etatSession.code + '/ping')
-      .set({ x, y, carte: carteId, t: firebase.database.ServerValue.TIMESTAMP })
+    db.ref('parties/' + etatSession.code + '/ping')
+      .set({ x, y, carte: carteId, t: TS() })
       .catch(() => {});
   }
 
-  /* ---------- commun ---------- */
+  /* ---------- index privé des cartes ----------
+     La LISTE des cartes du MJ vit dans son espace privé : sans compte, rien à
+     parcourir. (Les fichiers de cartes restent servis par le site à qui connaît
+     leur adresse exacte — discrétion, pas coffre-fort ; voir ARCHITECTURE.md.) */
+  async function publierIndexCartes(liste) {
+    await init();
+    if (!estMJconnecte()) return false;
+    await db.ref('mj/' + uid() + '/cartes').set({ maj: TS(), liste: liste });
+    return true;
+  }
+  async function lireIndexCartes() {
+    await init();
+    if (!estMJconnecte()) return null;
+    const v = (await db.ref('mj/' + uid() + '/cartes').get()).val();
+    return (v && v.liste) || null;
+  }
+
+  /* ---------- commun ----------
+     « fermer » = QUITTER la table ce soir : la partie et son état restent dans la
+     base pour la prochaine séance. Détruire une partie = supprimerPartie. */
   async function fermer() {
     if (!etatSession) return;
     etatSession.refs.forEach(f => { try { f(); } catch (e) {} });
     if (db) {
-      if (etatSession.mj) await db.ref('sessions/' + etatSession.code).remove().catch(() => {});
-      else await db.ref('sessions/' + etatSession.code + '/joueurs/' + uid).remove().catch(() => {});
+      if (etatSession.mj)
+        await db.ref('parties/' + etatSession.code + '/mjEnLigne').set(false).catch(() => {});
+      else
+        await db.ref('parties/' + etatSession.code + '/joueurs/' + uid()).remove().catch(() => {});
     }
     etatSession = null;
   }
@@ -191,7 +305,14 @@ KJ.session = (function () {
     active: () => !!etatSession,
     estMJ: () => !!(etatSession && etatSession.mj),
     code: () => (etatSession ? etatSession.code : null),
-    creer, rejoindre, publier, ping, surJoueurs, fermer,
-    envoyerMouvement, surMouvements,
+    // compte MJ
+    connexionMJ, creerCompteMJ, deconnexion, quiEstConnecte,
+    estMJconnecte: () => estMJconnecte(),
+    // parties persistantes
+    creerPartie, reprendrePartie, listerParties, supprimerPartie,
+    // jeu en direct
+    publier, rejoindre, fermer, ping, surJoueurs, surMouvements, envoyerMouvement,
+    // bibliothèque privée
+    publierIndexCartes, lireIndexCartes,
   };
 })();
