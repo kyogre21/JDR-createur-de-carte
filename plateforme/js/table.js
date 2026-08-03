@@ -13,7 +13,9 @@
 
   const QUAL = 2, PINCEAU = 26, CLE_PARTIE = 'kj-partie';
   const params = new URLSearchParams(location.search);
-  const vueJoueurs = params.get('vue') === 'joueurs';
+  const codeSessionURL = (params.get('session') || '').trim() || null;
+  // rejoindre une session par lien impose la vue joueurs, comme ?vue=joueurs
+  const vueJoueurs = params.get('vue') === 'joueurs' || !!codeSessionURL;
   if (vueJoueurs) {
     document.body.dataset.vue = 'joueurs';
     // classe séparée de data-vue (qui, elle, bascule aussi pour la préview locale du MJ) :
@@ -50,6 +52,7 @@
     try { localStorage.setItem(CLE_PARTIE, JSON.stringify(partie)); } catch (e) {}
     const doitDiffuser = diffuser === true || (diffuser !== false && !vueJoueurs);
     if (doitDiffuser && canal) canal.postMessage({ t: 'partie', partie: partie });
+    if (doitDiffuser && KJ.session && KJ.session.estMJ()) KJ.session.publier(partie);
   }
   // éléments MJ (secret, image) révélés en permanence aux joueurs pour la carte affichée :
   // une session de partie, comme le brouillard — pas une donnée de la carte elle-même.
@@ -435,6 +438,7 @@
     const w = versMonde(e.clientX, e.clientY);
     montrerPing(w.x, w.y);
     if (canal) canal.postMessage({ t: 'ping', x: w.x, y: w.y, carte: carte.id });
+    if (KJ.session && KJ.session.estMJ()) KJ.session.ping(w.x, w.y, carte.id);
   });
 
   /* ---------------- outils ---------------- */
@@ -833,6 +837,81 @@
   });
   // indépendante du chargement de la carte : la galerie doit marcher même sans plan affiché
   chargerGalerie().catch(() => {});
+
+  /* ---------------- sessions multi-appareils ----------------
+     L'état reçu du réseau suit le même chemin qu'un message BroadcastChannel :
+     une seule écriture locale, pas de rediffusion (sauverPartie(false)). */
+  function appliquerEtatDistant(etat) {
+    if (!etat) return;
+    const changeCarte = etat.carte && (!carte || etat.carte !== carte.id);
+    partie = etat;
+    if (!partie.reveles) partie.reveles = {};
+    sauverPartie(false);
+    if (changeCarte) chargerCarte(partie.carte).catch(() => {});
+    else if (carte) { dessinerFog(); dessinerJetons(); dessinerPins(); dessinerPlan(); }
+  }
+
+  function majBadgeSession(nb) {
+    const b = $('badge-session');
+    if (!b) return;
+    if (!KJ.session || !KJ.session.active()) { b.hidden = true; return; }
+    b.hidden = false;
+    b.textContent = '📡 ' + KJ.session.code()
+      + (KJ.session.estMJ() ? ' · ' + (nb || 0) + ' joueur' + (nb > 1 ? 's' : '') : '');
+  }
+
+  const btnSession = $('b-session');
+  if (btnSession) btnSession.addEventListener('click', () => {
+    if (!KJ.session) return;
+    if (KJ.session.active()) {
+      if (confirm('Fermer la session ' + KJ.session.code() + ' ?\n\nLes joueurs seront déconnectés.'))
+        KJ.session.fermer().then(() => { majBadgeSession(0); toast('Session fermée.'); });
+      return;
+    }
+    if (!KJ.session.configuree()) {
+      alert('Les sessions multi-appareils ne sont pas encore configurées.\n\n'
+        + 'Il manque la configuration Firebase dans js/firebase-config.js — voir ARCHITECTURE.md.');
+      return;
+    }
+    btnSession.disabled = true;
+    KJ.session.creer().then(code => {
+      btnSession.disabled = false;
+      btnSession.classList.add('actif');
+      majBadgeSession(0);
+      KJ.session.surJoueurs(majBadgeSession);
+      KJ.session.publier(partie);   // l'état courant part immédiatement
+      const lien = location.origin + location.pathname + '?session=' + code;
+      if (navigator.clipboard && navigator.clipboard.writeText)
+        navigator.clipboard.writeText(lien).catch(() => {});
+      alert('Session ouverte : ' + code + '\n\n'
+        + 'Les joueurs ouvrent l’application sur leur téléphone et entrent ce code\n'
+        + '(bouton « Rejoindre une session »), ou suivent ce lien (copié) :\n' + lien);
+    }).catch(e => {
+      btnSession.disabled = false;
+      alert('Impossible d’ouvrir la session : ' + e.message);
+    });
+  });
+
+  if (codeSessionURL && KJ.session) {
+    KJ.session.rejoindre(codeSessionURL, {
+      onEtat: appliquerEtatDistant,
+      onPing: (p) => { if (carte && p.carte === carte.id) montrerPing(p.x, p.y); },
+      onFin: (raison) => {
+        majBadgeSession(0);
+        toast(raison === 'fermee' ? 'Le MJ a fermé la session.' : 'Le MJ s’est déconnecté.');
+      },
+    }).then(() => {
+      majBadgeSession(0);
+      toast('Session rejointe : le MJ contrôle ce que tu vois.');
+      // en réseau, cette fenêtre reflète le MJ : le suivi de caméra locale n'a pas de sens
+      if ($('b-suivre')) $('b-suivre').style.display = 'none';
+    }).catch(e => {
+      const a = document.createElement('div');
+      a.className = 'alerte';
+      a.textContent = e.message;
+      document.body.insertBefore(a, document.getElementById('scene'));
+    });
+  }
 
   S.gererServiceWorker();
 

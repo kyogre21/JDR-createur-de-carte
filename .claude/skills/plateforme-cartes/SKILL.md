@@ -242,6 +242,21 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
 - L'historique enregistre l'état **après** modification, via l'unique point d'entrée `apresModif()`.
   (Instantané pris *avant* = Ctrl+Z qui saute deux crans.)
 
+## Sessions multi-appareils (Firebase RTDB)
+
+`js/session.js` (namespace `KJ.session`) : le MJ ouvre une session (code court type `KDR-583`),
+les joueurs rejoignent par code ou lien `table.html?session=CODE` — vue joueurs imposée.
+Seul l'état de partie transite (`partie` : fog, jetons, carte, révélations), jamais les cartes.
+Seul le MJ écrit (règles : `database.rules.json` à la racine — l'écriture exige
+`data.child('mj').val() === auth.uid`, présence joueur dans `joueurs/$uid`).
+SDK compat chargé **paresseusement** depuis gstatic à la première utilisation : la table reste
+hors-ligne-compatible tant qu'aucune session n'est ouverte. Publication lissée à 300 ms
+(peindre le brouillard déclenche des rafales). Config dans `js/firebase-config.js`
+(`window.KJ_FIREBASE_CONFIG`, null = fonction proposée mais « non configurée » ; ces clés ne
+sont pas des secrets, la sécurité vient des règles). L'état réseau entre par
+`appliquerEtatDistant()` dans table.js — même chemin qu'un message BroadcastChannel,
+`sauverPartie(false)` pour ne pas rediffuser en boucle.
+
 ## Réflexe n°1 : le cache
 
 Quand l'utilisateur décrit un comportement cassé, périmé ou une fonction « absente » alors

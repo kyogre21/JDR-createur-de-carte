@@ -11,12 +11,13 @@
    indéfiniment l'ancien code, y compris celui qui réinstallait ce cache. Ne
    jamais revenir à cette stratégie pour le HTML et les scripts.
    ============================================================ */
-const CACHE = 'cartographe-knight-4';
+const CACHE = 'cartographe-knight-5';
 const ESSENTIELS = [
   './', './index.html', './editeur.html', './table.html', './css/commun.css',
   './js/modele.js', './js/rendu.js', './js/stockage.js', './js/editeur.js', './js/table.js',
   './manifest.webmanifest', './cartes/index.json',
   './icone-192.png', './icone-512.png', './icone-32.png',
+  './js/firebase-config.js', './js/session.js',
 ];
 
 self.addEventListener('install', (e) => {

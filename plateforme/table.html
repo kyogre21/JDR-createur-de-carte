@@ -127,6 +127,8 @@
   #etiquette{position:absolute;background:#0d0a07;color:var(--or);font:600 12px var(--ui);
     padding:2px 7px;border-radius:3px;white-space:nowrap;transform:translate(10px,-24px);
     border:1px solid var(--or)}
+  #badge-session{font:600 12px var(--ui);color:var(--or);background:#241d14;
+    border:1px solid var(--or);border-radius:5px;padding:4px 9px;white-space:nowrap}
   #aide-jeu{position:fixed;bottom:8px;left:8px;z-index:10;font:italic 11.5px var(--serif);opacity:.6;
     background:rgba(13,10,7,.8);padding:5px 9px;border-radius:5px;max-width:78vw}
   body[data-vue="joueurs"] #aide-jeu{display:none}
@@ -157,6 +159,7 @@
 
 <header>
   <div class="marque">Table <span>de jeu</span></div>
+  <span id="badge-session" hidden></span>
   <select id="choix-carte" title="Carte affichée"></select>
   <div class="esp"></div>
   <span id="barre-mj">
@@ -176,6 +179,7 @@
     <span class="sep"></span>
     <button id="b-galerie" title="Montrer une illustration sans la poser sur le plan">🖼 Galerie</button>
     <span class="sep"></span>
+    <button id="b-session" title="Ouvrir une session : les joueurs la rejoignent depuis leur téléphone avec un code">📡 Session</button>
     <button id="b-vue" title="Prévisualiser ce que voient les joueurs (G)">Vue joueurs</button>
     <button id="b-cadrer" title="Recadrer">⤢</button>
     <a class="btn" id="b-editer" href="editeur.html" title="Modifier cette carte">✎ Éditer</a>
@@ -222,6 +226,8 @@ fenêtre pour la TV : ajouter <b>?vue=joueurs</b> à l’adresse</div>
 <script src="js/modele.js"></script>
 <script src="js/rendu.js"></script>
 <script src="js/stockage.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/session.js"></script>
 <script src="js/table.js"></script>
 </body>
 </html>

@@ -17,6 +17,7 @@
   <select id="filtre-campagne" title="Afficher une seule campagne"></select>
   <div class="esp"></div>
   <a class="btn" href="table.html" title="Ouvrir la table de jeu">▶ Table de jeu</a>
+  <button id="b-rejoindre" title="Rejoindre la session ouverte par le MJ">📡 Rejoindre</button>
   <span id="grp-edition" hidden>
     <button id="b-campagne" title="Créer un dossier de campagne">🗀 Nouvelle campagne</button>
     <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
@@ -450,6 +451,11 @@
       try { localStorage.setItem('kj-filtre-campagne', filtre); } catch (e) {}
       charger();
     });
+  });
+
+  $('b-rejoindre').addEventListener('click', function () {
+    const code = (prompt('Code de session donné par le MJ (ex. KDR-583) :', '') || '').trim();
+    if (code) location.href = 'table.html?session=' + encodeURIComponent(code.toUpperCase());
   });
 
   $('b-importer').addEventListener('click', () => $('fichier').click());

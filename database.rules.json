@@ -1,0 +1,23 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "sessions": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && (!data.exists() || data.child('mj').val() === auth.uid)",
+
+        "joueurs": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        },
+
+        "$autre": {
+          ".validate": true
+        }
+      }
+    }
+  }
+}
