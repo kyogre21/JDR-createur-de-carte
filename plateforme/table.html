@@ -133,6 +133,20 @@
     border:1px solid var(--or)}
   #badge-session{font:600 12px var(--ui);color:var(--or);background:#241d14;
     border:1px solid var(--or);border-radius:5px;padding:4px 9px;white-space:nowrap}
+  /* seul élément resté en habillage natif (blanc éclatant) au milieu de la charte */
+  #choix-carte{background:#241d14;border:1px solid var(--bord-clair);border-radius:5px;
+    color:var(--encre);font:600 12.5px var(--ui);padding:5px 8px;max-width:38vw}
+  /* chez les joueurs (session ou fenêtre séparée) : une étiquette du lieu, pas un menu —
+     dérouler la liste révélerait les noms de toutes les cartes (spoilers), et changer de
+     carte localement désynchroniserait la vue par rapport au MJ */
+  body.fenetre-joueurs #choix-carte{pointer-events:none;-webkit-appearance:none;appearance:none;
+    background:none;border:none;color:var(--or);font:italic 15px var(--serif)}
+  /* le nom du jeton vit dans une pastille sous le rond : en toutes lettres dans le rond,
+     il débordait en texte sombre sur fond sombre — illisible dès qu'on quittait une zone
+     éclairée. Le rond ne porte plus que l'initiale (ou le portrait). */
+  .jeton .lab{position:absolute;top:18px;left:50%;transform:translateX(-50%);
+    background:rgba(13,10,7,.85);color:var(--encre);padding:1px 6px;border-radius:3px;
+    font:600 10.5px var(--ui);white-space:nowrap;pointer-events:none}
   #aide-jeu{position:fixed;bottom:8px;left:8px;z-index:10;font:italic 11.5px var(--serif);opacity:.6;
     background:rgba(13,10,7,.8);padding:5px 9px;border-radius:5px;max-width:78vw}
   body[data-vue="joueurs"] #aide-jeu{display:none}

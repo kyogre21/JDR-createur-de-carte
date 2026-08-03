@@ -76,6 +76,9 @@ Aucune dépendance : pas de CDN, pas de framework CSS, pas de police externe.
    ⚠️ Chrome headless ne descend pas sous ~500 px de large : une « capture 360 px » est un
    mensonge silencieux. Pour plus étroit, envelopper la page dans une iframe de la largeur
    voulue depuis une page banc (voir `banc/`). Toujours REGARDER les captures produites.
+   ⚠️ Un `--user-data-dir` réutilisé ressert les fichiers EN CACHE : des captures « après
+   correction » identiques aux précédentes signifient presque toujours ça — profil neuf
+   (nouveau dossier) pour chaque campagne de vérification.
 2. **Proposer avant d'implémenter** quand la modification est visible : décrire (ou maquetter
    dans une page banc jetable) ce qui change, pour quel public, et ce que ça coûte aux autres.
    Les petites corrections évidentes (débordement, contraste, cible trop petite) se font

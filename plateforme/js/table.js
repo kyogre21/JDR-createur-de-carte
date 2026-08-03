@@ -321,7 +321,13 @@
       d.className = 'jeton'; d.dataset.id = j.id; d.dataset.pj = j.pj ? 'true' : 'false';
       d.style.left = j.x + 'px'; d.style.top = j.y + 'px';
       if (j.img) d.style.backgroundImage = `url("${j.img}")`;
-      else { d.style.background = j.couleur; d.textContent = j.nom; }
+      // le rond porte l'initiale, le nom complet vit dans la pastille .lab dessous
+      else { d.style.background = j.couleur; d.textContent = (j.nom || '?').trim().charAt(0).toUpperCase(); }
+      if (j.nom) {
+        const lab = document.createElement('span');
+        lab.className = 'lab'; lab.textContent = j.nom;
+        d.appendChild(lab);
+      }
       jetonsEl.appendChild(d);
     }
   }
@@ -657,8 +663,9 @@
     if (jet) {
       // au doigt, l'appui long part trop facilement tout seul : on confirme avant
       // de supprimer (à la souris, le clic droit reste immédiat comme avant)
+      const jNom = (partie.jetons.find(j => j.id === jet.dataset.id) || {}).nom;
       if (dernierPointeur === 'touch'
-          && !confirm('Supprimer le jeton « ' + (jet.textContent || '?') + ' » ?')) return;
+          && !confirm('Supprimer le jeton « ' + (jNom || '?') + ' » ?')) return;
       partie.jetons = partie.jetons.filter(j => j.id !== jet.dataset.id);
       dessinerJetons(); sauverPartie();
       return;
