@@ -14,6 +14,7 @@
   const QUAL = 2, PINCEAU = 26, CLE_PARTIE = 'kj-partie';
   const params = new URLSearchParams(location.search);
   const codeSessionURL = (params.get('session') || '').trim() || null;
+  const codePartieURL = (params.get('partie') || '').trim() || null;   // reprise MJ par l'adresse
   // rejoindre une session par lien impose la vue joueurs, comme ?vue=joueurs
   const vueJoueurs = params.get('vue') === 'joueurs' || !!codeSessionURL;
   if (vueJoueurs) {
@@ -1186,6 +1187,14 @@
   });
 
   if (codeSessionURL && KJ.session) {
+    /* Si l'utilisateur connecté est le PROPRIÉTAIRE de cette partie, entrer par le
+       code (ou le lien des joueurs) doit le ramener en MJ, pas en invité : on
+       recharge la table en mode reprise (?partie=), qui n'impose pas la vue joueurs. */
+    KJ.session.estProprietaire(codeSessionURL).catch(() => false).then(prop => {
+    if (prop) {
+      location.replace(location.pathname + '?partie=' + String(codeSessionURL).replace(/\D+/g, ''));
+      return;
+    }
     KJ.session.rejoindre(codeSessionURL, {
       onEtat: appliquerEtatDistant,
       onPing: (p) => { if (carte && p.carte === carte.id) montrerPing(p.x, p.y); },
@@ -1212,6 +1221,16 @@
       a.textContent = e.message;
       document.body.insertBefore(a, document.getElementById('scene'));
     });
+    });   // fin de la vérification de propriété
+  }
+
+  /* Reprise directe par l'adresse (?partie=CODE) : la table du MJ, branchée sur sa
+     partie — c'est ici qu'atterrit le propriétaire qui a suivi le lien des joueurs. */
+  if (codePartieURL && !vueJoueurs && KJ.session && KJ.session.configuree()) {
+    KJ.session.reprendrePartie(codePartieURL).then(etat => {
+      brancherPartie(etat);
+      toast('Partie ' + codePartieURL + ' reprise — tu es à la table en MJ.');
+    }).catch(e => toast(e.message));
   }
 
   S.gererServiceWorker();

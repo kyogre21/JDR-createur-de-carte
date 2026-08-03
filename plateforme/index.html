@@ -441,10 +441,18 @@
       majFiltre(cartes);
       const c = $('liste');
       if (!cartes.length) {
+        let quoiFaire;
+        if (modifiable) quoiFaire = ' Crée-en une, ou importe un fichier .json.';
+        else if (S.depotPrisEnCharge())
+          // un PC : soit ce navigateur n'a pas (ou plus) le dossier lié — le lier via
+          // l'éditeur —, soit l'index privé n'a pas encore été rempli depuis le bon PC
+          quoiFaire = ' Sur ce PC, ouvre une carte dans l’éditeur et clique 💾 Enregistrer pour '
+            + 'lier le dossier <code>plateforme</code> — ou ouvre la bibliothèque, connecté, sur '
+            + 'le PC où vivent tes cartes : elle se synchronisera pour tes autres appareils.';
+        else quoiFaire = ' Ouvre la bibliothèque une fois sur ton PC, connecté à ce compte : '
+            + 'elle deviendra disponible ici automatiquement.';
         c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
-          + 'Aucune carte dans <code>cartes/</code>.' + (modifiable
-            ? ' Crée-en une, ou importe un fichier .json.'
-            : ' Ouvre la bibliothèque une fois sur ton PC (connecté) pour la rendre disponible ici.') + '</p>';
+          + 'Aucune carte ici pour l’instant.' + quoiFaire + '</p>';
       } else afficherGroupe(c, cartes);
       // PC + compte : l'index privé se met à jour tout seul — c'est lui qui rend la
       // bibliothèque disponible sur les autres appareils du MJ

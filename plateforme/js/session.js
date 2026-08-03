@@ -183,6 +183,14 @@ KJ.session = (function () {
     return Object.keys(v).map(code => Object.assign({ code: code }, v[code]))
       .sort((a, b) => (b.modifiee || 0) - (a.modifiee || 0));
   }
+  /* Le MJ connecté qui suit le lien de SA propre partie (ou en tape le code) ne doit
+     jamais y entrer en invité : la table vérifie d'abord la propriété. */
+  async function estProprietaire(code) {
+    await init();
+    if (!estMJconnecte()) return false;
+    const v = (await db.ref('parties/' + String(code || '').replace(/\D+/g, '') + '/mj').get()).val();
+    return v === uid();
+  }
   async function supprimerPartie(code) {
     await init();
     if (etatSession && etatSession.code === code) await fermer();
@@ -321,7 +329,7 @@ KJ.session = (function () {
     connexionMJ, creerCompteMJ, deconnexion, quiEstConnecte, definirPseudo,
     estMJconnecte: () => estMJconnecte(),
     // parties persistantes
-    creerPartie, reprendrePartie, listerParties, supprimerPartie,
+    creerPartie, reprendrePartie, listerParties, supprimerPartie, estProprietaire,
     // jeu en direct
     publier, rejoindre, fermer, ping, surJoueurs, surMouvements, envoyerMouvement,
     // bibliothèque privée
