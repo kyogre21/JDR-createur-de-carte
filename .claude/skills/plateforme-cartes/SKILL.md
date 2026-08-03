@@ -582,14 +582,25 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
     qui a trouvé le point 24 — le réutiliser avant de livrer tout changement touchant aux
     parties.
 
-26. **Architecture v2 (2026-08) : comptes MJ et parties persistantes** — voir la section
-    dédiée d'ARCHITECTURE.md. À retenir en travaillant ici : `sessions/*` n'existe plus
-    (c'est `parties/<code>`, persistant, code stable) ; `cartes/index.json` n'est PLUS
-    déployé (bibliothèque privée — l'index vit dans `mj/<uid>/cartes`, poussé du PC
-    connecté) ; un joueur invité n'a PAS de catalogue (les cartes se chargent par fichier
-    à la demande de l'état, et ses portails ne sont jamais « inertes ») ; la création de
-    partie exige un compte e-mail (`sign_in_provider === 'password'` dans les règles) ;
-    « fermer » = quitter la table (rien n'est détruit), détruire = `supprimerPartie`.
+26. **Architecture v2/v3 (2026-08) : comptes MJ, parties persistantes, cartes dans le
+    compte** — voir les sections dédiées d'ARCHITECTURE.md. À retenir en travaillant ici :
+    `sessions/*` n'existe plus (c'est `parties/<code>`, persistant, code stable) ; les
+    cartes vivent dans `mj/<uid>/cartes/<id>` en **chaînes JSON** (source de vérité —
+    le dossier lié n'est qu'une copie git, migrée automatiquement) ; `cartes/index.json`
+    n'est PLUS déployé ; un joueur invité n'a PAS de catalogue — la carte affichée lui
+    est TRANSPORTÉE par `parties/<code>/carte` (publiée par le MJ à chaque changement),
+    et ses portails ne sont jamais « inertes » ; la création de partie exige un compte
+    e-mail (`sign_in_provider === 'password'` dans les règles) ; « fermer » = quitter la
+    table (rien n'est détruit), détruire = `supprimerPartie` ; le marqueur localStorage
+    `kj-mj-connecte` évite de payer l'init du SDK quand aucun MJ n'est connu sur
+    l'appareil — sans lui, les délais de garde expiraient au premier démarrage à froid
+    et la bibliothèque paraissait vide.
+
+27. **Un `s.replace(a, b)` sans assertion est un no-op silencieux** : le pilote du banc a
+    gardé une vieille boucle pendant plusieurs passages parce qu'un script de retouche
+    avait « réussi » sans rien remplacer — et les résultats semblaient bons par
+    coïncidence de timing. Toute retouche par script DOIT vérifier `assert a in s`
+    (comme le fait `patch()` des scripts de correctifs).
 
 ## Style
 
