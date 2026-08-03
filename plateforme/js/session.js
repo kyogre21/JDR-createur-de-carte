@@ -37,6 +37,9 @@ KJ.session = (function () {
     return new Promise((res, rej) => {
       const s = document.createElement('script');
       s.src = src;
+      // sans CORS, une exception de nos rappels traversant le SDK est masquée
+      // en « Script error. » sans fichier ni ligne — indiagnosticable
+      s.crossOrigin = 'anonymous';
       s.onload = res;
       s.onerror = () => rej(new Error('Chargement impossible : ' + src));
       document.head.appendChild(s);

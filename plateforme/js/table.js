@@ -44,6 +44,10 @@
   try { const s = localStorage.getItem(CLE_PARTIE); if (s) partie = JSON.parse(s); } catch (e) {}
   if (!partie.reveles) partie.reveles = {};   // sessions sauvegardées avant l'ajout de ce champ
   if (!partie.masques) partie.masques = {};   // idem : re-cachés à la main, prioritaires sur l'auto
+  // un état reçu du réseau a pu être sauvegardé amputé de ses champs vides
+  // (Firebase les supprime — voir appliquerEtatDistant) : mêmes gardes ici
+  if (!partie.fog) partie.fog = {};
+  if (!partie.jetons) partie.jetons = [];
 
   // diffuser: undefined = comportement par défaut (jamais depuis la vraie fenêtre séparée,
   // qui ne fait normalement que refléter le MJ) ; true = forcer la diffusion même depuis
@@ -443,10 +447,14 @@
     sur.appendChild(p);
     setTimeout(() => p.remove(), 2100);
   }
-  scene.addEventListener('dblclick', (e) => {
-    // double-clic sur un jeton : l'ouvrir en édition (étiquette, PJ, portrait, suppression),
-    // pas un ping — réservé au MJ et à la préview locale, jamais à la vraie fenêtre séparée.
-    const jet = e.target.closest('.jeton');
+  /* Double-clic sur un jeton : l'ouvrir en édition (étiquette, PJ, portrait, suppression) ;
+     ailleurs : un ping — réservé au MJ et à la préview locale, jamais à la vraie fenêtre
+     séparée. Déclenché par le vrai dblclick (souris) ET par un double-tap détecté à la main
+     dans fin() : avec touch-action:none, la synthèse du dblclick au double-tap n'est pas
+     garantie sur mobile — sans quoi le MJ sur téléphone n'a ni ping ni édition de jeton. */
+  function actionDoubleTap(cible, cx, cy) {
+    actionDoubleTap._t = Date.now();   // dédoublonnage si le navigateur synthétise AUSSI dblclick
+    const jet = cible.closest('.jeton');
     if (jet) {
       if (!vueJoueurs) {
         const j = partie.jetons.find(x => x.id === jet.dataset.id);
@@ -454,10 +462,14 @@
       }
       return;
     }
-    const w = versMonde(e.clientX, e.clientY);
+    const w = versMonde(cx, cy);
     montrerPing(w.x, w.y);
     if (canal) canal.postMessage({ t: 'ping', x: w.x, y: w.y, carte: carte.id });
     if (KJ.session && KJ.session.estMJ()) KJ.session.ping(w.x, w.y, carte.id);
+  }
+  scene.addEventListener('dblclick', (e) => {
+    if (Date.now() - (actionDoubleTap._t || 0) < 700) return;
+    actionDoubleTap(e.target, e.clientX, e.clientY);
   });
 
   /* ---------------- outils ---------------- */
@@ -471,9 +483,10 @@
   /* ---------------- pointeurs ---------------- */
   const actifs = new Map();
   let mode = null, dep = null, jDrag = null, bouge = 0, mesure = null, pincePrec = null, pinEnCours = null,
-      imgEnCours = null;
+      imgEnCours = null, dernierPointeur = '';
 
   scene.addEventListener('pointerdown', (e) => {
+    dernierPointeur = e.pointerType;
     if (e.button === 2 || !carte) return;
     try { scene.setPointerCapture(e.pointerId); } catch (err) {}
     actifs.set(e.pointerId, e);
@@ -608,6 +621,17 @@
       setTimeout(() => { regle.innerHTML = ''; const l = $('etiquette'); if (l) l.remove(); }, 1200);
       mesure = null;
     }
+    // double-tap tactile (voir actionDoubleTap) : deux taps immobiles rapprochés, hors
+    // portail et image (qui ont leur propre action au tap simple)
+    if (e.pointerType === 'touch' && bouge <= 2 && (mode === 'pan' || mode === 'jeton')) {
+      const t = Date.now(), prec = fin._tap;
+      if (prec && t - prec.t < 350 && Math.hypot(e.clientX - prec.x, e.clientY - prec.y) < 30) {
+        fin._tap = null;
+        // pas e.target : la capture de pointeur recible tous les événements sur la scène
+        const sous = document.elementFromPoint(e.clientX, e.clientY) || e.target;
+        if (Date.now() - (actionDoubleTap._t || 0) >= 700) actionDoubleTap(sous, e.clientX, e.clientY);
+      } else fin._tap = { t: t, x: e.clientX, y: e.clientY };
+    }
     mode = null; dep = null;
   }
   scene.addEventListener('pointerup', fin);
@@ -626,8 +650,15 @@
   scene.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     if (vueJoueurs) return;
+    // sur mobile, l'appui long déclenche ce menu contextuel — y compris pendant
+    // qu'on maintient un jeton pour le glisser : ignorer tant qu'un glissé est en cours
+    if (mode === 'jeton' && bouge > 2) return;
     const jet = e.target.closest('.jeton');
     if (jet) {
+      // au doigt, l'appui long part trop facilement tout seul : on confirme avant
+      // de supprimer (à la souris, le clic droit reste immédiat comme avant)
+      if (dernierPointeur === 'touch'
+          && !confirm('Supprimer le jeton « ' + (jet.textContent || '?') + ' » ?')) return;
       partie.jetons = partie.jetons.filter(j => j.id !== jet.dataset.id);
       dessinerJetons(); sauverPartie();
       return;
@@ -877,7 +908,13 @@
     if (!etat) return;
     const changeCarte = etat.carte && (!carte || etat.carte !== carte.id);
     partie = etat;
+    // Firebase supprime les objets et tableaux VIDES à l'enregistrement : un état
+    // sans brouillard peint, sans jeton ou sans révélation arrive ici amputé de ces
+    // champs — et le premier accès plantait tout le redessin de la fenêtre joueur.
+    if (!partie.fog) partie.fog = {};
+    if (!partie.jetons) partie.jetons = [];
     if (!partie.reveles) partie.reveles = {};
+    if (!partie.masques) partie.masques = {};
     sauverPartie(false);
     if (changeCarte) chargerCarte(partie.carte).catch(() => {});
     // dessinerImages en fait partie : sans lui, une image révélée par le MJ (ou par

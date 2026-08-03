@@ -1,0 +1,50 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>MJ:init</title>
+<body>
+<script>
+/* Banc d'essai (temporaire, non versionné) : fenêtre MJ pilotée.
+   ?code=XXXX force le code de session (Math.random stubé) pour que le
+   pilote Python connaisse le code sans lire la page. */
+const q = new URLSearchParams(location.search);
+const CODE = q.get('code') || '5500';
+localStorage.clear();
+localStorage.setItem('kj-partie', JSON.stringify({
+  carte: 'manoir-cygnus-etage', fog: {}, reveles: {}, masques: {},
+  jetons: [{ id: 'pj-test', pj: true, nom: 'Test', couleur: '#3fa34d',
+             x: 60, y: 60, carte: 'manoir-cygnus-etage' }],
+}));
+const fr = document.createElement('iframe');
+fr.src = '../plateforme/table.html';
+fr.style.cssText = 'width:960px;height:640px;border:0';
+document.body.appendChild(fr);
+let clique = false;
+const t0 = Date.now();
+fr.onload = () => {
+  const iv = setInterval(() => {
+    try {
+      const W = fr.contentWindow, doc = fr.contentDocument;
+      if (!W.KJ || !W.KJ.session) { document.title = 'MJ|pas-de-KJ'; return; }
+      const sel = doc.getElementById('choix-carte');
+      if (!W.KJ.session.active())
+        document.title = 'MJ|carte=' + (sel ? sel.value : '?') + '|clique=' + clique
+          + '|alerte=' + (W.__alerte || '');
+      if (!clique && sel && sel.value) {
+        clique = true;
+        W.alert = (m) => { W.__alerte = String(m).slice(0, 120); };
+        // code déterministe : genererCode() = 1000 + random*9000
+        W.Math.random = () => (Number(CODE) - 1000) / 9000 + 1e-9;
+        doc.getElementById('b-session').click();
+      }
+      if (W.KJ.session.active()) {
+        const p = JSON.parse(W.localStorage.getItem('kj-partie') || '{}');
+        const j = (p.jetons || []).find(x => x.id === 'pj-test') || {};
+        document.title = 'MJ|code=' + W.KJ.session.code()
+          + '|carte=' + (sel ? sel.value : '?')
+          + '|jeton=' + (j.carte || '?') + ',' + Math.round(j.x || -1) + ',' + Math.round(j.y || -1);
+      }
+      if (Date.now() - t0 > 90000) { clearInterval(iv); document.title = 'MJ|timeout'; }
+    } catch (e) { document.title = 'MJ|erreur=' + e.message; }
+  }, 400);
+};
+</script>

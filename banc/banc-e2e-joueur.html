@@ -1,0 +1,77 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>J:init</title>
+<body>
+<script>
+/* Banc d'essai (temporaire, non versionné) : fenêtre joueur mobile.
+   Rejoint ?session=XXXX puis fait glisser le jeton PJ sur le premier
+   portail actif avec de vrais PointerEvents tactiles. */
+const q = new URLSearchParams(location.search);
+const CODE = q.get('session');
+localStorage.clear();
+const fr = document.createElement('iframe');
+fr.src = '../plateforme/table.html?session=' + CODE;
+fr.style.cssText = 'width:460px;height:800px;border:0';
+document.body.appendChild(fr);
+
+function tap(doc, cible, type, x, y) {
+  cible.dispatchEvent(new doc.defaultView.PointerEvent(type, {
+    bubbles: true, cancelable: true, composed: true,
+    pointerId: 1, pointerType: 'touch', isPrimary: true,
+    button: type === 'pointermove' ? -1 : 0, buttons: 1,
+    clientX: x, clientY: y,
+  }));
+}
+
+let phase = 'attente', t0 = Date.now(), glisseA = 0;
+fr.onload = () => {
+  fr.contentWindow.addEventListener('error',
+    (e) => { fr.contentWindow.__err = e.message + '@' + (e.filename || '').split('/').pop() + ':' + e.lineno; });
+  fr.contentWindow.addEventListener('unhandledrejection',
+    (e) => { fr.contentWindow.__err = 'promesse:' + (e.reason && e.reason.message || e.reason); });
+  const iv = setInterval(() => {
+    try {
+      const W = fr.contentWindow, doc = fr.contentDocument;
+      const sel = doc.getElementById('choix-carte');
+      const carte = sel ? sel.value : '';
+      const jet = doc.querySelector('.jeton[data-id="pj-test"]');
+      const pin = doc.querySelector('.pin:not(.inerte)');
+      const badge = doc.getElementById('badge-session');
+      const p = JSON.parse(W.localStorage.getItem('kj-partie') || '{}');
+      document.title = 'J|phase=' + phase + '|carte=' + carte
+        + '|jeton=' + (jet ? 'oui' : 'non') + '|pin=' + (pin ? 'oui' : 'non')
+        + '|session=' + (W.KJ && W.KJ.session && W.KJ.session.active() ? 'oui' : 'non')
+        + '|badge=' + (badge && !badge.hidden ? badge.textContent : '-')
+        + '|njetons=' + ((p.jetons || []).length)
+        + '|domjetons=' + doc.getElementById('jetons').children.length
+        + '|pcarte=' + p.carte
+        + '|err=' + (W.__err || '-') + '|err2=' + (W.__err2 || '-');
+
+      if (phase === 'attente' && carte === 'manoir-cygnus-etage' && jet && pin) {
+        phase = 'glisse';
+        const scene = doc.getElementById('scene');
+        const a = jet.getBoundingClientRect(), b = pin.getBoundingClientRect();
+        const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+        const bx = b.left + b.width / 2, by = b.top + b.height / 2;
+        tap(doc, jet, 'pointerdown', ax, ay);
+        let i = 0;
+        const pas = setInterval(() => {
+          i++;
+          const x = ax + (bx - ax) * i / 6, y = ay + (by - ay) * i / 6;
+          tap(doc, scene, 'pointermove', x, y);
+          if (i >= 6) {
+            clearInterval(pas);
+            tap(doc, scene, 'pointerup', bx, by);
+            glisseA = Date.now();
+            phase = 'lache';
+          }
+        }, 60);
+      }
+      if (phase === 'lache' && carte && carte !== 'manoir-cygnus-etage') {
+        phase = 'PASSE(' + carte + ')en' + (Date.now() - glisseA) + 'ms';
+      }
+      if (Date.now() - t0 > 90000) { clearInterval(iv); phase = 'timeout'; }
+    } catch (e) { document.title = 'J|erreur=' + e.message; }
+  }, 400);
+};
+</script>

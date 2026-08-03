@@ -558,6 +558,27 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
     une interaction côté joueur, se demander : « que voit le MJ ? » — si la réponse est « rien »,
     c'est une désynchronisation en attente.
 
+24. **Firebase supprime les objets et tableaux VIDES à l'enregistrement — un état publié avec
+    `fog:{}` arrive chez les joueurs SANS le champ, et le premier accès plantait tout le
+    redessin.** Symptôme vécu : « le toast s'affiche mais la carte ne change pas » — l'état
+    arrivait bien, était même sauvegardé en localStorage (la sauvegarde précède le dessin :
+    l'écran et le stockage divergeaient), puis `opsFog` levait une exception qui tuait la chaîne
+    de redessin. Doublement piégeux : l'erreur remontait en « Script error. » anonyme, car le
+    rappel traverse le SDK Firebase chargé depuis gstatic (d'où le `crossOrigin='anonymous'`
+    ajouté au chargeur de SDK, et le try/catch temporaire qu'il a fallu poser dans
+    `appliquerEtatDistant` pour voir la vraie pile). Règle : **tout état qui a transité par
+    Firebase est normalisé à la réception ET à la relecture du localStorage** (`fog`, `jetons`,
+    `reveles`, `masques`) — jamais supposer qu'un champ écrit vide revient présent.
+
+25. **Le banc de bout en bout `banc/pilote_e2e.py` teste la session réelle** : deux Chrome
+    headless à profils séparés (un MJ 1000 px, un joueur 500 px « mobile ») reliés uniquement
+    par la vraie base Firebase — aucun BroadcastChannel/localStorage partagé ne fausse le test.
+    Le pilote force le code de session (stub de `Math.random` avant le clic sur `b-session`),
+    pré-sème `kj-partie`, et les pages banc rapportent leur progression dans `document.title`,
+    lu par l'API DevTools (`http://127.0.0.1:93xx/json`). Le joueur fait glisser son jeton sur
+    un portail avec de vrais `PointerEvent{pointerType:'touch'}`. C'est ce banc qui a trouvé le
+    point 24 — le réutiliser avant de livrer tout changement touchant aux sessions.
+
 ## Style
 
 Charte de la campagne : parchemin sombre (`--parchemin #221b11`), encre pâle (`--encre #d3c5a4`),
