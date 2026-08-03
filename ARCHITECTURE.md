@@ -15,7 +15,7 @@ Rédigé après revue complète (août 2026), à maintenir à chaque évolution 
 ### 1. Création des cartes — sain, mais mal expliqué
 
 ```
-Éditeur (PC) ──💾──► fichiers cartes/*.json du dépôt ──git push──► GitHub ──► Netlify
+Éditeur (PC) ──💾──► fichiers cartes/*.json du dépôt ──Publier.bat──► GitHub (historique) + Firebase Hosting
 ```
 
 Une carte = un fichier JSON, versionné dans git ; le SVG n'est qu'un rendu. Le bouton
@@ -35,7 +35,8 @@ versionne et qu'on relit — pas des enregistrements dans une base qu'on ne sait
 ### 2. Distribution — déjà en ligne, rien à changer
 
 ```
-GitHub ──► Netlify (https, PWA installable) ──► tout appareil, partout
+PC ──firebase deploy──► Firebase Hosting (https, PWA installable) ──► partout
+(GitHub garde l’historique ; Netlify abandonné : builds facturés au crédit)
 ```
 
 Les téléphones lisent les cartes servies par le site, en lecture seule assumée.

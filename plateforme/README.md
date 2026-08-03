@@ -90,7 +90,7 @@ site web. On l'ouvre donc toujours par une adresse.
 |---|---|---|
 | l'ordinateur | `http://127.0.0.1:8777/` | double-cliquer d'abord sur `Lancer la plateforme.bat` |
 | un téléphone, à la maison | `http://<IP du PC>:8777/` (affichée par le lanceur) | même Wi-Fi, PC allumé, fenêtre du lanceur ouverte |
-| un téléphone, n'importe où | l'adresse `https://….netlify.app` | rien d'autre — c'est la voie recommandée |
+| un téléphone, n'importe où | l'adresse `https://creation-de-carte-jdr.web.app` | rien d'autre — c'est la voie recommandée |
 
 **Le fichier `.bat` ne sert que sur Windows** : le copier sur un téléphone n'a aucun effet,
 un téléphone ne sait pas exécuter un script Windows. Il démarre seulement le serveur local
@@ -320,29 +320,27 @@ git add -A && git commit -m "…" && git push
 du projet, régénérable) se glisse directement sur [app.netlify.com/drop](https://app.netlify.com/drop)
 — mise en ligne immédiate, sans compte. Il faut redéposer l'archive à chaque mise à jour.
 
-### Netlify — recommandé
-Gratuit, accepte les dépôts **privés**, redéploie à chaque `git push`.
-1. [app.netlify.com](https://app.netlify.com) → **Add new site** → **Import an existing project**.
-2. **Deploy with GitHub**, autoriser, choisir `JDR-createur-de-carte`.
-3. Un seul réglage compte : **Publish directory** = `plateforme`.
-   Laisser *Build command* **vide** et *Base directory* vide.
-4. **Deploy** → adresse en `https://<nom>.netlify.app` (renommable dans *Site configuration*).
+### Firebase Hosting — la voie actuelle
+Le site vit sur **https://creation-de-carte-jdr.web.app** (gratuit, sans crédits de build :
+l'envoi part du PC, il n'y a rien à « construire »).
 
-### Sans aucun compte : Netlify Drop
-Glisser `cartographe-knight-a-deposer.zip` sur [app.netlify.com/drop](https://app.netlify.com/drop).
-En ligne immédiatement ; il faut redéposer l'archive à chaque mise à jour
-(`python creer-archive.py` la régénère).
+Publier = double-clic sur **`Publier sur le site.bat`** : il sauvegarde sur GitHub
+(historique) puis déploie sur Firebase. Équivalent manuel :
+```bash
+firebase deploy --only hosting --project creation-de-carte-jdr
+```
 
-### Cloudflare — attention
-**Pages est déprécié depuis avril 2025** : l'entrée « Workers & Pages » a disparu du tableau de
-bord pour les nouveaux projets. Il faut passer par *Workers + static assets*, ce qui demande
-l'outil `wrangler` et un fichier de configuration — inutilement compliqué pour un site statique.
+### Netlify — abandonné
+Netlify facture désormais chaque déploiement déclenché par `git push` (système de crédits).
+Le site y a été remplacé par Firebase Hosting ; pense à **désactiver les builds** sur
+l'ancien site Netlify (Site configuration → Build & deploy → Stop builds), sinon chaque
+push tentera encore d'en consommer.
 
 ### Installer sur le téléphone de quelqu'un d'autre
 
 L'application est un site : **toute personne à qui tu donnes l'adresse peut l'ouvrir et
 l'installer** sur son propre téléphone, sans compte ni magasin d'applications. Il faut juste
-l'adresse `https://….netlify.app` — l'installation exige `https`, donc elle ne fonctionne pas
+l'adresse `https://creation-de-carte-jdr.web.app` — l'installation exige `https`, donc elle ne fonctionne pas
 via l'adresse locale `192.168.x.x`.
 
 - **Android / Chrome** : menu ⋮ → *Installer l'application* (ou *Ajouter à l'écran d'accueil*).
