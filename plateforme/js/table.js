@@ -313,10 +313,25 @@
     });
   }
   $('b-galerie').addEventListener('click', ouvrirGalerie);
+  /* Un point est-il couvert par le brouillard ? Lu directement dans le canvas (alpha au
+     seuil de mi-fondu) : fidèle au rendu, y compris les bords doux du pinceau. Suppose
+     dessinerFog() déjà passé pour la carte affichée — vrai partout (chargerCarte et
+     toutes les réceptions d'état dessinent le brouillard avant les jetons). */
+  function sousBrouillard(x, y) {
+    try {
+      return fog.getContext('2d')
+        .getImageData(Math.round(x * QUAL), Math.round(y * QUAL), 1, 1).data[3] > 140;
+    } catch (e) { return false; }
+  }
   function dessinerJetons() {
     jetonsEl.innerHTML = '';
+    // les jetons flottent au-dessus du brouillard (les PJ doivent toujours se voir),
+    // mais côté joueurs ce privilège n'appartient qu'aux PJ : un monstre posé dans une
+    // zone couverte resterait sinon visible, pastille de nom comprise — embuscade grillée
+    const vueJ = vueJoueurs || document.body.dataset.vue === 'joueurs';
     for (const j of partie.jetons) {
       if (j.carte !== carte.id) continue;
+      if (vueJ && !j.pj && sousBrouillard(j.x, j.y)) continue;
       const d = document.createElement('div');
       d.className = 'jeton'; d.dataset.id = j.id; d.dataset.pj = j.pj ? 'true' : 'false';
       d.style.left = j.x + 'px'; d.style.top = j.y + 'px';
@@ -861,7 +876,9 @@
     document.body.dataset.vue = j ? 'mj' : 'joueurs';
     $('b-vue').classList.toggle('actif', !j);
     $('b-vue').textContent = j ? 'Vue joueurs' : 'Vue MJ';
-    dessinerPlan();
+    // les jetons aussi : la préview doit cacher les non-PJ sous le brouillard comme
+    // la vraie fenêtre joueurs, sinon elle ment sur ce que verront les joueurs
+    dessinerPlan(); dessinerJetons();
   });
   $('b-cadrer').addEventListener('click', cadrer);
   const bs = $('b-suivre');
