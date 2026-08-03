@@ -539,6 +539,25 @@ aux jetons `pj:true` : un PNJ/monstre poussé près d'un portail ne doit rien d�
     Le halo reste modeste (42 px) exprès : plus large, les halos de deux jetons sur des cases
     voisines se recouvriraient et on attraperait le mauvais.
 
+22. **Le clic fantôme du tactile refermait la visionneuse à l'instant où elle s'ouvrait.** Un tap
+    mobile émet `pointerdown`/`pointerup` **puis un `click`** ; la visionneuse, ouverte au
+    `pointerup`, recouvre alors l'écran (`pointer-events:auto`) et reçoit ce clic — or elle se
+    ferme au clic. Symptôme trompeur : « l'image apparaît une seconde, cassée, puis plus rien ne
+    répond » (la seconde = l'image en cours de chargement, les taps suivants = ouverture +
+    fermeture instantanées). Corrigé en ignorant tout clic dans les 500 ms suivant l'ouverture
+    (`lb._ouverte`). **Réflexe** : tout élément plein écran ouvert par un geste et fermé par un
+    clic doit être immunisé contre le clic généré par le geste qui l'a ouvert.
+
+23. **En session réseau, un changement d'état appliqué localement chez un joueur = retour en
+    arrière garanti.** Le franchissement de portail par un jeton PJ chargeait la nouvelle carte
+    dans la fenêtre du joueur, mais le MJ n'en savait rien : son état officiel, resté sur
+    l'ancienne carte, redescendait et ramenait le joueur en arrière. Principe (le même que pour
+    les déplacements) : **le joueur ne change jamais l'état, il demande** — le geste part dans
+    `mouvements/$uid` (ici avec `portail`), le MJ traverse (`chargerCarte` + `amenerPJ` +
+    `sauverPartie(true)`) et la nouvelle carte redescend vers tous par l'état. Avant d'ajouter
+    une interaction côté joueur, se demander : « que voit le MJ ? » — si la réponse est « rien »,
+    c'est une désynchronisation en attente.
+
 ## Style
 
 Charte de la campagne : parchemin sombre (`--parchemin #221b11`), encre pâle (`--encre #d3c5a4`),
@@ -547,21 +566,21 @@ Textes d'interface en français, tutoiement, sans jargon technique.
 
 ## Publication
 
-**État réel du déploiement** (pas une option parmi d'autres — c'est celle en place) : dépôt GitHub
-`github.com/kyogre21/JDR-createur-de-carte`, branche `main`, connecté à **Netlify** (site
-`resilient-faloodeh-377ce3.netlify.app`) avec auto-publish activé — tout push sur `main` redéploie
-tout seul en quelques secondes. Vérifier l'état d'un déploiement : `git fetch origin main` puis
-comparer avec `git log -1 origin/main`, et/ou l'onglet **Deploys** du tableau de bord Netlify (le
-site donne son propre lien direct, pas la peine de le redemander à chaque session — le retrouver
-dans l'historique de conversation ou le demander une fois).
+**État réel du déploiement** (pas une option parmi d'autres — c'est celle en place) : site servi
+par **Firebase Hosting** — <https://creation-de-carte-jdr.web.app>, projet Firebase
+`creation-de-carte-jdr` (qui porte aussi la base temps réel des sessions). Le dépôt GitHub
+`github.com/kyogre21/JDR-createur-de-carte` (branche `main`) ne sert **que d'historique** : un
+push ne publie rien. Publier = `firebase deploy --only hosting --project creation-de-carte-jdr`
+(ou `--only database,hosting` si `database.rules.json` a changé) ; le raccourci utilisateur est
+`Publier sur le site.bat` (push + deploy). **Netlify a été abandonné** (facturation des builds au
+crédit) — ne pas y revenir, ne pas s'appuyer sur l'auto-publish au push.
 
-**Netlify facture au déploiement : ne jamais proposer un mécanisme qui publie à chaque
-sauvegarde ou à chaque frappe.** C'est une contrainte exprimée explicitement par l'utilisateur et
-qui a fait rejeter une première proposition — la publication doit toujours rester un geste
-compté et volontaire (voir « Enregistrement et publication » plus haut, et point 17 des erreurs
-commises). Avant de proposer d'automatiser quoi que ce soit qui a un coût externe (déploiement,
-appel API payant, envoi de message), demander la fréquence acceptable **avant** de concevoir, pas
-après avoir livré quelque chose à corriger.
+**La publication reste un geste compté et volontaire : ne jamais proposer un mécanisme qui
+publie à chaque sauvegarde ou à chaque frappe.** Contrainte exprimée explicitement par
+l'utilisateur du temps de Netlify et conservée par principe (voir « Enregistrement et
+publication » plus haut, et point 17 des erreurs commises). Avant de proposer d'automatiser quoi
+que ce soit qui a un coût externe (déploiement, appel API payant, envoi de message), demander la
+fréquence acceptable **avant** de concevoir, pas après avoir livré quelque chose à corriger.
 
 **L'appli ne publie jamais elle-même, y compris en un clic — ce point a été tranché, ne pas y
 revenir sans qu'on le redemande.** Un bouton de publication en un clic (API GitHub) a été
@@ -575,8 +594,9 @@ ne pas sauter directement à « c'est le cache » :
 1. `git fetch origin main` puis vérifier le contenu réel poussé (`git show origin/main:chemin`) —
    ne jamais conclure sur un `git status` local seul, qui peut être propre sans jamais avoir été
    comparé au vrai remote.
-2. Le tableau de bord Netlify (onglet Deploys) : le dernier déploiement correspond-il au bon
-   commit, et est-il marqué « Published » ?
+2. Le site lui-même : `curl` le fichier suspect sur `creation-de-carte-jdr.web.app` et comparer
+   au disque — un `firebase deploy` a-t-il bien suivi la modification ? (le push GitHub seul ne
+   publie rien).
 3. **Seulement ensuite**, le cache côté client (voir plus haut, IndexedDB par appareil — jamais
    synchronisée — et le cache du navigateur/service worker).
 
