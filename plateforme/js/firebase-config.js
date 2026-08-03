@@ -14,16 +14,12 @@
    comme avant : les sessions multi-appareils sont simplement proposées
    comme « non configurées ».
    ============================================================ */
-window.KJ_FIREBASE_CONFIG = null;
-
-/* Exemple de forme attendue (à remplacer par TES valeurs) :
 window.KJ_FIREBASE_CONFIG = {
-  apiKey: "AIza…",
+  apiKey: "AIzaSyC4aZ_rsYbGt3Xh2dyfFvTxVLty_TiFxdg",
   authDomain: "creation-de-carte-jdr.firebaseapp.com",
   databaseURL: "https://creation-de-carte-jdr-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "creation-de-carte-jdr",
-  storageBucket: "creation-de-carte-jdr.appspot.com",
-  messagingSenderId: "…",
-  appId: "…"
+  storageBucket: "creation-de-carte-jdr.firebasestorage.app",
+  messagingSenderId: "877683817576",
+  appId: "1:877683817576:web:d09373c70bd9c2bb498fdd"
 };
-*/
