@@ -242,6 +242,15 @@ script qui simule des `PointerEvent` et publie son bilan dans `document.title` (
 - L'historique enregistre l'état **après** modification, via l'unique point d'entrée `apresModif()`.
   (Instantané pris *avant* = Ctrl+Z qui saute deux crans.)
 
+## Réflexe n°1 : le cache
+
+Quand l'utilisateur décrit un comportement cassé, périmé ou une fonction « absente » alors
+qu'elle est livrée : **poser la question du cache avant d'ouvrir le moindre fichier**
+(Ctrl+Maj+R, ou le bouton « 🧹 Vider le cache et recharger » de l'écran de panne). C'est arrivé
+deux fois et a coûté cher les deux fois. Garde-fous en place, à ne pas défaire : `netlify.toml`
+sert `*.html`, `js/` et `css/` en `no-cache` ; `sw.js` reste « réseau d'abord » ;
+`gererServiceWorker()` ne l'enregistre jamais en local.
+
 ## Erreurs commises ici — ne pas les refaire
 
 1. **Service worker « cache d'abord »** : le navigateur resservait indéfiniment l'ancien code, y

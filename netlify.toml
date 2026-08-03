@@ -9,15 +9,50 @@
   publish = "plateforme"
   command = ""
 
-# Le service worker ne doit jamais être servi depuis un cache intermédiaire,
-# sinon une ancienne version peut survivre à une mise en ligne.
+# ---------------------------------------------------------------------------
+# CACHE — leçon apprise à la dure : un ancien HTML ou un ancien script servi
+# depuis le cache donne une application cassée que plus aucune correction
+# n'atteint. Les pages et le code sont donc revalidés à chaque visite ; seules
+# les images, immuables et volumineuses, sont mises en cache longtemps.
+# ---------------------------------------------------------------------------
+
+# Pages : jamais de version périmée.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Code de l'application : revalidé, pour que les correctifs arrivent vraiment.
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# Le service worker ne doit jamais venir d'un cache intermédiaire,
+# sinon une ancienne version survit à une mise en ligne.
 [[headers]]
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 
-# Les cartes de campagne évoluent : on veut toujours la version fraîche.
+# Les cartes évoluent à chaque partie : toujours la version fraîche.
 [[headers]]
   for = "/cartes/*"
   [headers.values]
     Cache-Control = "no-cache"
+
+# Les illustrations ne changent pas et pèsent lourd : cache long assumé.
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

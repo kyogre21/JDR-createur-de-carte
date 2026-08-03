@@ -354,6 +354,21 @@
       b.addEventListener('click', fn);
       actions.appendChild(b);
     }
+    /* Le cache est LA cause la plus fréquente : un ancien HTML ou script servi
+       depuis le cache donne une page cassée qu'aucune correction n'atteint.
+       On le propose donc en premier, avec un vidage complet. */
+    bouton('🧹 Vider le cache et recharger', function () {
+      const taches = [];
+      if (window.caches && caches.keys)
+        taches.push(caches.keys().then(function (ks) {
+          return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+        }).catch(function () {}));
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations)
+        taches.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+          return Promise.all(rs.map(function (r) { return r.unregister(); }));
+        }).catch(function () {}));
+      Promise.all(taches).then(function () { location.reload(true); });
+    });
     bouton('↻ Réessayer', function () { location.reload(); });
     bouton('⛓ Délier le dossier', function () {
       Promise.resolve(S.oublierDossierDepot ? S.oublierDossierDepot() : null)
@@ -376,8 +391,11 @@
        jamais accordée, stockage muet…), on le dit au lieu de laisser un écran noir. */
     setTimeout(function () {
       ecranPanne('Le chargement n’aboutit pas.',
-        'La bibliothèque n’a pas répondu. C’est le plus souvent un dossier lié devenu '
-        + 'inaccessible (déplacé, renommé, ou autorisation expirée).');
+        'Deux causes, par ordre de fréquence :<br>'
+        + '<b>1. Le cache du navigateur</b> sert une ancienne version de l’application — '
+        + 'commence par vider le cache ci-dessous, ou fais <b>Ctrl+Maj+R</b>.<br>'
+        + '<b>2. Un dossier lié devenu inaccessible</b> (déplacé, renommé, autorisation '
+        + 'expirée) : délie-le, puis relie-le depuis l’éditeur avec 💾 Enregistrer.');
     }, 9000);
 
     return Promise.all([
@@ -406,7 +424,9 @@
       rendu = true;                    // succès constaté, pas seulement espéré
     }).catch(function (err) {
       ecranPanne('Le chargement a échoué.',
-        'Détail technique : ' + ((err && err.message) || err));
+        'Commence par vider le cache (bouton ci-dessous) ou <b>Ctrl+Maj+R</b> : c’est la cause '
+        + 'la plus fréquente.<br>Détail technique : <code>'
+        + ((err && err.message) || err) + '</code>');
     });
   }
 
