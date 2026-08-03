@@ -432,11 +432,25 @@
       const note = $('note-lecture');
       note.hidden = modifiable;
       if (!modifiable) {
-        note.innerHTML = S.depotPrisEnCharge()
-          ? '<b>Lecture seule.</b> Ouvre une carte et clique sur 💾 Enregistrer pour lier le '
-            + 'dossier <code>plateforme</code> de ce PC : les cartes deviendront modifiables.'
-          : '<b>Lecture seule sur cet appareil.</b> Les cartes se modifient sur PC (Chrome, Edge '
-            + 'ou Brave) ; ici, elles se consultent et se jouent.';
+        if (S.depotPrisEnCharge()) {
+          note.innerHTML = '<b>Lecture seule.</b> Ce navigateur n’est pas encore relié à ton '
+            + 'dossier <code>plateforme</code> — ';
+          const lier = document.createElement('button');
+          lier.textContent = '🔗 Lier le dossier';
+          lier.addEventListener('click', function () {
+            // le sélecteur de dossier n'est permis que depuis un clic (contrainte navigateur)
+            S.lierDossierDepot().then(function () { rendu = false; charger(); })
+              .catch(function (e) {
+                if (e && e.name === 'AbortError') return;   // choix annulé
+                alert('Liaison impossible : ' + (e && e.message || e)
+                  + '\n\nChoisis le dossier « plateforme » (celui qui contient cartes/ et images/).');
+              });
+          });
+          note.appendChild(lier);
+        } else {
+          note.innerHTML = '<b>Lecture seule sur cet appareil.</b> Les cartes se modifient sur PC '
+            + '(Chrome, Edge ou Brave) ; ici, elles se consultent et se jouent.';
+        }
       }
       majFiltre(cartes);
       const c = $('liste');
@@ -444,11 +458,12 @@
         let quoiFaire;
         if (modifiable) quoiFaire = ' Crée-en une, ou importe un fichier .json.';
         else if (S.depotPrisEnCharge())
-          // un PC : soit ce navigateur n'a pas (ou plus) le dossier lié — le lier via
-          // l'éditeur —, soit l'index privé n'a pas encore été rempli depuis le bon PC
-          quoiFaire = ' Sur ce PC, ouvre une carte dans l’éditeur et clique 💾 Enregistrer pour '
-            + 'lier le dossier <code>plateforme</code> — ou ouvre la bibliothèque, connecté, sur '
-            + 'le PC où vivent tes cartes : elle se synchronisera pour tes autres appareils.';
+          // un PC : soit ce navigateur n'a pas (ou plus) le dossier lié (bouton du
+          // bandeau ci-dessus), soit l'index privé n'a pas encore été rempli
+          quoiFaire = ' Si tes cartes sont sur ce PC, clique <b>🔗 Lier le dossier</b> juste '
+            + 'au-dessus et désigne ton dossier <code>plateforme</code>. Sinon, ouvre la '
+            + 'bibliothèque, connecté, sur le PC où elles vivent : elle se synchronisera '
+            + 'pour tes autres appareils.';
         else quoiFaire = ' Ouvre la bibliothèque une fois sur ton PC, connecté à ce compte : '
             + 'elle deviendra disponible ici automatiquement.';
         c.innerHTML = '<p class="vide" style="grid-column:1/-1;padding:0 18px">'
