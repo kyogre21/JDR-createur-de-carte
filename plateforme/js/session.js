@@ -105,20 +105,30 @@ KJ.session = (function () {
     await init();
     try {
       utilisateur = (await firebase.auth().createUserWithEmailAndPassword(email.trim(), mdp)).user;
+      // pseudo par défaut : la partie avant l'@ — modifiable ensuite (definirPseudo) ;
+      // c'est le pseudo qui s'affiche dans l'application, jamais l'adresse complète
+      await utilisateur.updateProfile({ displayName: email.trim().split('@')[0] }).catch(() => {});
     } catch (e) { throw traduireErreurAuth(e); }
     return utilisateur.email;
   }
+  async function definirPseudo(nom) {
+    await init();
+    if (!estMJconnecte()) throw new Error('Connecte-toi d’abord.');
+    await utilisateur.updateProfile({ displayName: String(nom || '').trim().slice(0, 40) });
+    return utilisateur.displayName;
+  }
+  const pseudoMJ = () => (estMJconnecte() ? (utilisateur.displayName || utilisateur.email) : null);
   async function deconnexion() {
     await fermer();
     try { await firebase.auth().signOut(); } catch (e) {}
     utilisateur = null;
     pInit = null;   // le prochain usage repartira en invité anonyme
   }
-  /* À appeler pour savoir qui est là (charge le SDK au besoin). Renvoie l'e-mail
-     du MJ connecté, ou null (visiteur/invité). */
+  /* À appeler pour savoir qui est là (charge le SDK au besoin). Renvoie le PSEUDO
+     du MJ connecté (jamais l'adresse complète), ou null (visiteur/invité). */
   async function quiEstConnecte() {
     await init();
-    return emailMJ();
+    return pseudoMJ();
   }
 
   /* ---------- code de partie ----------
@@ -189,6 +199,8 @@ KJ.session = (function () {
     if (publierTimer) return;
     publierTimer = setTimeout(() => {
       publierTimer = null;
+      // la table a pu être quittée pendant les 300 ms d'attente : plus rien à publier
+      if (!etatSession || !etatSession.mj) return;
       db.ref('parties/' + etatSession.code)
         .update({ etat: JSON.parse(JSON.stringify(publierDernier)), modifiee: TS() })
         .catch(() => {});
@@ -306,7 +318,7 @@ KJ.session = (function () {
     estMJ: () => !!(etatSession && etatSession.mj),
     code: () => (etatSession ? etatSession.code : null),
     // compte MJ
-    connexionMJ, creerCompteMJ, deconnexion, quiEstConnecte,
+    connexionMJ, creerCompteMJ, deconnexion, quiEstConnecte, definirPseudo,
     estMJconnecte: () => estMJconnecte(),
     // parties persistantes
     creerPartie, reprendrePartie, listerParties, supprimerPartie,

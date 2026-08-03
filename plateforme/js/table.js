@@ -901,6 +901,28 @@
     dessinerPlan(); dessinerJetons();
   });
   $('b-cadrer').addEventListener('click', cadrer);
+  if ($('b-cadrer-j')) $('b-cadrer-j').addEventListener('click', cadrer);
+  /* L'aide vivait en bandeau permanent au bas de l'écran : toujours sous les yeux,
+     jamais lue, et elle mangeait la carte. Un « ? » l'ouvre à la demande. */
+  if ($('b-aide')) $('b-aide').addEventListener('click', () => {
+    ouvrirModale('Aide — gestes et raccourcis', false, (corps) => {
+      const d = document.createElement('div');
+      d.className = 'aide-jeu';
+      d.innerHTML =
+          '<p><b>Se déplacer</b> — molette : zoom · glisser le fond : déplacer · au doigt : pincer et glisser.</p>'
+        + '<p><b>Cartes</b> — clic sur un losange doré : changer de carte · un jeton PJ glissé sur un '
+        + 'losange change de carte tout seul.</p>'
+        + '<p><b>Jetons</b> — double-clic (ou double-tap) : modifier (étiquette, PJ, portrait, suppression) · '
+        + 'clic droit (appui long) : retirer.</p>'
+        + '<p><b>Révélations</b> — clic sur 🖼 : afficher l’image · clic droit sur 🖼 ou un secret : '
+        + 'le révéler ou le cacher aux joueurs · les objets à révélation automatique se dévoilent '
+        + 'quand un PJ entre dans la pièce.</p>'
+        + '<p><b>Divers</b> — double-clic sur le fond : ping « regardez ici » · Ctrl+Z : annuler le '
+        + 'dernier geste de brouillard · les ✳ dorés sont les sources de lumière posées dans l’éditeur.</p>'
+        + '<p><b>Fenêtre pour la TV</b> — ajouter <b>?vue=joueurs</b> à l’adresse.</p>';
+      corps.appendChild(d);
+    });
+  });
   const bs = $('b-suivre');
   if (bs) {
     // n'a de sens que dans une vraie fenêtre joueurs séparée (?vue=joueurs) : elle seule
@@ -1064,8 +1086,15 @@
     const entete = document.createElement('div');
     entete.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:10px';
     const qui = document.createElement('span'); qui.className = 'aide';
-    qui.style.margin = '0'; qui.textContent = email;
+    qui.style.margin = '0'; qui.textContent = email;   // le pseudo, jamais l'adresse complète
     entete.appendChild(qui);
+    const bp = bouton('✎', () => {
+      const nom = prompt('Ton pseudo (affiché à la place de l’adresse e-mail) :', email);
+      if (nom === null || !nom.trim()) return;
+      KJ.session.definirPseudo(nom).then(() => rendreEcranPartie(corps)).catch(e => alert(e.message));
+    });
+    bp.title = 'Changer de pseudo';
+    entete.appendChild(bp);
     const esp = document.createElement('span'); esp.style.cssText = 'flex:1 1 auto';
     entete.appendChild(esp);
     entete.appendChild(bouton('Se déconnecter', () => {
