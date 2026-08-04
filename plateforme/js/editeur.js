@@ -608,11 +608,12 @@
 
     if (el.type === 'piece') {
       p.appendChild(champ('Nom', inputTxt(el.nom, v => el.nom = v)));
-      p.appendChild(champ('X / Y', duo(el.x, el.y, (a, b) => { el.x = a; el.y = b; })));
+      // 0 = taille par défaut du libellé (11.5 px)
+      p.appendChild(champ('Taille nom', inputNum(el.nomTaille || 0,
+        v => el.nomTaille = v > 0 ? v : undefined)));
       p.appendChild(champCases('Largeur', el.w, v => el.w = v, 8));
       p.appendChild(champCases('Hauteur', el.h, v => el.h = v, 8));
       p.appendChild(champ('Murs (ép.)', inputNum(el.ep === undefined ? 2 : el.ep, v => el.ep = Math.max(1, v))));
-      p.appendChild(champ('Mètres', txtInfo(`${(el.w / (cell() || 40) * carte.grille.metres).toFixed(1)} × ${(el.h / (cell() || 40) * carte.grille.metres).toFixed(1)} m`)));
     } else if (el.type === 'mur') {
       p.appendChild(champ('Épaisseur', inputNum(el.ep, v => el.ep = Math.max(1, v))));
     } else if (el.type === 'porte') {

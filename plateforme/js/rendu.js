@@ -135,7 +135,12 @@ KJ.rendu = (function () {
         const ep = ` style="stroke-width:${el.ep || 2}"`;
         let s = `<g${id} class="kj-el"><rect class="kj-piece"${ep} x="${el.x}" y="${el.y}" `
               + `width="${el.w}" height="${el.h}"/>`;
-        if (el.nom) s += `<text class="kj-txt-lbl" x="${el.x + el.w / 2}" y="${el.y + 17}">${esc(el.nom)}</text>`;
+        if (el.nom) {
+          // nomTaille : taille du libellé au choix (défaut 11.5 px, celle du style)
+          const st = el.nomTaille ? ` style="font-size:${el.nomTaille}px"` : '';
+          const dy = el.nomTaille ? 6 + el.nomTaille : 17;   // garde le nom sous le mur haut
+          s += `<text class="kj-txt-lbl"${st} x="${el.x + el.w / 2}" y="${el.y + dy}">${esc(el.nom)}</text>`;
+        }
         return s + `</g>`;
       }
 
