@@ -278,18 +278,24 @@ KJ.rendu = (function () {
   function labelPiece(el) {
     const marge = 12, larg = Math.max(20, el.w - marge);
     const taillePour = (txt) => larg / (0.62 * Math.max(1, txt.length));
+    const couperEnDeux = (nom) => {   // coupe au plus près du milieu, sur une espace
+      const mots = nom.split(' ');
+      let best = 1, ecart = Infinity;
+      for (let i = 1; i < mots.length; i++) {
+        const d = Math.abs(mots.slice(0, i).join(' ').length - mots.slice(i).join(' ').length);
+        if (d < ecart) { ecart = d; best = i; }
+      }
+      return [mots.slice(0, best).join(' '), mots.slice(best).join(' ')];
+    };
     let lignes = [el.nom], taille;
-    if (el.nomTaille) taille = el.nomTaille;
-    else {
+    if (el.nomTaille) {
+      taille = el.nomTaille;
+      // taille imposée : si le nom déborde de la pièce à cette taille, on coupe
+      if (taillePour(el.nom) < taille && el.nom.indexOf(' ') > 0) lignes = couperEnDeux(el.nom);
+    } else {
       taille = Math.max(7, Math.min(16, taillePour(el.nom)));
       if (taillePour(el.nom) < 7.5 && el.nom.indexOf(' ') > 0) {
-        const mots = el.nom.split(' ');
-        let best = 1, ecart = Infinity;
-        for (let i = 1; i < mots.length; i++) {
-          const d = Math.abs(mots.slice(0, i).join(' ').length - mots.slice(i).join(' ').length);
-          if (d < ecart) { ecart = d; best = i; }
-        }
-        lignes = [mots.slice(0, best).join(' '), mots.slice(best).join(' ')];
+        lignes = couperEnDeux(el.nom);
         const long = lignes[0].length >= lignes[1].length ? lignes[0] : lignes[1];
         taille = Math.max(7, Math.min(16, taillePour(long)));
       }
