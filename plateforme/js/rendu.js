@@ -201,7 +201,13 @@ KJ.rendu = (function () {
 
       case 'texte': {
         const rot = el.rot ? ` transform="rotate(${el.rot} ${el.x} ${el.y})"` : '';
-        return `<g${id} class="kj-el"${rot}><text class="kj-txt-${el.style === 'tiny' ? 'tiny' : 'lbl'}" `
+        // taille et couleur au choix (en plus des deux styles de base) ; les
+        // anciens textes, sans ces champs, gardent exactement leur rendu
+        let inline = '';
+        if (el.taille) inline += `font-size:${el.taille}px;`;
+        if (el.couleur) inline += `fill:${el.couleur};`;
+        const st = inline ? ` style="${inline}"` : '';
+        return `<g${id} class="kj-el"${rot}><text class="kj-txt-${el.style === 'tiny' ? 'tiny' : 'lbl'}"${st} `
              + `x="${el.x}" y="${el.y}">${esc(el.texte)}</text></g>`;
       }
 
@@ -285,8 +291,10 @@ KJ.rendu = (function () {
            que les joueurs ne doivent pas voir tant qu'il n'est pas révélé (une pièce
            derrière un mur secret, par ex.). Vue MJ : estompé, pour le repérer d'un
            coup d'œil. Vue joueurs : absent, sauf révélé en session (opts.reveles). */
-        if (el.cache && !opts.vueMJ && !(opts.reveles && opts.reveles.includes(el.id))) continue;
-        if (el.cache && opts.vueMJ) s += `<g class="kj-zone-cachee">` + unElement(el, opts) + `</g>`;
+        const revele = !!(opts.reveles && opts.reveles.includes(el.id));
+        if (el.cache && !opts.vueMJ && !revele) continue;
+        // révélé en session : redevient un élément normal, y compris côté MJ
+        if (el.cache && opts.vueMJ && !revele) s += `<g class="kj-zone-cachee">` + unElement(el, opts) + `</g>`;
         else s += unElement(el, opts);
       }
       s += `</g>`;

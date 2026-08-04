@@ -637,6 +637,12 @@
     } else if (el.type === 'texte') {
       p.appendChild(champ('Texte', inputTxt(el.texte, v => el.texte = v)));
       p.appendChild(champ('Style', select(el.style, [['lbl', 'Libellé de salle'], ['tiny', 'Petite note']], v => el.style = v)));
+      // 0 = taille du style choisi (11.5 px pour un libellé, 9 px pour une note)
+      p.appendChild(champ('Taille (px)', inputNum(el.taille || 0,
+        v => el.taille = v > 0 ? v : undefined)));
+      p.appendChild(champ('Couleur', select(el.couleur || '',
+        [['', 'Encre (défaut)'], ['#c9a227', 'Or'], ['#a8544c', 'Rouge'], ['#7fa070', 'Vert'], ['#6d8fb0', 'Bleu']],
+        v => el.couleur = v || undefined)));
       p.appendChild(champ('Rotation', inputNum(el.rot || 0, v => el.rot = v, 15)));
     } else if (el.type === 'portail') {
       // une valeur inconnue des destinations (carte pas encore créée, ou renommée) ne doit
