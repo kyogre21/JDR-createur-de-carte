@@ -471,6 +471,8 @@
       .then(KJ.modele.depuisJSON);
     return promesse.then(c => {
       carte = c;
+      const vide = document.getElementById('scene-vide');
+      if (vide) vide.remove();   // le message d'attente s'efface dès qu'une carte arrive
       partie.carte = c.id;
       $('choix-carte').value = c.id;
       $('b-editer').href = 'editeur.html?id=' + encodeURIComponent(c.id);
@@ -1002,13 +1004,22 @@
     document.body.insertBefore(a, document.getElementById('scene'));
   }
 
+  /* IMPORTANT : ce message ne doit JAMAIS remplacer le contenu de #scene
+     (innerHTML) — ça détruirait les calques de rendu, et la carte transportée
+     par la partie, qui arrive quelques instants PLUS TARD chez un joueur,
+     serait dessinée dans des nœuds morts : écran définitivement vide. */
   chargerCatalogue().then(() => {
     const voulue = params.get('carte') || partie.carte;
     return chargerCarte(voulue);
   }).catch(() => {
-    document.getElementById('scene').innerHTML =
-      '<p style="padding:24px;font-family:var(--serif);font-style:italic;opacity:.7">'
-      + 'Aucune carte dans la bibliothèque. Crée-en une dans l’éditeur, puis reviens ici.</p>';
+    const p = document.createElement('p');
+    p.id = 'scene-vide';
+    p.style.cssText = 'position:absolute;top:16px;left:16px;z-index:5;'
+      + 'font-family:var(--serif);font-style:italic;opacity:.7';
+    p.textContent = codeSessionURL
+      ? 'Connexion à la partie… la carte du MJ arrive.'
+      : 'Aucune carte dans la bibliothèque. Crée-en une dans l’éditeur, puis reviens ici.';
+    document.getElementById('scene').appendChild(p);
   });
   // indépendante du chargement de la carte : la galerie doit marcher même sans plan affiché
   chargerGalerie().catch(() => {});
