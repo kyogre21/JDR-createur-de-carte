@@ -24,7 +24,8 @@
   const calquesVis = { grille: true, structure: true, mobilier: true, annotations: true, secrets: true };
 
   const OUTILS = [
-    { id: 'select',  ic: '✥', nom: 'Choisir',  k: 'v' },
+    { id: 'select',  ic: '✥', nom: 'Sélectionner', k: 'v' },
+    { id: 'multi',   ic: '🖱', nom: 'Multi-sélection', k: 'g' },
     { id: 'piece',   ic: '▭', nom: 'Pièce',    k: 'p' },
     { id: 'mur',     ic: '▬', nom: 'Mur',      k: 'm' },
     { id: 'porte',   ic: '◠', nom: 'Porte',    k: 'd' },
@@ -148,6 +149,13 @@
       }
       s += `</g>`;
     }
+    // multi-sélection : un cadre pointillé par élément pris dans le rectangle
+    for (const id of selMulti) {
+      const e = M.trouver(carte, id); if (!e) continue;
+      const b = M.boite(e);
+      s += `<rect class="cadre" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" `
+         + `style="stroke-width:${1.5 * k};stroke-dasharray:${4 * k} ${3 * k}"/>`;
+    }
     if (apercu) s += apercu(k);
     if (accSurbrillance) s += accSurbrillance(k);
     edition.innerHTML = s;
@@ -193,7 +201,7 @@
   /* ---------------- interactions ---------------- */
   let mode = null, depart = null, elDrag = null, coin = null, apercu = null,
       accSurbrillance = null, libre = false, pointeurs = new Map(), pinch = null,
-      selTous = false;   // « tout déplacer » : le prochain glisser décale TOUTE la carte
+      selMulti = [];   // multi-sélection (outil 🖱) : ids des éléments pris dans le rectangle
 
   canevas.addEventListener('pointerdown', (e) => {
     if (e.button === 2) return;
@@ -211,11 +219,25 @@
       return;
     }
 
-    if (outil === 'select') {
-      if (selTous) {
-        mode = 'move-tout'; depart = { pt: pt, bouge: 0 };
-        return;
+    /* Multi-sélection : glisser sur la sélection = tout déplacer ;
+       glisser ailleurs = tracer un nouveau rectangle de sélection. */
+    if (outil === 'multi') {
+      if (selMulti.length && dansSelection(pt)) {
+        mode = 'move-multi'; depart = { pt: pt, bouge: 0 };
+      } else {
+        selMulti = [];
+        mode = 'trace-sel'; depart = { x: pt.x, y: pt.y };
+        apercu = (k) => {
+          const x2 = depart.x2 == null ? depart.x : depart.x2, y2 = depart.y2 == null ? depart.y : depart.y2;
+          return `<rect class="apercu" x="${Math.min(depart.x, x2)}" y="${Math.min(depart.y, y2)}" `
+            + `width="${Math.abs(x2 - depart.x)}" height="${Math.abs(y2 - depart.y)}" style="stroke-width:${1.5 * k}"/>`;
+        };
+        dessinerEdition();
       }
+      return;
+    }
+
+    if (outil === 'select') {
       if (cible) {
         sel = cible.dataset.id;
         elDrag = M.trouver(carte, sel);
@@ -295,14 +317,17 @@
         depart.bouge++;
         dessinerPlus();
       }
-    } else if (mode === 'move-tout') {
+    } else if (mode === 'move-multi') {
       const dx = acc(pt.x - depart.pt.x, true), dy = acc(pt.y - depart.pt.y, true);
       if (dx || dy) {
-        for (const el of carte.elements) M.deplacer(el, dx, dy);
+        for (const id of selMulti) { const el = M.trouver(carte, id); if (el) M.deplacer(el, dx, dy); }
         depart.pt = { x: depart.pt.x + dx, y: depart.pt.y + dy };
         depart.bouge++;
         dessinerPlus();
       }
+    } else if (mode === 'trace-sel') {
+      depart.x2 = pt.x; depart.y2 = pt.y;
+      dessinerEdition();
     } else if (mode === 'resize' && elDrag) {
       redimensionner(elDrag, coin, pt);
       dessinerPlus();
@@ -336,8 +361,18 @@
         const el = M.ajouter(carte, M.nouvelElement('mur', { x1: depart.x, y1: depart.y, x2: depart.x2, y2: depart.y2 }));
         sel = el.id; majPanneau(); apresModif();
       }
+    } else if (mode === 'trace-sel' && depart.x2 != null) {
+      const r = { x: Math.min(depart.x, depart.x2), y: Math.min(depart.y, depart.y2),
+                  w: Math.abs(depart.x2 - depart.x), h: Math.abs(depart.y2 - depart.y) };
+      selMulti = carte.elements.filter(el => {
+        const b = M.boite(el);
+        return b.x < r.x + r.w && b.x + b.w > r.x && b.y < r.y + r.h && b.y + b.h > r.y;
+      }).map(el => el.id);
+      if (selMulti.length)
+        toast(selMulti.length + ' élément' + (selMulti.length > 1 ? 's' : '')
+          + ' — glisse la sélection pour déplacer, Suppr pour supprimer, Échap pour finir.');
     } else if ((mode === 'move' && depart.bouge) || mode === 'resize'
-      || (mode === 'move-tout' && depart.bouge)) {
+      || (mode === 'move-multi' && depart.bouge)) {
       apresModif();
     }
     apercu = null; mode = null; depart = null; elDrag = null; coin = null;
@@ -882,7 +917,7 @@
     c.appendChild(champ('Case (m)', inputNum(carte.grille.metres, v => carte.grille.metres = v || 1.5, .1)));
     if (carte.grille.cell)
       c.appendChild(bouton('⌗ Réaligner tout sur la grille', realignerGrille));
-    c.appendChild(bouton('✥ Tout déplacer (Ctrl+A)', () => basculerToutDeplacer(true)));
+    c.appendChild(bouton('🖱 Tout sélectionner (Ctrl+A)', toutSelectionner));
     const info = document.createElement('p'); info.className = 'aide';
     info.textContent = carte.grille.cell
       ? `Plan tactique : ${(carte.taille.w / carte.grille.cell * carte.grille.metres).toFixed(0)} × `
@@ -1039,26 +1074,29 @@
       c.appendChild(b);
     }
   }
-  /* « Tout déplacer » : recentrer un donjon entier sans reprendre chaque salle.
-     Pas une vraie multi-sélection (poignées, suppression…) — le besoin est de
-     décaler toute la carte d'un bloc, on ne construit que ça. Ctrl+A ou le
-     bouton du panneau Carte ; Échap, ou changer d'outil, pour terminer. */
-  function basculerToutDeplacer(on) {
-    const veut = on === undefined ? !selTous : on;
-    if (veut) {
-      choisirOutil('select');           // remet selTous à false, donc on l'active après
-      sel = null; majPanneau();
-      selTous = true;
-      toast('Tout est sélectionné (' + carte.elements.length + ' éléments) : '
-        + 'glisse le plan pour tout déplacer — Échap pour terminer.');
-    } else selTous = false;
-    canevas.classList.toggle('tout', selTous);
+  /* Le point de départ d'un glisser est-il sur la sélection multiple ?
+     (boîte de chaque élément sélectionné, avec une petite marge de prise) */
+  function dansSelection(pt) {
+    return selMulti.some((id) => {
+      const el = M.trouver(carte, id); if (!el) return false;
+      const b = M.boite(el);
+      return pt.x >= b.x - 6 && pt.x <= b.x + b.w + 6 && pt.y >= b.y - 6 && pt.y <= b.y + b.h + 6;
+    });
+  }
+
+  /* Ctrl+A (ou le bouton du panneau Carte) : tout sélectionner d'un coup —
+     l'outil 🖱 fait le reste (glisser pour déplacer, Suppr, Échap). */
+  function toutSelectionner() {
+    choisirOutil('multi');   // vide selMulti, donc on le remplit après
+    selMulti = carte.elements.map(e => e.id);
+    toast('Tout est sélectionné (' + selMulti.length + ' éléments) : '
+      + 'glisse la sélection pour déplacer — Échap pour terminer.');
     dessinerEdition();
   }
 
   function choisirOutil(id) {
     outil = id;
-    selTous = false; canevas.classList.remove('tout');
+    selMulti = []; canevas.classList.toggle('lasso', id === 'multi');
     document.querySelectorAll('#outils button').forEach(b => b.classList.toggle('actif', b.dataset.outil === id));
     accSurbrillance = null;
     canevas.classList.toggle('pan', id === 'select');
@@ -1074,7 +1112,14 @@
     if (ctrl && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); annuler(); return; }
     if (ctrl && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); refaire(); return; }
     if (ctrl && (e.key === 's' || e.key === 'S')) { e.preventDefault(); enregistrerMaintenant(); return; }
-    if (ctrl && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); basculerToutDeplacer(); return; }
+    if (ctrl && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); toutSelectionner(); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selMulti.length) {
+      e.preventDefault();
+      if (!confirm('Supprimer les ' + selMulti.length + ' éléments sélectionnés ?')) return;
+      for (const id of selMulti) M.supprimer(carte, id);
+      selMulti = []; sel = null; majPanneau(); apresModif(); dessiner();
+      return;
+    }
     const el = sel && M.trouver(carte, sel);
     if ((e.key === 'Delete' || e.key === 'Backspace') && el) {
       e.preventDefault(); M.supprimer(carte, el.id); sel = null; majPanneau(); apresModif(); dessiner(); return;
@@ -1085,7 +1130,7 @@
     if ((e.key === 'x' || e.key === 'X') && el && el.type === 'porte') {
       el.sens = -el.sens; apresModif(); dessiner(); return;
     }
-    if (e.key === 'Escape') { if (selTous) basculerToutDeplacer(false); sel = null; majPanneau(); dessinerEdition(); return; }
+    if (e.key === 'Escape') { selMulti = []; sel = null; majPanneau(); dessinerEdition(); return; }
     const o = OUTILS.find(x => x.k === e.key.toLowerCase());
     if (o) choisirOutil(o.id);
   });

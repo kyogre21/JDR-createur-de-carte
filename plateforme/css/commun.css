@@ -104,8 +104,8 @@ button:disabled{opacity:.4;cursor:default}
    icône à la place d'une image */
 .palette button.dossier{background:#241d14}
 .palette button.dossier .ic-dossier{font-size:21px;line-height:26px;display:block}
-/* mode « tout déplacer » : tout glisser décale la carte entière */
-#canevas.tout{cursor:move;outline:2px dashed var(--or);outline-offset:-2px}
+/* outil multi-sélection (🖱) : tracer un rectangle, puis glisser la sélection */
+#canevas.lasso{cursor:crosshair}
 /* recherche dans la palette d'images */
 .recherche-images{width:100%;margin:0 0 8px;background:#241d14;border:1px solid var(--bord-clair);
   border-radius:5px;color:var(--encre);font:12px var(--ui);padding:6px 9px;min-height:32px}
