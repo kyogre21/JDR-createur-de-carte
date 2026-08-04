@@ -17,6 +17,7 @@
   let imgCatalogue = [];          // images/index.json : illustrations disponibles dans le dépôt
   let imgChoisi = null;
   let imgChemin = [];             // navigation dans le catalogue (chemin de dossiers) ; [] = racine
+  let imgFiltre = '';             // recherche d'image par nom, tous dossiers confondus
   let vueMJ = true;
   let cam = { s: 1, tx: 0, ty: 0 };
   const calquesVis = { grille: true, structure: true, mobilier: true, annotations: true, secrets: true };
@@ -596,32 +597,54 @@
 
     p.appendChild(filAriane(imgChemin, (c) => { imgChemin = c; majPanneau(); }));
 
-    const { dossiers, images } = S.arboreImages(imgCatalogue, imgChemin);
-    if (!dossiers.length && !images.length) {
-      const t = document.createElement('p'); t.className = 'aide';
-      t.textContent = 'Dossier vide.';
-      p.appendChild(t);
-      return;
-    }
-    const t = document.createElement('p'); t.className = 'aide';
-    t.textContent = 'Choisis une image (ou un dossier), puis clique sur le plan pour poser son icône.';
-    p.appendChild(t);
+    /* Recherche par nom, dans TOUS les dossiers à la fois : avec des dizaines
+       d'images, descendre dossier par dossier ne suffit plus. Le champ ne
+       redessine que la grille (jamais tout le panneau) pour garder le focus. */
+    const rech = document.createElement('input');
+    rech.type = 'search'; rech.className = 'recherche-images';
+    rech.placeholder = '🔎 Chercher (tous dossiers)…';
+    rech.value = imgFiltre;
+    p.appendChild(rech);
 
-    const g = document.createElement('div'); g.className = 'palette';
-    for (const d of dossiers) {
-      const b = document.createElement('button'); b.className = 'dossier';
-      b.innerHTML = `<span class="ic-dossier">🗀</span><span>${d}</span>`;
-      b.addEventListener('click', () => { imgChemin = imgChemin.concat([d]); majPanneau(); });
-      g.appendChild(b);
+    const t = document.createElement('p'); t.className = 'aide';
+    p.appendChild(t);
+    const zone = document.createElement('div');
+    p.appendChild(zone);
+
+    function grille() {
+      zone.innerHTML = '';
+      const filtre = imgFiltre.trim().toLowerCase();
+      let dossiers, images;
+      if (filtre) {
+        dossiers = [];
+        images = imgCatalogue.filter(im =>
+          (im.nom || '').toLowerCase().includes(filtre) || im.fichier.toLowerCase().includes(filtre));
+        t.textContent = images.length
+          ? images.length + ' image' + (images.length > 1 ? 's' : '') + ' — clique sur le plan pour poser son icône.'
+          : 'Aucune image ne correspond à « ' + imgFiltre.trim() + ' ».';
+      } else {
+        ({ dossiers, images } = S.arboreImages(imgCatalogue, imgChemin));
+        t.textContent = (!dossiers.length && !images.length) ? 'Dossier vide.'
+          : 'Choisis une image (ou un dossier), puis clique sur le plan pour poser son icône.';
+      }
+      const g = document.createElement('div'); g.className = 'palette';
+      for (const d of dossiers) {
+        const b = document.createElement('button'); b.className = 'dossier';
+        b.innerHTML = `<span class="ic-dossier">🗀</span><span>${d}</span>`;
+        b.addEventListener('click', () => { imgChemin = imgChemin.concat([d]); majPanneau(); });
+        g.appendChild(b);
+      }
+      for (const im of images) {
+        const b = document.createElement('button');
+        b.innerHTML = `<img src="images/${im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
+        if (im.fichier === actifFichier) b.classList.add('actif');
+        b.addEventListener('click', () => onPick(im));
+        g.appendChild(b);
+      }
+      zone.appendChild(g);
     }
-    for (const im of images) {
-      const b = document.createElement('button');
-      b.innerHTML = `<img src="images/${im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
-      if (im.fichier === actifFichier) b.classList.add('actif');
-      b.addEventListener('click', () => onPick(im));
-      g.appendChild(b);
-    }
-    p.appendChild(g);
+    rech.addEventListener('input', () => { imgFiltre = rech.value; grille(); });
+    grille();
   }
   /* Fil d'ariane générique (dossiers d'images) : chemin = tableau de segments,
      onNav(nouveauChemin) est appelé au clic sur un cran (y compris la racine). */
