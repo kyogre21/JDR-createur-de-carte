@@ -129,7 +129,9 @@ KJ.rendu = (function () {
     switch (el.type) {
 
       case 'piece': {
-        const ep = el.ep && el.ep !== 5 ? ` style="stroke-width:${el.ep}"` : '';
+        // défaut 2 : assez pour lire la structure sans manger la case (les cartes
+        // existantes gardent leur ep enregistré, 5 pour les plus anciennes)
+        const ep = ` style="stroke-width:${el.ep || 2}"`;
         let s = `<g${id} class="kj-el"><rect class="kj-piece"${ep} x="${el.x}" y="${el.y}" `
               + `width="${el.w}" height="${el.h}"/>`;
         if (el.nom) s += `<text class="kj-txt-lbl" x="${el.x + el.w / 2}" y="${el.y + 17}">${esc(el.nom)}</text>`;
@@ -137,7 +139,7 @@ KJ.rendu = (function () {
       }
 
       case 'mur':
-        return `<g${id} class="kj-el"><line class="kj-mur" style="stroke-width:${el.ep || 5}" `
+        return `<g${id} class="kj-el"><line class="kj-mur" style="stroke-width:${el.ep || 2}" `
              + `x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}"/></g>`;
 
       case 'porte': {

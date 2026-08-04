@@ -23,21 +23,34 @@
   let cam = { s: 1, tx: 0, ty: 0 };
   const calquesVis = { grille: true, structure: true, mobilier: true, annotations: true, secrets: true };
 
+  /* La barre reste courte : Construire regroupe pièce/mur/porte/fenêtre (choix
+     dans le panneau), et lumière + portail vivent dans la palette d'Objet. Les
+     raccourcis directs (P, M, D, F, L, W) continuent de marcher. */
   const OUTILS = [
-    { id: 'select',  ic: '✥', nom: 'Sélectionner', k: 'v' },
-    { id: 'multi',   ic: '🖱', nom: 'Multi-sélection', k: 'g' },
-    { id: 'piece',   ic: '▭', nom: 'Pièce',    k: 'p' },
-    { id: 'mur',     ic: '▬', nom: 'Mur',      k: 'm' },
-    { id: 'porte',   ic: '◠', nom: 'Porte',    k: 'd' },
-    { id: 'fenetre', ic: '▥', nom: 'Fenêtre',  k: 'f' },
-    { id: 'objet',   ic: '⬓', nom: 'Objet',    k: 'o' },
-    { id: 'numero',  ic: '①', nom: 'Numéro',   k: 'n' },
-    { id: 'texte',   ic: 'T', nom: 'Texte',    k: 't' },
-    { id: 'lumiere', ic: '✷', nom: 'Lumière',  k: 'l' },
-    { id: 'secret',  ic: '⌗', nom: 'Secret',   k: 's' },
-    { id: 'portail', ic: '◈', nom: 'Portail',  k: 'w' },
-    { id: 'image',   ic: '🖼', nom: 'Image',   k: 'i' },
+    { id: 'select',     ic: '✥', nom: 'Sélectionner', k: 'v' },
+    { id: 'multi',      ic: '🖱', nom: 'Multi-sélection', k: 'g' },
+    { id: 'construire', ic: '▭', nom: 'Construire', k: 'c' },
+    { id: 'objet',      ic: '⬓', nom: 'Objet',    k: 'o' },
+    { id: 'numero',     ic: '①', nom: 'Numéro',   k: 'n' },
+    { id: 'texte',      ic: 'T', nom: 'Texte',    k: 't' },
+    { id: 'secret',     ic: '⌗', nom: 'Secret',   k: 's' },
+    { id: 'image',      ic: '🖼', nom: 'Image',   k: 'i' },
   ];
+  const SOUS_CONSTRUIRE = [
+    { id: 'piece',   ic: '▭', nom: 'Pièce' },
+    { id: 'mur',     ic: '▬', nom: 'Mur / trait' },
+    { id: 'porte',   ic: '◠', nom: 'Porte' },
+    { id: 'fenetre', ic: '▥', nom: 'Fenêtre' },
+  ];
+  const SOUS_OBJET = [
+    { id: 'lumiere', ic: '✷', nom: 'Lumière' },
+    { id: 'portail', ic: '◈', nom: 'Portail' },
+  ];
+  const RACCOURCIS = { p: 'piece', m: 'mur', d: 'porte', f: 'fenetre', l: 'lumiere', w: 'portail' };
+  // à quel bouton de la barre appartient l'outil réellement actif ?
+  const groupeDe = (id) => SOUS_CONSTRUIRE.some(s => s.id === id) ? 'construire'
+    : SOUS_OBJET.some(s => s.id === id) ? 'objet' : id;
+  let dernierConstruire = 'piece';   // sous-outil retrouvé en revenant sur Construire
 
   /* Cartes disponibles comme destinations de portail (bibliothèque + campagne). */
   let destinations = [];
@@ -549,7 +562,7 @@
 
       const avecEp = els.filter(e => e.type === 'mur' || e.type === 'piece');
       if (avecEp.length)
-        p.appendChild(champ('Épaisseur', inputNum(avecEp[0].ep === undefined ? 5 : avecEp[0].ep,
+        p.appendChild(champ('Épaisseur', inputNum(avecEp[0].ep === undefined ? 2 : avecEp[0].ep,
           v => avecEp.forEach(e => e.ep = Math.max(1, v)))));
       const avecL = els.filter(e => e.type === 'porte' || e.type === 'fenetre');
       if (avecL.length)
@@ -575,7 +588,8 @@
     const el = sel && M.trouver(carte, sel);
     $('t-props').textContent = el ? 'Élément — ' + el.type : 'Élément';
 
-    if (outil === 'objet' && !el) { palette(p); return; }
+    if (groupeDe(outil) === 'construire' && !el) { paletteConstruire(p); return; }
+    if (groupeDe(outil) === 'objet' && !el) { palette(p); return; }
     if (outil === 'image' && !el) { paletteImages(p); return; }
     if (!el) {
       p.innerHTML = '<p class="vide">Aucune sélection.</p>'
@@ -591,7 +605,7 @@
       p.appendChild(champ('X / Y', duo(el.x, el.y, (a, b) => { el.x = a; el.y = b; })));
       p.appendChild(champCases('Largeur', el.w, v => el.w = v, 8));
       p.appendChild(champCases('Hauteur', el.h, v => el.h = v, 8));
-      p.appendChild(champ('Murs (ép.)', inputNum(el.ep === undefined ? 5 : el.ep, v => el.ep = Math.max(1, v))));
+      p.appendChild(champ('Murs (ép.)', inputNum(el.ep === undefined ? 2 : el.ep, v => el.ep = Math.max(1, v))));
       p.appendChild(champ('Mètres', txtInfo(`${(el.w / (cell() || 40) * carte.grille.metres).toFixed(1)} × ${(el.h / (cell() || 40) * carte.grille.metres).toFixed(1)} m`)));
     } else if (el.type === 'mur') {
       p.appendChild(champ('Épaisseur', inputNum(el.ep, v => el.ep = Math.max(1, v))));
@@ -685,12 +699,41 @@
     t.textContent = 'Choisis un symbole, puis clique sur le plan pour le poser.';
     p.appendChild(t);
     const g = document.createElement('div'); g.className = 'palette';
+    // lumière et portail : posés comme des objets, rangés dans la même palette
+    for (const sp of SOUS_OBJET) {
+      const b = document.createElement('button');
+      b.innerHTML = `<span class="ic-dossier">${sp.ic}</span><span>${sp.nom}</span>`;
+      if (outil === sp.id) b.classList.add('actif');
+      b.addEventListener('click', () => choisirOutil(sp.id));
+      g.appendChild(b);
+    }
     for (const s of M.SYMBOLES) {
       const b = document.createElement('button');
       b.innerHTML = `<svg viewBox="0 0 100 100" preserveAspectRatio="none">${R.SYM[s.id] || ''}</svg>`
         + `<span>${s.nom}</span>`;
-      if (s.id === symChoisi) b.classList.add('actif');
-      b.addEventListener('click', () => { symChoisi = s.id; majPanneau(); });
+      if (s.id === symChoisi && outil === 'objet') b.classList.add('actif');
+      b.addEventListener('click', () => {
+        symChoisi = s.id;
+        if (outil !== 'objet') choisirOutil('objet'); else majPanneau();
+      });
+      g.appendChild(b);
+    }
+    p.appendChild(g);
+  }
+
+  /* Palette de construction : pièce, mur, porte, fenêtre sous un seul bouton
+     de la barre — l'outil réellement actif reste piece/mur/porte/fenetre. */
+  function paletteConstruire(p) {
+    const t = document.createElement('p'); t.className = 'aide';
+    t.textContent = 'Choisis quoi construire, puis trace sur le plan. '
+      + 'Les portes et fenêtres s’aimantent au mur le plus proche.';
+    p.appendChild(t);
+    const g = document.createElement('div'); g.className = 'palette';
+    for (const s of SOUS_CONSTRUIRE) {
+      const b = document.createElement('button');
+      b.innerHTML = `<span class="ic-dossier">${s.ic}</span><span>${s.nom}</span>`;
+      if (s.id === outil) b.classList.add('actif');
+      b.addEventListener('click', () => choisirOutil(s.id));
       g.appendChild(b);
     }
     p.appendChild(g);
@@ -1137,9 +1180,12 @@
   }
 
   function choisirOutil(id) {
+    if (id === 'construire') id = dernierConstruire;
     outil = id;
+    if (groupeDe(id) === 'construire') dernierConstruire = id;
     selMulti = []; canevas.classList.toggle('lasso', id === 'multi');
-    document.querySelectorAll('#outils button').forEach(b => b.classList.toggle('actif', b.dataset.outil === id));
+    const grp = groupeDe(id);
+    document.querySelectorAll('#outils button').forEach(b => b.classList.toggle('actif', b.dataset.outil === grp));
     accSurbrillance = null;
     canevas.classList.toggle('pan', id === 'select');
     majPanneau(); dessinerEdition();
@@ -1175,6 +1221,7 @@
     if (e.key === 'Escape') { selMulti = []; sel = null; majPanneau(); dessinerEdition(); return; }
     const o = OUTILS.find(x => x.k === e.key.toLowerCase());
     if (o) choisirOutil(o.id);
+    else if (RACCOURCIS[e.key.toLowerCase()]) choisirOutil(RACCOURCIS[e.key.toLowerCase()]);
   });
   window.addEventListener('keyup', (e) => { if (e.key === 'Shift') libre = false; });
 

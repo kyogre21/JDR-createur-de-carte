@@ -93,8 +93,8 @@ KJ.modele = (function () {
     switch (type) {
       // ep : épaisseur des murs de la pièce (défaut 5). Un mur anormalement épais
       // est un indice narratif : il peut cacher un passage.
-      case 'piece':   return Object.assign(base, { x: 0, y: 0, w: 160, h: 120, nom: '', ep: 5 }, p);
-      case 'mur':     return Object.assign(base, { x1: 0, y1: 0, x2: 100, y2: 0, ep: 5 }, p);
+      case 'piece':   return Object.assign(base, { x: 0, y: 0, w: 160, h: 120, nom: '', ep: 2 }, p);
+      case 'mur':     return Object.assign(base, { x1: 0, y1: 0, x2: 100, y2: 0, ep: 2 }, p);
       case 'porte':   return Object.assign(base, { x: 0, y: 0, o: 'h', l: 30, style: 'simple', sens: 1 }, p);
       case 'fenetre': return Object.assign(base, { x: 0, y: 0, o: 'h', l: 32 }, p);
       case 'objet': {
