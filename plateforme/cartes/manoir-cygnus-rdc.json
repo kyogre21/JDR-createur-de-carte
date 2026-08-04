@@ -491,7 +491,7 @@
       "y": 80,
       "w": 26,
       "h": 26,
-      "src": "images/Legendary lands/Campagne oiseau/Singind machine.png",
+      "src": "img:imp-singind-machine",
       "nom": "Machine chantante",
       "auto": true
     }

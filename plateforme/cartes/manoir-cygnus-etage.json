@@ -624,7 +624,7 @@
       "y": 180,
       "w": 26,
       "h": 26,
-      "src": "images/Legendary lands/Campagne oiseau/Funeral of dead butterflies.png",
+      "src": "img:imp-funeral-of-dead-butterflies",
       "nom": "croquemort des papillons"
     },
     {
@@ -634,7 +634,7 @@
       "y": 240,
       "w": 26,
       "h": 26,
-      "src": "images/Legendary lands/Campagne oiseau/scorched_girl.png",
+      "src": "img:imp-scorched-girl",
       "nom": "",
       "auto": true
     },
@@ -645,7 +645,7 @@
       "y": 220,
       "w": 26,
       "h": 26,
-      "src": "images/Legendary lands/Campagne oiseau/soda poisson.png",
+      "src": "img:imp-soda-poisson",
       "nom": "",
       "auto": true
     },
@@ -656,7 +656,7 @@
       "y": 280,
       "w": 26,
       "h": 26,
-      "src": "images/Legendary lands/Campagne oiseau/Spider bud.png",
+      "src": "img:imp-spider-bud",
       "nom": "",
       "auto": true
     },
@@ -667,7 +667,7 @@
       "y": 300,
       "w": 26,
       "h": 26,
-      "src": "images/Legendary lands/Campagne oiseau/happy teddy bear.png",
+      "src": "img:imp-happy-teddy-bear",
       "nom": "",
       "auto": true
     },
@@ -678,7 +678,7 @@
       "y": 100,
       "w": 26,
       "h": 26,
-      "src": "images/Legendary lands/Campagne oiseau/Black swan.png",
+      "src": "img:imp-black-swan",
       "nom": "",
       "auto": true
     }
