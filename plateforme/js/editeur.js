@@ -617,9 +617,12 @@
 
     if (el.type === 'piece') {
       p.appendChild(champ('Nom', inputTxt(el.nom, v => el.nom = v)));
-      // 0 = taille par défaut du libellé (11.5 px)
+      // 0 = taille AUTO : calculée pour tenir dans la largeur de la pièce
       p.appendChild(champ('Taille nom', inputNum(el.nomTaille || 0,
         v => el.nomTaille = v > 0 ? v : undefined)));
+      p.appendChild(champ('Position nom', select(el.nomPos || 'haut',
+        [['haut', 'En haut'], ['centre', 'Au centre'], ['bas', 'En bas']],
+        v => el.nomPos = v === 'haut' ? undefined : v)));
       p.appendChild(champCases('Largeur', el.w, v => el.w = v, 8));
       p.appendChild(champCases('Hauteur', el.h, v => el.h = v, 8));
       p.appendChild(champ('Murs (ép.)', inputNum(el.ep === undefined ? 2 : el.ep, v => el.ep = Math.max(1, v))));

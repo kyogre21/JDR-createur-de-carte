@@ -93,9 +93,13 @@ KJ.rendu = (function () {
       .kj-obj .tapis-int{fill:none;stroke:${sang};stroke-opacity:.4}
       .kj-num circle{fill:${sang};stroke:${encre};stroke-width:1}
       .kj-num text{fill:${parchemin};font:700 12px "Palatino Linotype",Georgia,serif;text-anchor:middle}
+      /* halo couleur de salle derrière les lettres (paint-order) : le nom reste
+         lisible posé sur du mobilier, une grille ou un mur */
       .kj-txt-lbl{fill:${encre};font:italic 11.5px "Palatino Linotype",Georgia,serif;text-anchor:middle;
-        letter-spacing:.08em;opacity:.8;font-variant:small-caps}
-      .kj-txt-tiny{fill:${encre};font:italic 9px "Palatino Linotype",Georgia,serif;text-anchor:middle;opacity:.7}
+        letter-spacing:.08em;opacity:.85;font-variant:small-caps;
+        paint-order:stroke;stroke:${salle};stroke-width:3;stroke-linejoin:round}
+      .kj-txt-tiny{fill:${encre};font:italic 9px "Palatino Linotype",Georgia,serif;text-anchor:middle;opacity:.75;
+        paint-order:stroke;stroke:${salle};stroke-width:2.4;stroke-linejoin:round}
       .kj-lum{stroke:${or};stroke-width:2;stroke-linecap:round;fill:none}
       .kj-portail-los{fill:${or};stroke:#0d0a07;stroke-width:1.5}
       .kj-portail-lbl{fill:${or};font:600 9px "Palatino Linotype",Georgia,serif;text-anchor:middle;
@@ -266,6 +270,42 @@ KJ.rendu = (function () {
     return s + `</g>`;
   }
 
+  /* ---------- nom d'une pièce ----------
+     Taille : manuelle (nomTaille) sinon AUTO, calculée pour tenir dans la largeur
+     de la pièce (bornée 7–16 px). Un nom vraiment trop long pour sa pièce est
+     coupé en deux lignes au plus près du milieu plutôt que rétréci à l'infini.
+     Position (nomPos) : haut (défaut), centre ou bas. */
+  function labelPiece(el) {
+    const marge = 12, larg = Math.max(20, el.w - marge);
+    const taillePour = (txt) => larg / (0.62 * Math.max(1, txt.length));
+    let lignes = [el.nom], taille;
+    if (el.nomTaille) taille = el.nomTaille;
+    else {
+      taille = Math.max(7, Math.min(16, taillePour(el.nom)));
+      if (taillePour(el.nom) < 7.5 && el.nom.indexOf(' ') > 0) {
+        const mots = el.nom.split(' ');
+        let best = 1, ecart = Infinity;
+        for (let i = 1; i < mots.length; i++) {
+          const d = Math.abs(mots.slice(0, i).join(' ').length - mots.slice(i).join(' ').length);
+          if (d < ecart) { ecart = d; best = i; }
+        }
+        lignes = [mots.slice(0, best).join(' '), mots.slice(best).join(' ')];
+        const long = lignes[0].length >= lignes[1].length ? lignes[0] : lignes[1];
+        taille = Math.max(7, Math.min(16, taillePour(long)));
+      }
+    }
+    const interligne = taille * 1.15, bloc = interligne * (lignes.length - 1);
+    const pos = el.nomPos || 'haut';
+    let y0;
+    if (pos === 'centre') y0 = el.y + el.h / 2 - bloc / 2 + taille * .35;
+    else if (pos === 'bas') y0 = el.y + el.h - 8 - bloc;
+    else y0 = el.y + 6 + taille;
+    const x = el.x + el.w / 2;
+    return `<text class="kj-txt-lbl" style="font-size:${taille}px" x="${x}" y="${y0}">`
+      + lignes.map((l, i) => i ? `<tspan x="${x}" dy="${interligne}">${esc(l)}</tspan>` : esc(l)).join('')
+      + `</text>`;
+  }
+
   /* ---------- rendu complet ----------
      opts : { grille, calques:{id:bool}, vueMJ, ids, grain, theme } */
   function corps(carte, opts) {
@@ -310,9 +350,7 @@ KJ.rendu = (function () {
           if (el.type !== 'piece' || !el.nom) continue;
           const revele = !!(opts.reveles && opts.reveles.includes(el.id));
           if (el.cache && !opts.vueMJ && !revele) continue;
-          const st = el.nomTaille ? ` style="font-size:${el.nomTaille}px"` : '';
-          const dy = el.nomTaille ? 6 + el.nomTaille : 17;
-          const txt = `<text class="kj-txt-lbl"${st} x="${el.x + el.w / 2}" y="${el.y + dy}">${esc(el.nom)}</text>`;
+          const txt = labelPiece(el);
           s += (el.cache && opts.vueMJ && !revele) ? `<g class="kj-zone-cachee">${txt}</g>` : txt;
         }
         s += `</g>`;
