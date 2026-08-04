@@ -472,7 +472,7 @@
       if (!imgChoisi) { toast('Choisis d’abord une image dans le panneau, à droite.'); return; }
       el = M.nouvelElement('image', {
         x: acc(pt.x, true), y: acc(pt.y, true),
-        src: srcImage(imgChoisi), nom: imgChoisi.nom || '',
+        src: srcPose(imgChoisi), nom: imgChoisi.nom || '',
       });
     } else return;
     M.ajouter(carte, el);
@@ -680,7 +680,7 @@
         + 'possible pour le révéler à la main.</p>'));
     } else if (el.type === 'image') {
       const prev = document.createElement('img');
-      prev.src = el.src; prev.alt = el.nom || '';
+      prev.src = resoudreSrc(el.src); prev.alt = el.nom || '';
       prev.style.cssText = 'width:100%;max-height:160px;object-fit:contain;border-radius:5px;'
         + 'display:block;margin-bottom:8px;border:1px solid var(--bord-clair);background:#000';
       p.appendChild(prev);
@@ -693,7 +693,7 @@
       const chLbl = document.createElement('p'); chLbl.className = 'aide'; chLbl.textContent = 'Remplacer par :';
       p.appendChild(chLbl);
       paletteImages(p, (im) => {
-        el.src = srcImage(im);
+        el.src = srcPose(im);
         apresModif(); dessiner(); majPanneau();
       }, el.src);
     }
@@ -765,14 +765,23 @@
      (fil d'ariane + sous-dossiers cliquables, via imgChemin) : avec des images rangées
      en sous-dossiers dans plateforme/images/, il faut pouvoir descendre dedans, pas
      seulement choisir parmi un premier niveau à plat. */
-  /* Une image du dépôt a un .fichier (chemin sous images/), une image de compte a
-     un .data (data URL compressée) : srcImage donne la source affichable des deux. */
+  /* Une image du dépôt a un .fichier (chemin sous images/), une image de compte un
+     .id et un .data (data URL compressée). Sur la carte on n'écrit JAMAIS le blob :
+     une image de compte est référencée « img:<id> » — la carte reste légère, l'image
+     n'existe qu'en un exemplaire dans le compte. (Les vieilles cartes qui embarquent
+     encore un data: complet restent lues telles quelles.) */
   const MES_IMAGES = '🖼 Mes images';
-  const srcImage = (im) => im.data || ('images/' + im.fichier);
+  const srcAffichage = (im) => im.data || ('images/' + im.fichier);
+  const srcPose = (im) => im.id ? 'img:' + im.id : 'images/' + im.fichier;
+  function resoudreSrc(src) {
+    if (!src || src.indexOf('img:') !== 0) return src;
+    const im = (imgCompte || []).find(x => 'img:' + x.id === src);
+    return im ? im.data : '';
+  }
 
   function paletteImages(p, onPick, actifSrc) {
     onPick = onPick || ((im) => { imgChoisi = im; majPanneau(); });
-    if (actifSrc === undefined) actifSrc = imgChoisi && srcImage(imgChoisi);
+    if (actifSrc === undefined) actifSrc = imgChoisi && srcPose(imgChoisi);
 
     p.appendChild(filAriane(imgChemin, (c) => { imgChemin = c; majPanneau(); }));
 
@@ -792,13 +801,13 @@
 
     function tuile(im, g) {
       const b = document.createElement('button');
-      b.innerHTML = `<img src="${srcImage(im)}" alt="">` + `<span>${im.nom || im.fichier || 'Image'}</span>`;
-      if (srcImage(im) === actifSrc) b.classList.add('actif');
+      b.innerHTML = `<img src="${srcAffichage(im)}" alt="">` + `<span>${im.nom || im.fichier || 'Image'}</span>`;
+      if (srcPose(im) === actifSrc) b.classList.add('actif');
       b.addEventListener('click', () => onPick(im));
       if (im.id) b.addEventListener('contextmenu', (e) => {   // image de compte : clic droit = supprimer
         e.preventDefault();
         if (!confirm('Supprimer « ' + (im.nom || 'cette image') + ' » de ton compte ?\n\n'
-          + 'Les cartes où elle est déjà posée la gardent (elle y est embarquée).')) return;
+          + 'Les icônes déjà posées sur des cartes ne pourront plus l’afficher.')) return;
         KJ.session.supprimerImageMJ(im.id)
           .then(() => { imgCompte = (imgCompte || []).filter(x => x.id !== im.id); majPanneau(); })
           .catch(() => toast('Suppression impossible — vérifie ta connexion.'));
@@ -821,16 +830,35 @@
         for (const im of images) tuile(im, g);
 
       } else if (imgChemin[0] === MES_IMAGES) {
+        /* Dossiers dans « Mes images » : chaque image porte un champ dossier
+           (comme celles du dépôt) — l'import range dans le dossier OUVERT. */
+        const sousChemin = imgChemin.slice(1);
         const imp = document.createElement('button'); imp.className = 'dossier';
-        imp.innerHTML = '<span class="ic-dossier">↑</span><span>Importer…</span>';
-        imp.addEventListener('click', importerImagesCompte);
+        imp.innerHTML = '<span class="ic-dossier">↑</span><span>Importer ici</span>';
+        imp.addEventListener('click', () => importerImagesCompte(sousChemin.join('/')));
         g.appendChild(imp);
-        for (const im of (imgCompte || [])) tuile(im, g);
+        const nd = document.createElement('button'); nd.className = 'dossier';
+        nd.innerHTML = '<span class="ic-dossier">🗀＋</span><span>Nouveau dossier</span>';
+        nd.addEventListener('click', () => {
+          const nom = (prompt('Nom du dossier :') || '').trim().replace(/\//g, '-');
+          if (!nom) return;
+          imgChemin = imgChemin.concat([nom]); majPanneau();
+          toast('Dossier ouvert : « Importer ici » pour le remplir (il n’existe que s’il contient des images).');
+        });
+        g.appendChild(nd);
+        const arbo = S.arboreImages(imgCompte || [], sousChemin);
+        for (const d of arbo.dossiers) {
+          const b = document.createElement('button'); b.className = 'dossier';
+          b.innerHTML = `<span class="ic-dossier">🗀</span><span>${d}</span>`;
+          b.addEventListener('click', () => { imgChemin = imgChemin.concat([d]); majPanneau(); });
+          g.appendChild(b);
+        }
+        for (const im of arbo.images) tuile(im, g);
         t.textContent = imgCompte === null
           ? 'Connecte-toi (bibliothèque → 🛡 Espace MJ), puis reviens ici importer tes images.'
-          : (imgCompte.length
+          : ((imgCompte.length || sousChemin.length)
             ? 'Tes images, sur tous tes appareils. Clic droit sur une vignette : la supprimer du compte.'
-            : 'Aucune image pour l’instant : « Importer… » (elles sont compressées automatiquement).');
+            : 'Aucune image pour l’instant : « Importer ici » (elles sont compressées automatiquement).');
 
       } else {
         const { dossiers, images } = S.arboreImages(imgCatalogue, imgChemin);
@@ -880,7 +908,7 @@
       lecteur.readAsDataURL(fichier);
     });
   }
-  function importerImagesCompte() {
+  function importerImagesCompte(dossier) {
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;
     inp.addEventListener('change', () => {
@@ -891,7 +919,7 @@
       for (const f of fichiers) {
         chaine = chaine.then((n) =>
           comprimerImage(f)
-            .then(data => KJ.session.enregistrerImageMJ(f.name.replace(/\.[^.]+$/, ''), data))
+            .then(data => KJ.session.enregistrerImageMJ(f.name.replace(/\.[^.]+$/, ''), data, dossier || ''))
             .then(() => n + 1)
             .catch(e => { toast('Échec — ' + (e && e.message || e)); return n; }));
       }

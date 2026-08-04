@@ -41,6 +41,29 @@
   let catalogue = [];               // [{ id, nom, source:'locale'|'depot', ref }]
   let galCatalogue = [];             // images/index.json : galerie indépendante du plan
   let galChemin = [];                // navigation dans le catalogue (chemin de dossiers) ; [] = racine
+  let imagesCompte = null;           // images du compte MJ (côté MJ, pour résoudre les src « img:<id> »)
+  let imagesPartie = {};             // côté joueur : { id: dataURL } transportées avec la carte
+
+  /* Une src d'élément image peut être : un chemin du dépôt (images/…), un blob
+     embarqué (data:, anciennes cartes), ou une référence de compte (img:<id>) —
+     résolue ici depuis le compte du MJ ou depuis ce que la partie a transporté. */
+  function resoudreImage(src) {
+    if (!src || src.indexOf('img:') !== 0) return src;
+    const id = src.slice(4);
+    if (imagesPartie && imagesPartie[id]) return imagesPartie[id];
+    const m = (imagesCompte || []).find(x => x.id === id);
+    return m ? m.data : '';
+  }
+  // les images du compte que cette carte référence : partent avec elle vers les joueurs
+  function imagesDeCarte(c) {
+    const map = {};
+    for (const el of c.elements) {
+      if (el.type !== 'image' || !el.src || el.src.indexOf('img:') !== 0) continue;
+      const data = resoudreImage(el.src);
+      if (data) map[el.src.slice(4)] = data;
+    }
+    return Object.keys(map).length ? map : null;
+  }
   let partie = { carte: null, fog: {}, jetons: [], reveles: {}, masques: {} };
   try { const s = localStorage.getItem(CLE_PARTIE); if (s) partie = JSON.parse(s); } catch (e) {}
   if (!partie.reveles) partie.reveles = {};   // sessions sauvegardées avant l'ajout de ce champ
@@ -258,11 +281,16 @@
      choix de portrait d'un jeton. chemin est un tableau muté en place (pas réassigné),
      pour que l'appelant retrouve toujours le même chemin après un re-rendu. */
   function construirePickerImages(dEl, gEl, chemin, onChoisir) {
+    // les images du compte MJ apparaissent comme un dossier « 👤 Mes images »
+    // au milieu de celles du dépôt — mêmes dossiers, même navigation
+    const catalogueComplet = () => galCatalogue.concat((imagesCompte || []).map(x =>
+      ({ nom: x.nom, data: x.data, dossier: '👤 Mes images' + (x.dossier ? '/' + x.dossier : '') })));
     const rendre = () => {
       dEl.innerHTML = ''; gEl.innerHTML = '';
-      if (!galCatalogue.length) {
+      const tout = catalogueComplet();
+      if (!tout.length) {
         const p = document.createElement('p'); p.className = 'aide';
-        p.textContent = 'Aucune image dans le dépôt (plateforme/images/).';
+        p.textContent = 'Aucune image : dépôt vide et pas d’images de compte (importables dans l’éditeur).';
         gEl.appendChild(p);
         return;
       }
@@ -276,7 +304,7 @@
         if (i === chemin.length - 1) b.classList.add('actif');
         dEl.appendChild(b);
       });
-      const { dossiers, images } = S.arboreImages(galCatalogue, chemin);
+      const { dossiers, images } = S.arboreImages(tout, chemin);
       if (!dossiers.length && !images.length) {
         const p = document.createElement('p'); p.className = 'aide'; p.textContent = 'Dossier vide.';
         gEl.appendChild(p);
@@ -290,7 +318,7 @@
       }
       for (const im of images) {
         const b = document.createElement('button');
-        b.innerHTML = `<img src="images/${im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
+        b.innerHTML = `<img src="${im.data || 'images/' + im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
         b.addEventListener('click', () => onChoisir(im));
         gEl.appendChild(b);
       }
@@ -309,7 +337,7 @@
       corps.innerHTML = '<div id="galerie-dossiers" class="fil-ariane"></div><div id="galerie-grille" class="palette"></div>';
       construirePickerImages($('galerie-dossiers'), $('galerie-grille'), galChemin, (im) => {
         fermerModale();
-        ouvrirImage('images/' + im.fichier, im.nom);
+        ouvrirImage(im.data || 'images/' + im.fichier, im.nom);
       });
     });
   }
@@ -452,7 +480,7 @@
       // en partie, la carte affichée voyage avec elle : les joueurs n'ont ni compte
       // ni bibliothèque, c'est la partie qui la leur apporte
       if (KJ.session && KJ.session.active() && KJ.session.estMJ())
-        KJ.session.publierCartePartie(c.id, KJ.modele.versJSON(c));
+        KJ.session.publierCartePartie(c.id, KJ.modele.versJSON(c), imagesDeCarte(c));
       // dire une fois où cliquer : les portails ne sautent pas aux yeux
       if (!vueJoueurs && !chargerCarte._dit) {
         const n = pinsEl.querySelectorAll('.pin:not(.inerte)').length;
@@ -547,7 +575,7 @@
     // une image révélée se consulte aussi côté joueurs (tap → plein écran) ;
     // non révélée, elle reste réservée au MJ.
     if (imgPin && (!vueJoueurs || imgPin.classList.contains('revele'))) {
-      mode = 'img'; imgEnCours = { src: imgPin.dataset.src, titre: imgPin.title }; return;
+      mode = 'img'; imgEnCours = { src: resoudreImage(imgPin.dataset.src), titre: imgPin.title }; return;
     }
     // un joueur peut déplacer son propre jeton PJ, même dans la vraie fenêtre séparée ;
     // le MJ peut toujours déplacer n'importe quel jeton, depuis n'importe où.
@@ -820,7 +848,12 @@
         preview.appendChild(bouton('✕', () => { img = null; preview.innerHTML = ''; }));
       };
       if (img) choisir(img, 'portrait actuel');
-      construirePickerImages($('j-dossiers'), $('j-grille'), [], (im) => choisir('images/' + im.fichier, im.nom || im.fichier));
+      construirePickerImages($('j-dossiers'), $('j-grille'), [], (im) => {
+        // image de compte : réduite en vignette avant d'entrer dans l'état de partie
+        // (sauvé à chaque mouvement) — une image du dépôt reste un simple chemin
+        if (im.data) vignette(im.data).then(d => choisir(d, im.nom || 'image')).catch(() => toast('Image illisible.'));
+        else choisir('images/' + im.fichier, im.nom || im.fichier);
+      });
       $('j-depuis-appareil').addEventListener('click', () => {
         const input = document.createElement('input');
         input.type = 'file'; input.accept = 'image/*';
@@ -971,6 +1004,9 @@
   });
   // indépendante du chargement de la carte : la galerie doit marcher même sans plan affiché
   chargerGalerie().catch(() => {});
+  // les images du compte MJ : résolution des « img:<id> » et présence dans la galerie
+  if (!vueJoueurs && KJ.session && KJ.session.configuree() && KJ.session.mjProbable())
+    KJ.session.listerImagesMJ().then(l => { imagesCompte = l; }).catch(() => {});
 
   /* ---------------- sessions multi-appareils ----------------
      L'état reçu du réseau suit le même chemin qu'un message BroadcastChannel :
@@ -1033,7 +1069,7 @@
     if (etatConserve) appliquerEtatDistant(etatConserve);   // reprise : la base fait foi
     else KJ.session.publier(partie);                        // partie neuve : l'état courant part
     // la carte affichée part aussi : c'est elle que les joueurs recevront
-    if (carte) KJ.session.publierCartePartie(carte.id, KJ.modele.versJSON(carte));
+    if (carte) KJ.session.publierCartePartie(carte.id, KJ.modele.versJSON(carte), imagesDeCarte(carte));
   }
   function annoncerCode(code, reprise) {
     const lien = location.origin + location.pathname + '?session=' + code;
@@ -1207,8 +1243,10 @@
       // (chargement resté vide faute de fichier), on la charge dès qu'elle arrive
       onCarte: (c) => {
         carteRecue = c;
+        imagesPartie = c.images || {};   // les images du compte MJ que la carte référence
         if (partie.carte === c.id && (!carte || carte.id !== c.id))
           chargerCarte(c.id).catch(() => {});
+        else if (carte && carte.id === c.id) dessinerImages();   // les icônes deviennent cliquables
       },
       onPing: (p) => { if (carte && p.carte === carte.id) montrerPing(p.x, p.y); },
       // la partie SURVIT aux absences du MJ : on montre la table telle qu'il l'a

@@ -351,14 +351,16 @@ KJ.session = (function () {
     if (!estMJconnecte()) return null;   // null = « pas de compte connecté ici »
     const v = (await db.ref('mj/' + uid() + '/images').get()).val() || {};
     return Object.keys(v)
-      .map(k => ({ id: k, nom: (v[k] && v[k].nom) || '', data: v[k] && v[k].data }))
+      .map(k => ({ id: k, nom: (v[k] && v[k].nom) || '', data: v[k] && v[k].data,
+                   dossier: (v[k] && v[k].dossier) || '' }))
       .filter(x => x.data)
       .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
   }
-  async function enregistrerImageMJ(nom, data) {
+  async function enregistrerImageMJ(nom, data, dossier) {
     await init();
     if (!estMJconnecte()) throw new Error('Connecte-toi (compte MJ) pour importer des images.');
-    await db.ref('mj/' + uid() + '/images').push({ nom: nom || '', data: data, maj: TS() });
+    await db.ref('mj/' + uid() + '/images').push({ nom: nom || '', data: data,
+      dossier: dossier || '', maj: TS() });
   }
   async function supprimerImageMJ(id) {
     await init();
@@ -370,10 +372,13 @@ KJ.session = (function () {
   /* ---------- la carte affichée, transportée par la partie ----------
      Les joueurs n'ont ni compte ni bibliothèque : la partie leur apporte la carte
      elle-même. Le MJ la publie à chaque changement (rare), les joueurs l'écoutent. */
-  function publierCartePartie(id, json) {
+  function publierCartePartie(id, json, images) {
     if (!etatSession || !etatSession.mj || !db) return;
+    // images : { idImage: dataURL } — celles du compte MJ que la carte référence
+    // (src « img:<id> ») ; les joueurs n'ont pas accès au compte, la partie leur
+    // apporte donc les données avec la carte.
     db.ref('parties/' + etatSession.code + '/carte')
-      .set({ id: id, json: json, maj: TS() })
+      .set({ id: id, json: json, images: images || null, maj: TS() })
       .catch(() => {});
   }
 
