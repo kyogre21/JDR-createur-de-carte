@@ -1,6 +1,6 @@
-# Cartographe Knight
+# Cartographe
 
-Éditeur de cartes de jeu de rôle pour la campagne **La Forêt Noire** (Knight JDR).
+Éditeur de cartes de jeu de rôle, utilisable pour n'importe quel JDR.
 Application entièrement statique : aucun serveur, aucun compte, aucun abonnement.
 
 Projet autonome : `C:/Projet/jdr créateur de carte/` — volontairement séparé du dossier de
@@ -196,7 +196,7 @@ Le champ `campagne` sert de dossier (voir plus haut).
 
 Types d'éléments : `piece`, `mur`, `porte`, `fenetre`, `objet`, `numero`, `texte`,
 `lumiere`, `portail`, `secret`, `image`. `grille.cell = 0` = carte d'extérieur (ni grille ni aimantation) ;
-`cell = 40` avec `metres = 1.5` = plan tactique à l'échelle Knight.
+`cell = 40` avec `metres = 1.5` = plan tactique (1 case = 1,5 m).
 
 Les éléments du calque **secrets** ne sortent qu'en vue MJ : ils disparaissent de la vue
 joueurs, des miniatures et des exports en vue joueurs.

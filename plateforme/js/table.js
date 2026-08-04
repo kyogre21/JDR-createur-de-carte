@@ -1,5 +1,5 @@
 /* ============================================================
-   Cartographe Knight — mode Jeu (table virtuelle légère)
+   Cartographe — mode Jeu (table virtuelle légère)
    Lit les cartes de la bibliothèque (IndexedDB) et du dépôt,
    ajoute brouillard de guerre, jetons, portails, ping et mesure.
    L'état de partie est distinct des cartes : une carte est une donnée,

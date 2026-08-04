@@ -1,5 +1,5 @@
 /* ============================================================
-   Cartographe Knight — moteur de rendu (modèle → SVG)
+   Cartographe — moteur de rendu (modèle → SVG)
    Utilisé par l'éditeur, la table de jeu et l'export pour les PDF :
    une seule vérité graphique, donc un rendu identique partout.
    Expose window.KJ.rendu

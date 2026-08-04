@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Publier Cartographe Knight sur le site
+title Publier Cartographe sur le site
 cd /d "%~dp0"
 
 echo.

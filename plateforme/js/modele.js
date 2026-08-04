@@ -1,5 +1,5 @@
 /* ============================================================
-   Cartographe Knight — modèle de données
+   Cartographe — modèle de données
    Une carte est un objet JSON. Le SVG n'est qu'un rendu de cet objet
    (voir rendu.js), ce qui rend les cartes rééditables et versionnables.
    Chargé en script classique : expose window.KJ.modele
@@ -161,7 +161,7 @@ KJ.modele = (function () {
   function depuisJSON(txt) {
     const c = typeof txt === 'string' ? JSON.parse(txt) : txt;
     if (!c || typeof c !== 'object') throw new Error('Fichier illisible.');
-    if (!c.taille || !Array.isArray(c.elements)) throw new Error('Ce fichier n’est pas une carte Cartographe Knight.');
+    if (!c.taille || !Array.isArray(c.elements)) throw new Error('Ce fichier n’est pas une carte Cartographe.');
     // complétion défensive des champs ajoutés après coup
     c.format = c.format || FORMAT;
     c.id = c.id || uid('carte');

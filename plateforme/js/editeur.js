@@ -1,5 +1,5 @@
 /* ============================================================
-   Cartographe Knight — éditeur
+   Cartographe — éditeur
    Dessine des plans de JDR : pièces, murs, portes, mobilier,
    annotations, secrets. Exporte en JSON (source), SVG (PDF)
    et en scène pour la table de jeu.

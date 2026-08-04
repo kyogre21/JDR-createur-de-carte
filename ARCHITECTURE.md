@@ -1,4 +1,4 @@
-# Architecture — Cartographe Knight
+# Architecture — Cartographe
 
 Document de référence : où vivent les données, pourquoi, et vers quoi on va.
 Rédigé après revue complète (août 2026), à maintenir à chaque évolution structurante.

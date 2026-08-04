@@ -1,5 +1,5 @@
 /* ============================================================
-   Cartographe Knight — stockage
+   Cartographe — stockage
    Local d'abord : IndexedDB pour la bibliothèque de travail,
    fichiers JSON pour la source de vérité (versionnée dans git).
    Expose window.KJ.stockage

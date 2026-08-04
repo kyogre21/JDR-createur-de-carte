@@ -1,5 +1,5 @@
 /* ============================================================
-   Cartographe Knight — comptes MJ et parties persistantes (Firebase)
+   Cartographe — comptes MJ et parties persistantes (Firebase)
    ------------------------------------------------------------
    Le MJ a un compte (e-mail + mot de passe) ; il crée des PARTIES qui
    restent ouvertes d'une soirée à l'autre : brouillard, révélations et

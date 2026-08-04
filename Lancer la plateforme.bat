@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Cartographe Knight - serveur local (garder cette fenetre ouverte)
+title Cartographe - serveur local (garder cette fenetre ouverte)
 cd /d "%~dp0plateforme"
 
 rem  Adresse IP de ce PC sur le reseau local (interface qui a une passerelle).
