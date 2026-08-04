@@ -19,6 +19,7 @@
   let imgChemin = [];             // navigation dans le catalogue (chemin de dossiers) ; [] = racine
   let imgFiltre = '';             // recherche d'image par nom, tous dossiers confondus
   let imgCompte = null;           // images du compte MJ (null = pas de compte connecté)
+  let imgDossiersCompte = [];     // dossiers déclarés du compte (existent même vides)
   let vueMJ = true;
   let cam = { s: 1, tx: 0, ty: 0 };
   const calquesVis = { grille: true, structure: true, mobilier: true, annotations: true, secrets: true };
@@ -76,7 +77,10 @@
     // seulement si un compte est vraisemblablement connecté : pas question de
     // charger le SDK Firebase pour un visiteur anonyme qui n'en a pas besoin
     const compte = (KJ.session && KJ.session.configuree() && KJ.session.mjProbable())
-      ? KJ.session.listerImagesMJ().then(l => { imgCompte = l; }).catch(() => {})
+      ? Promise.all([
+          KJ.session.listerImagesMJ().then(l => { imgCompte = l; }),
+          KJ.session.dossiersImagesMJ().then(l => { imgDossiersCompte = l; }),
+        ]).catch(() => {})
       : Promise.resolve();
     return Promise.all([depot, compte]);
   }
@@ -804,6 +808,13 @@
       b.innerHTML = `<img src="${srcAffichage(im)}" alt="">` + `<span>${im.nom || im.fichier || 'Image'}</span>`;
       if (srcPose(im) === actifSrc) b.classList.add('actif');
       b.addEventListener('click', () => onPick(im));
+      if (im.id) {   // image de compte : glissable vers un dossier
+        b.draggable = true;
+        b.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', im.id);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+      }
       if (im.id) b.addEventListener('contextmenu', (e) => {   // image de compte : clic droit = supprimer
         e.preventDefault();
         if (!confirm('Supprimer « ' + (im.nom || 'cette image') + ' » de ton compte ?\n\n'
@@ -830,34 +841,69 @@
         for (const im of images) tuile(im, g);
 
       } else if (imgChemin[0] === MES_IMAGES) {
-        /* Dossiers dans « Mes images » : chaque image porte un champ dossier
-           (comme celles du dépôt) — l'import range dans le dossier OUVERT. */
+        /* Dossiers dans « Mes images » : déclarés dans le compte (ils existent même
+           vides) + déduits des images. Glisser une vignette sur un dossier l'y range. */
         const sousChemin = imgChemin.slice(1);
+        const cibleDepot = (b, dossierCible) => {
+          b.addEventListener('dragover', (e) => { e.preventDefault(); b.classList.add('actif'); });
+          b.addEventListener('dragleave', () => b.classList.remove('actif'));
+          b.addEventListener('drop', (e) => {
+            e.preventDefault(); b.classList.remove('actif');
+            deplacerImageCompte(e.dataTransfer.getData('text/plain'), dossierCible);
+          });
+        };
         const imp = document.createElement('button'); imp.className = 'dossier';
         imp.innerHTML = '<span class="ic-dossier">↑</span><span>Importer ici</span>';
         imp.addEventListener('click', () => importerImagesCompte(sousChemin.join('/')));
         g.appendChild(imp);
-        const nd = document.createElement('button'); nd.className = 'dossier';
-        nd.innerHTML = '<span class="ic-dossier">🗀＋</span><span>Nouveau dossier</span>';
-        nd.addEventListener('click', () => {
-          const nom = (prompt('Nom du dossier :') || '').trim().replace(/\//g, '-');
-          if (!nom) return;
-          imgChemin = imgChemin.concat([nom]); majPanneau();
-          toast('Dossier ouvert : « Importer ici » pour le remplir (il n’existe que s’il contient des images).');
-        });
-        g.appendChild(nd);
+        if (!sousChemin.length) {
+          const nd = document.createElement('button'); nd.className = 'dossier';
+          nd.innerHTML = '<span class="ic-dossier">🗀＋</span><span>Nouveau dossier</span>';
+          nd.addEventListener('click', () => {
+            const nom = (prompt('Nom du dossier :') || '').trim().replace(/\//g, '-');
+            if (!nom) return;
+            KJ.session.declarerDossierImagesMJ(nom).then(() => {
+              if (!imgDossiersCompte.includes(nom)) imgDossiersCompte.push(nom);
+              imgChemin = [MES_IMAGES, nom]; majPanneau();
+            }).catch(() => toast('Création impossible — connecte-toi (🛡 Espace MJ).'));
+          });
+          g.appendChild(nd);
+        } else {
+          // remonter d'un cran — et cible de dépôt pour sortir une image du dossier
+          const up = document.createElement('button'); up.className = 'dossier';
+          up.innerHTML = '<span class="ic-dossier">⬆</span><span>Dossier parent</span>';
+          up.addEventListener('click', () => { imgChemin = imgChemin.slice(0, -1); majPanneau(); });
+          cibleDepot(up, sousChemin.slice(0, -1).join('/'));
+          g.appendChild(up);
+        }
         const arbo = S.arboreImages(imgCompte || [], sousChemin);
-        for (const d of arbo.dossiers) {
+        const dossiers = arbo.dossiers.slice();
+        if (!sousChemin.length)
+          for (const d of imgDossiersCompte) if (!dossiers.includes(d)) dossiers.push(d);
+        dossiers.sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+        for (const d of dossiers) {
           const b = document.createElement('button'); b.className = 'dossier';
           b.innerHTML = `<span class="ic-dossier">🗀</span><span>${d}</span>`;
           b.addEventListener('click', () => { imgChemin = imgChemin.concat([d]); majPanneau(); });
+          cibleDepot(b, sousChemin.concat([d]).join('/'));
+          b.addEventListener('contextmenu', (e) => {   // clic droit : supprimer un dossier vide
+            e.preventDefault();
+            const chemin = sousChemin.concat([d]).join('/');
+            const plein = (imgCompte || []).some(x => x.dossier === chemin || (x.dossier || '').indexOf(chemin + '/') === 0);
+            if (plein) { toast('Dossier non vide : déplace ou supprime ses images d’abord.'); return; }
+            if (sousChemin.length || !imgDossiersCompte.includes(d)) return;
+            if (!confirm('Supprimer le dossier vide « ' + d + ' » ?')) return;
+            KJ.session.oublierDossierImagesMJ(d).then(() => {
+              imgDossiersCompte = imgDossiersCompte.filter(x => x !== d); majPanneau();
+            }).catch(() => toast('Suppression impossible.'));
+          });
           g.appendChild(b);
         }
         for (const im of arbo.images) tuile(im, g);
         t.textContent = imgCompte === null
           ? 'Connecte-toi (bibliothèque → 🛡 Espace MJ), puis reviens ici importer tes images.'
-          : ((imgCompte.length || sousChemin.length)
-            ? 'Tes images, sur tous tes appareils. Clic droit sur une vignette : la supprimer du compte.'
+          : ((imgCompte.length || sousChemin.length || dossiers.length)
+            ? 'Glisse une vignette sur un dossier pour l’y ranger. Clic droit sur une vignette : la supprimer.'
             : 'Aucune image pour l’instant : « Importer ici » (elles sont compressées automatiquement).');
 
       } else {
@@ -908,6 +954,18 @@
       lecteur.readAsDataURL(fichier);
     });
   }
+  function deplacerImageCompte(id, dossier) {
+    if (!id) return;
+    KJ.session.modifierImageMJ(id, { dossier: dossier || '' })
+      .then(() => {
+        const im = (imgCompte || []).find(x => x.id === id);
+        if (im) im.dossier = dossier || '';
+        majPanneau();
+        toast(dossier ? 'Image rangée dans « ' + dossier + ' ».' : 'Image sortie du dossier.');
+      })
+      .catch(() => toast('Déplacement impossible — vérifie ta connexion.'));
+  }
+
   function importerImagesCompte(dossier) {
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = 'image/*'; inp.multiple = true;

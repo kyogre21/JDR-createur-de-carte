@@ -368,6 +368,34 @@ KJ.session = (function () {
     await db.ref('mj/' + uid() + '/images/' + String(id).replace(/[.#$\[\]\/]/g, '_')).remove();
     return true;
   }
+  // déplacer/renommer une image du compte (champs : { nom, dossier })
+  async function modifierImageMJ(id, champs) {
+    await init();
+    if (!estMJconnecte()) throw new Error('Connecte-toi (compte MJ).');
+    const maj = {};
+    if (champs.nom !== undefined) maj.nom = champs.nom;
+    if (champs.dossier !== undefined) maj.dossier = champs.dossier;
+    await db.ref('mj/' + uid() + '/images/' + String(id).replace(/[.#$\[\]\/]/g, '_')).update(maj);
+  }
+  /* Dossiers d'images DÉCLARÉS : un dossier doit exister même vide (créé avant
+     d'y importer quoi que ce soit), il est donc mémorisé dans le compte au lieu
+     d'être seulement déduit des images qu'il contient. */
+  async function dossiersImagesMJ() {
+    await init();
+    if (!estMJconnecte()) return [];
+    const v = (await db.ref('mj/' + uid() + '/imagesDossiers').get()).val() || {};
+    return Object.keys(v).map(k => v[k]).filter(Boolean);
+  }
+  async function declarerDossierImagesMJ(nom) {
+    await init();
+    if (!estMJconnecte()) throw new Error('Connecte-toi (compte MJ).');
+    await db.ref('mj/' + uid() + '/imagesDossiers/' + cleCarte(nom)).set(nom);
+  }
+  async function oublierDossierImagesMJ(nom) {
+    await init();
+    if (!estMJconnecte()) return;
+    await db.ref('mj/' + uid() + '/imagesDossiers/' + cleCarte(nom)).remove();
+  }
 
   /* ---------- la carte affichée, transportée par la partie ----------
      Les joueurs n'ont ni compte ni bibliothèque : la partie leur apporte la carte
@@ -414,6 +442,7 @@ KJ.session = (function () {
     // bibliothèque en ligne
     listerCartesMJ, enregistrerCarteMJ, supprimerCarteMJ,
     // images du compte
-    listerImagesMJ, enregistrerImageMJ, supprimerImageMJ,
+    listerImagesMJ, enregistrerImageMJ, supprimerImageMJ, modifierImageMJ,
+    dossiersImagesMJ, declarerDossierImagesMJ, oublierDossierImagesMJ,
   };
 })();
