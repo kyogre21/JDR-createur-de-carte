@@ -340,6 +340,33 @@ KJ.session = (function () {
     return true;
   }
 
+  /* ---------- les images du MJ (illustrations de compte) ----------
+     Même principe que les cartes : chaque compte a les siennes, importées depuis
+     l'appareil et FORTEMENT compressées avant envoi (data URL ~512 px) — la base
+     gratuite est comptée, les cartes restent prioritaires. Posée sur une carte,
+     l'image est embarquée dans le JSON de la carte (el.src = data URL) : les
+     joueurs la reçoivent avec la carte, sans accès au compte du MJ. */
+  async function listerImagesMJ() {
+    await init();
+    if (!estMJconnecte()) return null;   // null = « pas de compte connecté ici »
+    const v = (await db.ref('mj/' + uid() + '/images').get()).val() || {};
+    return Object.keys(v)
+      .map(k => ({ id: k, nom: (v[k] && v[k].nom) || '', data: v[k] && v[k].data }))
+      .filter(x => x.data)
+      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
+  }
+  async function enregistrerImageMJ(nom, data) {
+    await init();
+    if (!estMJconnecte()) throw new Error('Connecte-toi (compte MJ) pour importer des images.');
+    await db.ref('mj/' + uid() + '/images').push({ nom: nom || '', data: data, maj: TS() });
+  }
+  async function supprimerImageMJ(id) {
+    await init();
+    if (!estMJconnecte()) return false;
+    await db.ref('mj/' + uid() + '/images/' + String(id).replace(/[.#$\[\]\/]/g, '_')).remove();
+    return true;
+  }
+
   /* ---------- la carte affichée, transportée par la partie ----------
      Les joueurs n'ont ni compte ni bibliothèque : la partie leur apporte la carte
      elle-même. Le MJ la publie à chaque changement (rare), les joueurs l'écoutent. */
@@ -381,5 +408,7 @@ KJ.session = (function () {
     publierCartePartie,
     // bibliothèque en ligne
     listerCartesMJ, enregistrerCarteMJ, supprimerCarteMJ,
+    // images du compte
+    listerImagesMJ, enregistrerImageMJ, supprimerImageMJ,
   };
 })();
