@@ -95,7 +95,7 @@
     // el.auto = false l'exclut explicitement (ex. une trappe qui ne doit jamais se révéler
     // toute seule) — reste quand même révélable à la main, par clic droit.
     const masques = opsMasques();   // cachés à la main : l'automatisme ne les touche plus
-    const cibles = carte.elements.filter(e => (e.type === 'secret' || e.type === 'image')
+    const cibles = carte.elements.filter(e => (e.type === 'secret' || e.type === 'image' || e.cache)
       && e.auto !== false && !revelees.includes(e.id) && !masques.includes(e.id));
     if (!cibles.length) return;
     const pieces = carte.elements.filter(e => e.type === 'piece');
@@ -715,7 +715,8 @@
     const cible = e.target.closest('[data-id]');
     if (cible) {
       const el = M.trouver(carte, cible.dataset.id);
-      if (el && el.type === 'secret') basculerRevele(el.id);
+      // secret ou élément marqué « caché aux joueurs » : le clic droit bascule sa révélation
+      if (el && (el.type === 'secret' || el.cache)) basculerRevele(el.id);
     }
   });
 

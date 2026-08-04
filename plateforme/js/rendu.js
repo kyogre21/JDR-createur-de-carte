@@ -97,6 +97,7 @@ KJ.rendu = (function () {
       .kj-portail-los{fill:${or};stroke:#0d0a07;stroke-width:1.5}
       .kj-portail-lbl{fill:${or};font:600 9px "Palatino Linotype",Georgia,serif;text-anchor:middle;
         font-variant:small-caps;letter-spacing:.06em}
+      .kj-zone-cachee{opacity:.45}
       .kj-secret{fill:none;stroke:${sang};stroke-width:1.6;stroke-dasharray:4 3;pointer-events:all}
       .kj-secret-lbl{fill:${sang};font:italic 9px "Palatino Linotype",Georgia,serif;text-anchor:middle}
       .kj-image-cadre{fill:${salle};stroke:${or};stroke-width:1.6}
@@ -277,7 +278,15 @@ KJ.rendu = (function () {
         continue;
       }
       s += `<g data-calque="${c.id}">`;
-      for (const el of parC[c.id]) s += unElement(el, opts);
+      for (const el of parC[c.id]) {
+        /* el.cache : « zone cachée » — un élément normal (pièce, mur, porte, objet…)
+           que les joueurs ne doivent pas voir tant qu'il n'est pas révélé (une pièce
+           derrière un mur secret, par ex.). Vue MJ : estompé, pour le repérer d'un
+           coup d'œil. Vue joueurs : absent, sauf révélé en session (opts.reveles). */
+        if (el.cache && !opts.vueMJ && !(opts.reveles && opts.reveles.includes(el.id))) continue;
+        if (el.cache && opts.vueMJ) s += `<g class="kj-zone-cachee">` + unElement(el, opts) + `</g>`;
+        else s += unElement(el, opts);
+      }
       s += `</g>`;
     }
     return s;

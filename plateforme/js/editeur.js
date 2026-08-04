@@ -576,6 +576,12 @@
       if (objets.length)
         p.appendChild(champ('Rotation', inputNum(objets[0].rot || 0,
           v => objets.forEach(e => e.rot = v), 15)));
+      // toute une zone d'un coup : la pièce cachée ET ses murs, portes, mobilier
+      const cachables = els.filter(e => e.type !== 'secret' && e.type !== 'image');
+      if (cachables.length)
+        p.appendChild(caseACocher('Caché aux joueurs (révélable en jeu)',
+          cachables.every(e => e.cache),
+          v => cachables.forEach(e => e.cache = v || undefined)));
 
       p.appendChild(bouton('✕ Supprimer la sélection (Suppr)', () => {
         if (!confirm('Supprimer les ' + els.length + ' éléments sélectionnés ?')) return;
@@ -683,6 +689,12 @@
         apresModif(); dessiner(); majPanneau();
       }, el.src);
     }
+    /* Zone cachée : l'élément (pièce, mur, porte…) est invisible côté joueurs tant
+       que le MJ ne l'a pas révélé en jeu — pour la pièce derrière un mur secret.
+       Secrets et images sont déjà réservés au MJ, la case serait redondante. */
+    if (el.type !== 'secret' && el.type !== 'image')
+      p.appendChild(caseACocher('Caché aux joueurs (révélable en jeu)', !!el.cache,
+        v => el.cache = v || undefined));
     p.appendChild(bouton('✕ Supprimer (Suppr)', () => {
       M.supprimer(carte, el.id); sel = null; majPanneau(); apresModif(); dessiner();
     }, 'danger'));
