@@ -13,6 +13,15 @@ echo   2. Met le site a jour sur Firebase Hosting (gratuit,
 echo      sans credits de build : l'envoi part de ce PC)
 echo.
 
+rem ---- 0. catalogue des images (une image deposee sans etre cataloguee
+rem         n'apparait jamais dans l'app : on regenere avant chaque publication) ----
+echo   Mise a jour du catalogue des images...
+pushd plateforme
+node generer-catalogue-images.js
+if errorlevel 1 echo   [!] Catalogue non regenere (node absent ?). La publication continue.
+popd
+echo.
+
 rem ---- 1. sauvegarde git (gratuite, jamais bloquante) ----
 git status --short | findstr /r "." >nul
 if errorlevel 1 (
