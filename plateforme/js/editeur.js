@@ -757,6 +757,59 @@
     }
   }
 
+  /* Changer la taille des cases : une carte est pensée en CASES, pas en pixels.
+     On propose donc de convertir toute la géométrie (× nouvelle/ancienne) pour
+     qu'une salle de 5 × 4 cases reste une salle de 5 × 4 cases — c'est ce qui
+     évitait de désaligner une carte en changeant d'échelle en cours de route. */
+  function changerCase(nouv) {
+    const ancien = carte.grille.cell;
+    carte.grille.cell = nouv;
+    if (ancien && nouv && nouv !== ancien && carte.elements.length
+      && confirm('Adapter toute la carte à la nouvelle taille de case ?\n\n'
+        + 'OUI (conseillé) : tout est converti, chaque salle garde son nombre de cases.\n'
+        + 'NON : rien ne bouge en pixels — les éléments ne tomberont plus sur la grille.')) {
+      const k = nouv / ancien, n = (v) => Math.round(v * k);
+      carte.taille.w = n(carte.taille.w); carte.taille.h = n(carte.taille.h);
+      for (const e of carte.elements) {
+        for (const cle of ['x', 'y', 'x1', 'y1', 'x2', 'y2'])
+          if (e[cle] !== undefined) e[cle] = n(e[cle]);
+        if (e.type === 'piece' || e.type === 'secret' || e.type === 'objet') { e.w = n(e.w); e.h = n(e.h); }
+        if (e.l) e.l = Math.max(4, n(e.l));
+        if (e.ep) e.ep = Math.max(1, Math.round(e.ep * k));
+      }
+    }
+    majCartePanneau();
+  }
+
+  /* Recoller tous les éléments à la grille : chaque BORD est aimanté à la ligne la
+     plus proche (jamais x et largeur séparément) — deux éléments qui partageaient
+     une coordonnée la partagent encore, donc les portes restent sur leurs murs.
+     Rattrape une carte dessinée sur une autre échelle de cases. */
+  function realignerGrille() {
+    const cel = cell();
+    if (!cel) { toast('Pas de grille sur cette carte (case = 0).'); return; }
+    if (!confirm('Réaligner tous les éléments sur la grille de ' + cel + ' px ?\n\n'
+      + 'Chaque bord rejoint la ligne de grille la plus proche (au pire une demi-case).')) return;
+    const s = (v, pas) => Math.round(v / (pas || cel)) * (pas || cel);
+    for (const e of carte.elements) {
+      if (e.type === 'piece' || e.type === 'secret') {
+        const x2 = s(e.x + e.w), y2 = s(e.y + e.h);
+        e.x = s(e.x); e.y = s(e.y);
+        e.w = Math.max(cel, x2 - e.x); e.h = Math.max(cel, y2 - e.y);
+      } else if (e.type === 'mur') {
+        e.x1 = s(e.x1); e.y1 = s(e.y1); e.x2 = s(e.x2); e.y2 = s(e.y2);
+      } else if (e.type === 'porte' || e.type === 'fenetre') {
+        // l'axe posé SUR le mur rejoint la case entière (les murs y sont),
+        // la position le long du mur la demi-case ; ouverture = au moins une case
+        if (e.o === 'h') { e.y = s(e.y); e.x = s(e.x, cel / 2); }
+        else { e.x = s(e.x); e.y = s(e.y, cel / 2); }
+        if (e.l) e.l = Math.max(cel, s(e.l));
+      }
+    }
+    apresModif(); dessiner(); majCartePanneau();
+    toast('Tout est réaligné sur la grille.');
+  }
+
   function majCartePanneau() {
     const c = $('carte-props'); c.innerHTML = '';
     /* La campagne sert de dossier : les cartes en sont regroupées partout
@@ -778,8 +831,19 @@
     c.appendChild(champ('Campagne', camp));
     c.appendChild(champ('Largeur', inputNum(carte.taille.w, v => carte.taille.w = Math.max(100, v))));
     c.appendChild(champ('Hauteur', inputNum(carte.taille.h, v => carte.taille.h = Math.max(100, v))));
-    c.appendChild(champ('Case (px)', inputNum(carte.grille.cell, v => carte.grille.cell = Math.max(0, v))));
+    if (carte.grille.cell)
+      c.appendChild(champ('Cases (L×H)', duo(
+        Math.round(carte.taille.w / carte.grille.cell),
+        Math.round(carte.taille.h / carte.grille.cell),
+        (a, b) => {
+          carte.taille.w = Math.max(4, Math.round(a)) * carte.grille.cell;
+          carte.taille.h = Math.max(4, Math.round(b)) * carte.grille.cell;
+          majCartePanneau();
+        })));
+    c.appendChild(champ('Case (px)', inputNum(carte.grille.cell, v => changerCase(Math.max(0, v)))));
     c.appendChild(champ('Case (m)', inputNum(carte.grille.metres, v => carte.grille.metres = v || 1.5, .1)));
+    if (carte.grille.cell)
+      c.appendChild(bouton('⌗ Réaligner tout sur la grille', realignerGrille));
     const info = document.createElement('p'); info.className = 'aide';
     info.textContent = carte.grille.cell
       ? `Plan tactique : ${(carte.taille.w / carte.grille.cell * carte.grille.metres).toFixed(0)} × `
