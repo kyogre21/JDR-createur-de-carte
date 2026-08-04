@@ -135,21 +135,22 @@
   // une session de partie, comme le brouillard — pas une donnée de la carte elle-même.
   const opsReveles = () => (partie.reveles[carte.id] = partie.reveles[carte.id] || []);
   const opsMasques = () => (partie.masques[carte.id] = partie.masques[carte.id] || []);
+  /* Re-cacher NE désarme PLUS la révélation automatique (l'ancien « verrou »
+     bloquait les éléments re-cachés pendant les tests, de façon invisible).
+     Conséquence assumée : un élément re-caché alors qu'un PJ est encore dans sa
+     zone se re-révélera au prochain mouvement — éloigner le jeton d'abord. */
   function basculerRevele(id) {
     const liste = opsReveles(), masques = opsMasques();
     const i = liste.indexOf(id);
     if (i >= 0) {
       liste.splice(i, 1);
-      // cacher À LA MAIN doit tenir : sans cette exclusion, la révélation automatique
-      // (PJ présent dans la pièce) annulait le choix du MJ au mouvement suivant.
-      if (!masques.includes(id)) masques.push(id);
       toast('Caché de nouveau aux joueurs.');
     } else {
       liste.push(id);
-      const m = masques.indexOf(id);
-      if (m >= 0) masques.splice(m, 1);   // re-révéler à la main réarme l'automatisme
       toast('Révélé aux joueurs.');
     }
+    const m = masques.indexOf(id);
+    if (m >= 0) masques.splice(m, 1);   // purge les verrous hérités des anciennes versions
     dessinerPlan(); dessinerImages(); dessinerPins(); sauverPartie();
   }
   /* Révélation automatique : dès qu'un jeton PJ entre dans la pièce (élément 'piece') qui
@@ -165,14 +166,14 @@
     // auto !== false : un élément sans le champ (anciens fichiers) reste éligible par défaut ;
     // el.auto = false l'exclut explicitement (ex. une trappe qui ne doit jamais se révéler
     // toute seule) — reste quand même révélable à la main, par clic droit.
-    const masques = opsMasques();   // cachés à la main : l'automatisme ne les touche plus
     /* Secrets et images : révélation auto par défaut (e.auto !== false).
        Éléments « cachés aux joueurs » (el.cache) : l'inverse — clic droit du MJ
        uniquement, SAUF si la révélation auto a été cochée explicitement
-       (e.auto === true) dans l'éditeur. */
+       (e.auto === true) dans l'éditeur. Le « verrou » des éléments re-cachés à la
+       main (masques) a été retiré : il désarmait l'automatisme de façon invisible. */
     const cibles = carte.elements.filter(e =>
       ((e.type === 'secret' || e.type === 'image') ? e.auto !== false : (e.cache && e.auto === true))
-      && !revelees.includes(e.id) && !masques.includes(e.id));
+      && !revelees.includes(e.id));
     if (!cibles.length) return;
     const pieces = carte.elements.filter(e => e.type === 'piece');
     let changement = false;
@@ -310,11 +311,11 @@
      c'est l'entrée d'un PJ dans la pièce qui révèle (verifierDeclencheurs). */
   function revelerParPinceau(op) {
     if (op.m !== 'reveal') return;
-    const revelees = opsReveles(), masques = opsMasques();
+    const revelees = opsReveles();
     let change = false;
     for (const e of carte.elements) {
       if (e.type !== 'secret' && e.type !== 'image') continue;
-      if (e.auto === false || revelees.includes(e.id) || masques.includes(e.id)) continue;
+      if (e.auto === false || revelees.includes(e.id)) continue;
       const b = M.boite(e);
       const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
       if (Math.hypot(cx - op.x, cy - op.y) <= op.r) {
