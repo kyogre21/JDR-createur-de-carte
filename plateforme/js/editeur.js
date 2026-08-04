@@ -585,7 +585,12 @@
       if (cachables.length)
         p.appendChild(caseACocher('Caché aux joueurs (révélable en jeu)',
           cachables.every(e => e.cache),
-          v => cachables.forEach(e => e.cache = v || undefined)));
+          v => { cachables.forEach(e => { e.cache = v || undefined; if (!v) e.auto = undefined; }); majPanneau(); }));
+      const caches = cachables.filter(e => e.cache);
+      if (caches.length)
+        p.appendChild(caseACocher('Révélation auto des éléments cachés (PJ dans la pièce)',
+          caches.every(e => e.auto === true),
+          v => caches.forEach(e => e.auto = v ? true : undefined)));
 
       p.appendChild(bouton('✕ Supprimer la sélection (Suppr)', () => {
         if (!confirm('Supprimer les ' + els.length + ' éléments sélectionnés ?')) return;
@@ -704,9 +709,14 @@
     /* Zone cachée : l'élément (pièce, mur, porte…) est invisible côté joueurs tant
        que le MJ ne l'a pas révélé en jeu — pour la pièce derrière un mur secret.
        Secrets et images sont déjà réservés au MJ, la case serait redondante. */
-    if (el.type !== 'secret' && el.type !== 'image')
+    if (el.type !== 'secret' && el.type !== 'image') {
       p.appendChild(caseACocher('Caché aux joueurs (révélable en jeu)', !!el.cache,
-        v => el.cache = v || undefined));
+        v => { el.cache = v || undefined; if (!v) el.auto = undefined; majPanneau(); }));
+      // l'inverse des secrets : ici l'automatisme est OPT-IN, jamais par défaut
+      if (el.cache)
+        p.appendChild(caseACocher('Révélation automatique (un PJ entre dans la pièce)',
+          el.auto === true, v => el.auto = v ? true : undefined));
+    }
     p.appendChild(bouton('✕ Supprimer (Suppr)', () => {
       M.supprimer(carte, el.id); sel = null; majPanneau(); apresModif(); dessiner();
     }, 'danger'));

@@ -118,11 +118,13 @@
     // el.auto = false l'exclut explicitement (ex. une trappe qui ne doit jamais se révéler
     // toute seule) — reste quand même révélable à la main, par clic droit.
     const masques = opsMasques();   // cachés à la main : l'automatisme ne les touche plus
-    /* Les éléments « cachés aux joueurs » (el.cache) ne sont volontairement PAS
-       dans les déclencheurs : une zone cachée ne se révèle QUE par clic droit du
-       MJ — un PJ qui passe à côté ne doit rien dévoiler. */
-    const cibles = carte.elements.filter(e => (e.type === 'secret' || e.type === 'image')
-      && e.auto !== false && !revelees.includes(e.id) && !masques.includes(e.id));
+    /* Secrets et images : révélation auto par défaut (e.auto !== false).
+       Éléments « cachés aux joueurs » (el.cache) : l'inverse — clic droit du MJ
+       uniquement, SAUF si la révélation auto a été cochée explicitement
+       (e.auto === true) dans l'éditeur. */
+    const cibles = carte.elements.filter(e =>
+      ((e.type === 'secret' || e.type === 'image') ? e.auto !== false : (e.cache && e.auto === true))
+      && !revelees.includes(e.id) && !masques.includes(e.id));
     if (!cibles.length) return;
     const pieces = carte.elements.filter(e => e.type === 'piece');
     let changement = false;
