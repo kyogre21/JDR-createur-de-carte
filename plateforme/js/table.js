@@ -299,8 +299,31 @@
     // filtre de distance : à 60-120 événements/s, garder chaque point multipliait
     // par 5-10 la taille de l'état (réseau, stockage, redessin) sans gain visible
     if (prec && prec.m === m && Math.hypot(prec.x - x, prec.y - y) < PINCEAU / 3) return;
-    ops.push({ m: m, x: x, y: y, r: PINCEAU });
-    dessinerFog(); sauverPartieBientot();
+    const op = { m: m, x: x, y: y, r: PINCEAU };
+    ops.push(op);
+    dessinerFog(); revelerParPinceau(op); sauverPartieBientot();
+  }
+  /* Le pinceau est LE geste qui « montre » : découvrir le brouillard sur un secret
+     ou une image le révèle en même temps que la zone. « Tout révéler », lui, ne
+     déclenche volontairement rien — dévoiler le plan d'un bâtiment (salles connues
+     par des recherches) n'est pas voir ce qui se cache derrière ses portes ; là,
+     c'est l'entrée d'un PJ dans la pièce qui révèle (verifierDeclencheurs). */
+  function revelerParPinceau(op) {
+    if (op.m !== 'reveal') return;
+    const revelees = opsReveles(), masques = opsMasques();
+    let change = false;
+    for (const e of carte.elements) {
+      if (e.type !== 'secret' && e.type !== 'image') continue;
+      if (e.auto === false || revelees.includes(e.id) || masques.includes(e.id)) continue;
+      const b = M.boite(e);
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      if (Math.hypot(cx - op.x, cy - op.y) <= op.r) {
+        revelees.push(e.id); change = true;
+        toast((e.type === 'image' ? '🖼 ' : '⌗ ') + (e.nom || e.nature || 'Élément')
+          + ' révélé : la zone est découverte.');
+      }
+    }
+    if (change) { dessinerPlan(); dessinerImages(); dessinerPins(); }
   }
   /* Un coup de pinceau malheureux dévoile une pièce entière : il faut pouvoir
      revenir en arrière. On retire le dernier geste (une traînée = plusieurs
