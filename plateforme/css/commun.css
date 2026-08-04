@@ -99,6 +99,7 @@ button:disabled{opacity:.4;cursor:default}
 .palette button span{white-space:normal;text-align:center;word-break:break-word}
 .palette svg{width:26px;height:26px}
 .palette svg *{fill:none;stroke:var(--encre);stroke-width:5;vector-effect:non-scaling-stroke}
+.palette svg .plein{fill:var(--encre);stroke:none}
 .palette img{width:26px;height:26px;object-fit:cover;border-radius:3px;display:block}
 /* dossier navigable dans la palette d'images : même gabarit que les vignettes, une
    icône à la place d'une image */

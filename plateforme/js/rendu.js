@@ -50,6 +50,20 @@ KJ.rendu = (function () {
       <path d="M8 78 Q30 62 50 62 Q70 62 92 78" fill="none"/>
       <path d="M20 58 Q35 44 50 44 Q65 44 80 58" fill="none"/>
       <path d="M32 40 Q42 30 50 30 Q58 30 68 40" fill="none"/>`,
+    /* ---- formes libres : marquer une case (« il y a quelque chose ici »)
+       sans nommer l'objet — repères abstraits, comme l'astérisque de lumière ---- */
+    frond:        `<circle cx="50" cy="50" r="42"/>`,
+    frondplein:   `<circle cx="50" cy="50" r="40" class="plein"/>`,
+    fcarre:       `<rect x="10" y="10" width="80" height="80"/>`,
+    fcarreplein:  `<rect x="12" y="12" width="76" height="76" class="plein"/>`,
+    ftriangle:    `<polygon points="50,8 92,88 8,88"/>`,
+    flosange:     `<polygon points="50,6 94,50 50,94 6,50"/>`,
+    fcroix:       `<path d="M16 16 L84 84 M84 16 L16 84"/>`,
+    fplus:        `<path d="M50 8 L50 92 M8 50 L92 50"/>`,
+    fetoile:      `<polygon points="50,6 61,38 95,38 67,58 78,92 50,71 22,92 33,58 5,38 39,38"/>`,
+    fpoint:       `<circle cx="50" cy="50" r="16" class="plein"/>`,
+    fexclam:      `<path d="M50 8 L50 60"/><circle cx="50" cy="86" r="8" class="plein"/>`,
+    fquest:       `<path d="M28 30 Q28 8 50 8 Q72 8 72 30 Q72 46 50 52 L50 62" fill="none"/><circle cx="50" cy="86" r="8" class="plein"/>`,
   };
 
   /* Feuille de style embarquée : rend le SVG exporté autonome

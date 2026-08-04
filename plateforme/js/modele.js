@@ -38,6 +38,19 @@ KJ.modele = (function () {
     { id: 'miroir',     nom: 'Miroir',         w: 26, h: 14 },
     { id: 'statue',     nom: 'Statue',         w: 26, h: 34 },
     { id: 'tombe',      nom: 'Tombe',          w: 24, h: 30 },
+    // formes libres : marquer une case sans nommer l'objet (repères abstraits)
+    { id: 'frond',       nom: 'Rond',           w: 20, h: 20 },
+    { id: 'frondplein',  nom: 'Rond plein',     w: 16, h: 16 },
+    { id: 'fcarre',      nom: 'Carré',          w: 20, h: 20 },
+    { id: 'fcarreplein', nom: 'Carré plein',    w: 16, h: 16 },
+    { id: 'ftriangle',   nom: 'Triangle',       w: 20, h: 20 },
+    { id: 'flosange',    nom: 'Losange',        w: 20, h: 20 },
+    { id: 'fcroix',      nom: 'Croix (X)',      w: 18, h: 18 },
+    { id: 'fplus',       nom: 'Plus (+)',       w: 18, h: 18 },
+    { id: 'fetoile',     nom: 'Étoile',         w: 20, h: 20 },
+    { id: 'fpoint',      nom: 'Point',          w: 12, h: 12 },
+    { id: 'fexclam',     nom: 'Marque « ! »',   w: 14, h: 20 },
+    { id: 'fquest',      nom: 'Marque « ? »',   w: 14, h: 20 },
   ];
   const symbole = (id) => SYMBOLES.find(s => s.id === id) || SYMBOLES[0];
 
