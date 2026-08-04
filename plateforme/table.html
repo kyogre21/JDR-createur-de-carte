@@ -53,6 +53,10 @@
     color:var(--or);padding:1px 7px;border-radius:3px;font:600 11px var(--ui);white-space:nowrap}
   .pin.inerte .lab{color:#8d8474}
   body[data-vue="joueurs"] .pin{cursor:default}
+  /* portail marqué « caché aux joueurs » : estompé côté MJ, absent côté joueurs
+     (préview locale comprise) tant qu'il n'est pas révélé */
+  .pin.zone-cachee{opacity:.45}
+  body[data-vue="joueurs"] .pin.zone-cachee{display:none}
   /* fenêtre projetée : rien n'y est manipulable */
   body[data-vue="joueurs"] #choix-carte{pointer-events:none;opacity:.75}
 

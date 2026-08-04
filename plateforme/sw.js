@@ -11,11 +11,11 @@
    indéfiniment l'ancien code, y compris celui qui réinstallait ce cache. Ne
    jamais revenir à cette stratégie pour le HTML et les scripts.
    ============================================================ */
-const CACHE = 'cartographe-knight-5';
+const CACHE = 'cartographe-6';
 const ESSENTIELS = [
   './', './index.html', './editeur.html', './table.html', './css/commun.css',
   './js/modele.js', './js/rendu.js', './js/stockage.js', './js/editeur.js', './js/table.js',
-  './manifest.webmanifest', './cartes/index.json',
+  './manifest.webmanifest',
   './icone-192.png', './icone-512.png', './icone-32.png',
   './js/firebase-config.js', './js/session.js',
 ];
@@ -23,7 +23,10 @@ const ESSENTIELS = [
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => c.addAll(ESSENTIELS).catch(() => {}))   // un fichier manquant ne bloque pas
+      // fichier par fichier : addAll est ATOMIQUE, un seul 404 (ex. un fichier
+      // exclu du déploiement) annulait silencieusement tout le pré-cache et
+      // le hors-ligne ne marchait pour rien du tout
+      .then(c => Promise.all(ESSENTIELS.map(u => c.add(u).catch(() => {}))))
       .then(() => self.skipWaiting())
   );
 });

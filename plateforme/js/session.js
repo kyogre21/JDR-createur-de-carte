@@ -158,6 +158,11 @@ KJ.session = (function () {
 
   /* ---------- côté MJ : parties persistantes ---------- */
   function brancherMJ(code) {
+    /* rebrancher SANS nettoyer l'ancienne session laissait ses écouteurs vivants :
+       les mouvements des joueurs de la partie A s'appliquaient à l'état de la
+       partie B — et le timer de publication pouvait écrire A dans B. */
+    if (etatSession) etatSession.refs.forEach(f => { try { f(); } catch (e) {} });
+    if (publierTimer) { clearTimeout(publierTimer); publierTimer = null; publierDernier = null; }
     etatSession = { code, mj: true, refs: [] };
     // présence : les joueurs voient si le MJ est à la table ; la partie, elle, RESTE
     const r = db.ref('parties/' + code + '/mjEnLigne');
@@ -283,10 +288,15 @@ KJ.session = (function () {
       const hL = rL.on('value', snap => handlers.onPresence(!!snap.val()));
       etatSession.refs.push(() => rL.off('value', hL));
     }
-    const hFin = ref.on('value', snap => {
-      if (!snap.val() && handlers.onFin) handlers.onFin('fermee');
+    /* détection de fermeture : écouter « creee » (un scalaire), PAS le nœud entier —
+       un écouteur value sur parties/<code> re-téléchargeait la carte complète ET
+       toutes ses images chez chaque joueur à CHAQUE publication d'état (≈3/s en
+       peignant le brouillard) : quota et forfait mobile engloutis. */
+    const rFin = ref.child('creee');
+    const hFin = rFin.on('value', snap => {
+      if (snap.val() === null && handlers.onFin) handlers.onFin('fermee');
     });
-    etatSession.refs.push(() => ref.off('value', hFin));
+    etatSession.refs.push(() => rFin.off('value', hFin));
     return code;
   }
 
@@ -415,6 +425,16 @@ KJ.session = (function () {
      base pour la prochaine séance. Détruire une partie = supprimerPartie. */
   async function fermer() {
     if (!etatSession) return;
+    // publier la dernière version en attente AVANT de couper : sans ça, les 300
+    // dernières ms de brouillard peint juste avant « Quitter » étaient perdues
+    if (publierTimer) {
+      clearTimeout(publierTimer); publierTimer = null;
+      if (etatSession.mj && publierDernier && db)
+        await db.ref('parties/' + etatSession.code)
+          .update({ etat: JSON.parse(JSON.stringify(publierDernier)), modifiee: TS() })
+          .catch(() => {});
+      publierDernier = null;
+    }
     etatSession.refs.forEach(f => { try { f(); } catch (e) {} });
     if (db) {
       if (etatSession.mj)

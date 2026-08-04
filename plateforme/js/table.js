@@ -43,6 +43,20 @@
   let galChemin = [];                // navigation dans le catalogue (chemin de dossiers) ; [] = racine
   let imagesCompte = null;           // images du compte MJ (côté MJ, pour résoudre les src « img:<id> »)
   let imagesPartie = {};             // côté joueur : { id: dataURL } transportées avec la carte
+  let imagesChargement = null;       // promesse en cours (réessayée tant que rien n'est obtenu)
+
+  /* Charge (ou recharge) les images du compte MJ. Réessaie à chaque appel tant que
+     rien n'a été obtenu : le MJ peut très bien se connecter APRÈS l'ouverture de la
+     page (modale « Partie »), or l'ancienne version ne tentait qu'une fois au
+     chargement — les images partaient alors « null » vers les joueurs, en silence. */
+  function chargerImagesCompte() {
+    if (!KJ.session || !KJ.session.configuree()) return Promise.resolve(null);
+    if (!imagesChargement)
+      imagesChargement = KJ.session.listerImagesMJ()
+        .then(l => { imagesCompte = l; if (l === null) imagesChargement = null; return l; })
+        .catch(() => { imagesChargement = null; return null; });
+    return imagesChargement;
+  }
 
   /* Une src d'élément image peut être : un chemin du dépôt (images/…), un blob
      embarqué (data:, anciennes cartes), ou une référence de compte (img:<id>) —
@@ -78,7 +92,15 @@
   // cette fenêtre — nécessaire quand un joueur y déplace lui-même son jeton PJ, pour que
   // le MJ voie le résultat ; false = ne jamais diffuser (mise à jour reçue, pas d'écho).
   function sauverPartie(diffuser) {
-    try { localStorage.setItem(CLE_PARTIE, JSON.stringify(partie)); } catch (e) {}
+    try { localStorage.setItem(CLE_PARTIE, JSON.stringify(partie)); }
+    catch (e) {
+      // quota plein (des années de brouillard accumulé) : le dire UNE fois plutôt
+      // que de perdre silencieusement la sauvegarde locale à chaque geste
+      if (!sauverPartie._quota) {
+        sauverPartie._quota = true;
+        toast('Sauvegarde locale pleine : « Réinitialiser cette carte » (brouillard) allège l’état.');
+      }
+    }
     const doitDiffuser = diffuser === true || (diffuser !== false && !vueJoueurs);
     if (doitDiffuser && canal) canal.postMessage({ t: 'partie', partie: partie });
     if (doitDiffuser && KJ.session && KJ.session.estMJ()) KJ.session.publier(partie);
@@ -102,7 +124,7 @@
       if (m >= 0) masques.splice(m, 1);   // re-révéler à la main réarme l'automatisme
       toast('Révélé aux joueurs.');
     }
-    dessinerPlan(); dessinerImages(); sauverPartie();
+    dessinerPlan(); dessinerImages(); dessinerPins(); sauverPartie();
   }
   /* Révélation automatique : dès qu'un jeton PJ entre dans la pièce (élément 'piece') qui
      contient un secret ou une image non révélé, on le révèle — approximation volontaire
@@ -209,13 +231,19 @@
   /* Un coup de pinceau malheureux dévoile une pièce entière : il faut pouvoir
      revenir en arrière. On retire le dernier geste (une traînée = plusieurs
      touches, on remonte donc jusqu'au marqueur de début de geste). */
-  let marqueursFog = [];
-  function debutGesteFog() { marqueursFog.push(opsFog().length); if (marqueursFog.length > 40) marqueursFog.shift(); }
+  /* Pile de marqueurs PAR CARTE : une pile globale mélangeait les index de
+     plusieurs cartes — annuler après un changement de carte pouvait effacer des
+     heures d'exploration d'une autre carte, ou pire, AGRANDIR le tableau (index
+     d'une grande carte appliqué à une petite) et créer des trous qui faisaient
+     planter dessinerFog à chaque redessin. */
+  let marqueursFog = {};
+  const pileFog = () => (marqueursFog[carte.id] = marqueursFog[carte.id] || []);
+  function debutGesteFog() { const p = pileFog(); p.push(opsFog().length); if (p.length > 40) p.shift(); }
   function annulerFog() {
-    const ops = opsFog();
+    const ops = opsFog(), pile = pileFog();
     if (!ops.length) { toast('Rien à annuler.'); return; }
-    const depuis = marqueursFog.length ? marqueursFog.pop() : ops.length - 1;
-    ops.length = Math.max(0, depuis);
+    const depuis = pile.length ? pile.pop() : ops.length - 1;
+    ops.length = Math.max(0, Math.min(depuis, ops.length));   // ne jamais agrandir
     dessinerFog(); sauverPartie();
     toast('Dernier geste de brouillard annulé.');
   }
@@ -246,6 +274,9 @@
     }
   }
   function ouvrirImage(src, titre) {
+    // une référence img:<id> non résolue (compte pas connecté, image supprimée)
+    // arrive ici en chaîne vide : le dire vaut mieux qu'une visionneuse cassée
+    if (!src) { toast('Image indisponible — compte MJ non connecté, ou image supprimée du compte.'); return; }
     let lb = $('lightbox');
     if (!lb) {
       lb = document.createElement('div'); lb.id = 'lightbox';
@@ -326,7 +357,7 @@
       }
       for (const im of images) {
         const b = document.createElement('button');
-        b.innerHTML = `<img src="${im.data || 'images/' + im.fichier}" alt="">` + `<span>${im.nom || im.fichier}</span>`;
+        b.innerHTML = `<img src="${im.data || 'images/' + im.fichier}" alt="">` + `<span>${R.esc(im.nom || im.fichier)}</span>`;
         b.addEventListener('click', () => onChoisir(im));
         gEl.appendChild(b);
       }
@@ -417,11 +448,17 @@
     // MJ, ses losanges restent donc dorés (jamais « inertes » faute d'index)
     const enPartie = KJ.session && KJ.session.active() && !KJ.session.estMJ();
     for (const p of portails) {
-      const dest = resoudre(p.vers);
+      /* portail « caché aux joueurs » : les pins sont en HTML, hors du filtre SVG
+         des zones cachées — sans ce test, losange ET nom de la destination
+         apparaissaient aux joueurs dès que le brouillard était ouvert. */
+      const revele = opsReveles().includes(p.id);
       const d = document.createElement('div');
-      d.className = 'pin' + (dest || enPartie ? '' : ' inerte');
+      const dest = resoudre(p.vers);
+      d.className = 'pin' + (dest || enPartie ? '' : ' inerte')
+        + (p.cache && !revele ? ' zone-cachee' : '');
       d.style.left = p.x + 'px'; d.style.top = p.y + 'px';
       if (dest) d.dataset.vers = dest.id;
+      d.dataset.id = p.id;   // clic droit = révéler/cacher, comme un secret
       d.title = dest ? 'Aller à : ' + dest.nom
         : (enPartie ? 'Passage' : 'Carte « ' + p.vers + ' » absente de la bibliothèque');
       d.innerHTML = `<span class="los"></span><span class="lab">${R.esc(p.label || (dest ? dest.nom : p.vers))}</span>`;
@@ -456,20 +493,32 @@
       }
     });
   }
-  let carteRecue = null;   // côté joueur : la carte transportée par la partie
+  let carteRecue = null;      // côté joueur : la carte transportée par la partie
+  let generationCarte = 0;    // anti-course : seul le chargement le plus récent s'applique
   function chargerCarte(id) {
-    const c = catalogue.find(x => x.id === id) || catalogue[0];
+    const gen = ++generationCarte;
+    /* JAMAIS « || catalogue[0] » quand un id précis est demandé : ce repli affichait
+       une carte de démo du site à la place de la carte de la partie (le brouillard du
+       MJ, indexé sur SON id, la couvrait alors de noir), et la carte transportée
+       (carteRecue) devenait inatteignable. catalogue[0] ne sert qu'au tout premier
+       affichage, quand AUCUNE carte n'est demandée. */
+    const c = id ? catalogue.find(x => x.id === id) : catalogue[0];
     /* Les joueurs invités n'ont pas de catalogue (bibliothèque privée) : la carte
        affichée leur est TRANSPORTÉE par la partie (publierCartePartie). Le fichier
        servi par le site reste un dernier recours (anciennes cartes déployées). */
     let promesse;
     if (c) promesse = Promise.resolve(c);
-    else if (carteRecue && carteRecue.id === id)
+    else if (id && carteRecue && carteRecue.id === id)
       promesse = Promise.resolve(KJ.modele.depuisJSON(carteRecue.json));
+    else if (!id) promesse = Promise.reject(new Error('Aucune carte.'));
     else promesse = fetch('cartes/' + encodeURIComponent(id) + '.json', { cache: 'no-cache' })
       .then(r => { if (!r.ok) throw new Error('Carte introuvable.'); return r.json(); })
       .then(KJ.modele.depuisJSON);
     return promesse.then(c => {
+      if (gen !== generationCarte) return c;   // un chargement plus récent a gagné
+      // un geste en cours (pinceau de brouillard, jeton tenu) ne doit pas continuer
+      // sur la nouvelle carte : il écrirait dans le brouillard de la mauvaise carte
+      mode = null; jDrag = null;
       carte = c;
       const vide = document.getElementById('scene-vide');
       if (vide) vide.remove();   // le message d'attente s'efface dès qu'une carte arrive
@@ -490,7 +539,12 @@
       // en partie, la carte affichée voyage avec elle : les joueurs n'ont ni compte
       // ni bibliothèque, c'est la partie qui la leur apporte
       if (KJ.session && KJ.session.active() && KJ.session.estMJ())
-        KJ.session.publierCartePartie(c.id, KJ.modele.versJSON(c), imagesDeCarte(c));
+        // attendre les images du compte : publier avant leur chargement enverrait
+        // « images: null » et les joueurs ne les recevraient jamais
+        chargerImagesCompte().then(() => {
+          if (carte === c && KJ.session.active() && KJ.session.estMJ())
+            KJ.session.publierCartePartie(c.id, KJ.modele.versJSON(c), imagesDeCarte(c));
+        });
       // dire une fois où cliquer : les portails ne sautent pas aux yeux
       if (!vueJoueurs && !chargerCarte._dit) {
         const n = pinsEl.querySelectorAll('.pin:not(.inerte)').length;
@@ -504,10 +558,11 @@
   if (canal) canal.onmessage = (ev) => {
     const m = ev.data;
     if (m.t === 'partie') {
-      const changeCarte = m.partie.carte !== (carte && carte.id);
-      partie = m.partie;
-      if (changeCarte) chargerCarte(partie.carte).catch(() => {});
-      else { dessinerFog(); dessinerJetons(); }
+      /* même chemin que le réseau : gardes anti-champs-vides, garde carte nulle,
+         et redessin COMPLET — sans dessinerPlan/dessinerImages/dessinerPins, la
+         fenêtre joueurs locale (TV) n'affichait jamais les révélations du MJ, et
+         un élément re-caché y restait visible. */
+      appliquerEtatDistant(m.partie);
     } else if (m.t === 'cam' && vueJoueurs && suivre) {
       const r = scene.getBoundingClientRect();
       cam.s = m.s; cam.tx = r.width / 2 - m.cx * m.s; cam.ty = r.height / 2 - m.cy * m.s;
@@ -518,7 +573,7 @@
   };
   window.addEventListener('storage', (e) => {
     if (e.key === CLE_PARTIE && e.newValue && !canal) {
-      try { partie = JSON.parse(e.newValue); dessinerFog(); dessinerJetons(); } catch (err) {}
+      try { appliquerEtatDistant(JSON.parse(e.newValue)); } catch (err) {}
     }
   });
 
@@ -545,6 +600,9 @@
       }
       return;
     }
+    // le ping est réservé au MJ (voir commentaire ci-dessus) — et sans carte
+    // affichée, carte.id planterait
+    if (vueJoueurs || !carte) return;
     const w = versMonde(cx, cy);
     montrerPing(w.x, w.y);
     if (canal) canal.postMessage({ t: 'ping', x: w.x, y: w.y, carte: carte.id });
@@ -676,17 +734,21 @@
         if (enReseau)
           KJ.session.envoyerMouvement({ id: jDrag.id, x: jDrag.x, y: jDrag.y, carte: carte.id,
             portail: portail ? portail.vers : null });
-        verifierDeclencheurs();
+        // JAMAIS dans la fenêtre joueurs : un joueur seul (MJ absent) pouvait sinon
+        // se révéler localement tous les secrets en promenant son jeton
+        if (!vueJoueurs) verifierDeclencheurs();
         // le groupe marche sur le losange : change de carte tout seul, PJ amenés avec lui
         if (portail) {
           const dest = resoudre(portail.vers);
-          toast('Passage : ' + (portail.label || dest.nom) + '…');
+          toast('Passage : ' + (portail.label || (dest ? dest.nom : 'passage')) + '…');
           // en réseau, changer de carte localement désynchronisait les deux vues :
           // l'état officiel du MJ, resté sur l'ancienne carte, ramenait les joueurs
           // en arrière. C'est le MJ qui traverse (voir surMouvements) et la nouvelle
           // carte redescend vers tout le monde par l'état.
-          if (!enReseau)
-            chargerCarte(portail.vers).then(() => { amenerPJ(); sauverPartie(true); })
+          // dest.id (résolu par nom OU id) : le « vers » brut d'une vieille carte
+          // pouvait viser un nom et charger n'importe quoi.
+          if (!enReseau && dest)
+            chargerCarte(dest.id).then(() => { amenerPJ(); sauverPartie(true); })
               .catch(() => toast('Carte introuvable.'));
         }
       }
@@ -744,6 +806,10 @@
       if (dernierPointeur === 'touch'
           && !confirm('Supprimer le jeton « ' + (jNom || '?') + ' » ?')) return;
       partie.jetons = partie.jetons.filter(j => j.id !== jet.dataset.id);
+      // le geste en cours tenait ce jeton : sans ça, le relâchement du doigt
+      // rejouait un « lâcher sur portail » avec un jeton supprimé → changement
+      // de carte fantôme pour toute la table
+      mode = null; jDrag = null;
       dessinerJetons(); sauverPartie();
       return;
     }
@@ -761,10 +827,11 @@
   /* ---------------- commandes ---------------- */
   $('choix-carte').addEventListener('change', (e) => chargerCarte(e.target.value).catch(() => toast('Chargement impossible.')));
   $('b-annuler-fog').addEventListener('click', annulerFog);
-  $('b-couvrir').addEventListener('click', () => { partie.fog[carte.id] = []; dessinerFog(); sauverPartie(); toast('Carte entièrement recouverte.'); });
+  $('b-couvrir').addEventListener('click', () => { partie.fog[carte.id] = []; marqueursFog[carte.id] = []; dessinerFog(); sauverPartie(); toast('Carte entièrement recouverte.'); });
   $('b-decouvrir').addEventListener('click', () => {
     partie.fog[carte.id] = [{ m: 'reveal', x: carte.taille.w / 2, y: carte.taille.h / 2,
       r: Math.max(carte.taille.w, carte.taille.h) }];
+    marqueursFog[carte.id] = [];
     dessinerFog(); sauverPartie(); toast('Terrain entièrement révélé.');
   });
   /* Repartir à neuf sur cette carte pour une nouvelle table (d'autres joueurs) : brouillard,
@@ -790,10 +857,12 @@
       $('r-annuler').addEventListener('click', fermerModale);
       $('r-ok').addEventListener('click', () => {
         const touche = [];
-        if ($('r-fog').checked) { partie.fog[carte.id] = []; touche.push('brouillard'); }
-        if ($('r-reveles').checked) { partie.reveles[carte.id] = []; touche.push('révélations'); }
+        if ($('r-fog').checked) { partie.fog[carte.id] = []; marqueursFog[carte.id] = []; touche.push('brouillard'); }
+        // masques aussi : un élément re-caché à la main restait sinon désarmé pour
+        // toujours — la révélation automatique ne marchait plus pour le groupe suivant
+        if ($('r-reveles').checked) { partie.reveles[carte.id] = []; partie.masques[carte.id] = []; touche.push('révélations'); }
         if ($('r-jetons').checked) { partie.jetons = partie.jetons.filter(j => j.carte !== carte.id); touche.push('jetons'); }
-        dessinerFog(); dessinerJetons(); dessinerPlan(); dessinerImages(); sauverPartie(true);
+        dessinerFog(); dessinerJetons(); dessinerPlan(); dessinerImages(); dessinerPins(); sauverPartie(true);
         fermerModale();
         toast(touche.length ? 'Réinitialisé : ' + touche.join(', ') + '.' : 'Rien à réinitialiser.');
       });
@@ -1023,9 +1092,11 @@
   });
   // indépendante du chargement de la carte : la galerie doit marcher même sans plan affiché
   chargerGalerie().catch(() => {});
-  // les images du compte MJ : résolution des « img:<id> » et présence dans la galerie
-  if (!vueJoueurs && KJ.session && KJ.session.configuree() && KJ.session.mjProbable())
-    KJ.session.listerImagesMJ().then(l => { imagesCompte = l; }).catch(() => {});
+  // les images du compte MJ : résolution des « img:<id> » et présence dans la galerie.
+  // Aussi dans la fenêtre ?vue=joueurs du même navigateur (préview/TV du MJ) : elle
+  // doit pouvoir résoudre les images que le MJ révèle.
+  if (KJ.session && KJ.session.configuree() && KJ.session.mjProbable())
+    chargerImagesCompte();
 
   /* ---------------- sessions multi-appareils ----------------
      L'état reçu du réseau suit le même chemin qu'un message BroadcastChannel :
@@ -1070,25 +1141,32 @@
       if (!m || !m.id) return;
       const j = partie.jetons.find(x => x.id === m.id);
       if (!j || !j.pj) return;   // seuls les jetons PJ sont déplaçables par les joueurs
-      j.x = m.x; j.y = m.y;
-      if (m.carte) j.carte = m.carte;
       // le joueur a lâché son jeton sur un portail : le MJ traverse pour tout le
       // monde — la nouvelle carte part dans l'état officiel et chaque fenêtre suit
       if (m.portail) {
-        const dest = resoudre(m.portail);
-        toast('Les PJ passent : ' + (dest ? dest.nom : m.portail) + '…');
-        chargerCarte(m.portail).then(() => { amenerPJ(); sauverPartie(true); })
+        const dest = resoudre(m.portail);   // par id OU par nom (vieilles cartes)
+        if (!dest) { toast('Portail vers « ' + m.portail + ' » : carte introuvable.'); return; }
+        toast('Les PJ passent : ' + dest.nom + '…');
+        chargerCarte(dest.id).then(() => { amenerPJ(); sauverPartie(true); })
           .catch(() => toast('Carte « ' + m.portail + ' » introuvable.'));
         return;
       }
+      /* un geste parti d'une carte qui n'est plus affichée (joueur en retard d'un
+         état) ne doit pas téléporter le jeton hors de la carte courante */
+      if (m.carte && carte && m.carte !== carte.id) return;
+      j.x = m.x; j.y = m.y;
       dessinerJetons();
       verifierDeclencheurs();   // la révélation automatique se joue ici, chez le MJ
       sauverPartie();           // et l'état officiel redescend vers tous les joueurs
     });
     if (etatConserve) appliquerEtatDistant(etatConserve);   // reprise : la base fait foi
     else KJ.session.publier(partie);                        // partie neuve : l'état courant part
-    // la carte affichée part aussi : c'est elle que les joueurs recevront
-    if (carte) KJ.session.publierCartePartie(carte.id, KJ.modele.versJSON(carte), imagesDeCarte(carte));
+    // la carte affichée part aussi : c'est elle que les joueurs recevront —
+    // après le chargement des images du compte, sinon elles partiraient « null »
+    chargerImagesCompte().then(() => {
+      if (carte && KJ.session.active() && KJ.session.estMJ())
+        KJ.session.publierCartePartie(carte.id, KJ.modele.versJSON(carte), imagesDeCarte(carte));
+    });
   }
   function annoncerCode(code, reprise) {
     const lien = location.origin + location.pathname + '?session=' + code;
@@ -1263,7 +1341,10 @@
       onCarte: (c) => {
         carteRecue = c;
         imagesPartie = c.images || {};   // les images du compte MJ que la carte référence
-        if (partie.carte === c.id && (!carte || carte.id !== c.id))
+        // charge dès que rien (ou autre chose) n'est affiché — sans exiger que
+        // l'état soit déjà arrivé : une partie à la carte publiée mais sans état
+        // laissait sinon le joueur sur un écran vide définitif
+        if ((!carte || carte.id !== c.id) && (!partie.carte || partie.carte === c.id))
           chargerCarte(c.id).catch(() => {});
         else if (carte && carte.id === c.id) dessinerImages();   // les icônes deviennent cliquables
       },

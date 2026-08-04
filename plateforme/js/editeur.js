@@ -371,11 +371,13 @@
       const min = Math.max((cell() || 20) / 2, 8);
       if (w >= min && h >= min) {
         const el = M.ajouter(carte, M.nouvelElement(outil, { x, y, w, h }));
+        heriterCache(el);
         sel = el.id; majPanneau(); apresModif();
       }
     } else if (mode === 'trace-mur' && depart.x2 != null) {
       if (Math.hypot(depart.x2 - depart.x, depart.y2 - depart.y) >= 10) {
         const el = M.ajouter(carte, M.nouvelElement('mur', { x1: depart.x, y1: depart.y, x2: depart.x2, y2: depart.y2 }));
+        heriterCache(el);
         sel = el.id; majPanneau(); apresModif();
       }
     } else if (mode === 'trace-sel' && depart.x2 != null) {
@@ -480,8 +482,22 @@
       });
     } else return;
     M.ajouter(carte, el);
+    heriterCache(el);
     sel = el.id;
     majPanneau(); apresModif(); dessiner();
+  }
+
+  /* Un élément posé DANS une pièce cachée doit l'être aussi : sinon la pièce
+     disparaît en vue joueurs mais son mobilier, ses portes, ses murs restent
+     dessinés, flottant sur le parchemin nu — la salle secrète se repère
+     immédiatement. La case du panneau reste décochable au cas par cas. */
+  function heriterCache(el) {
+    if (el.cache || el.type === 'secret' || el.type === 'image') return;
+    const b = M.boite(el);
+    const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+    const dans = carte.elements.some(p => p.type === 'piece' && p.cache && p.id !== el.id
+      && cx >= p.x && cx <= p.x + p.w && cy >= p.y && cy <= p.y + p.h);
+    if (dans) { el.cache = true; toast('Posé dans une zone cachée : caché aux joueurs aussi.'); }
   }
 
   /* ---------------- panneaux ---------------- */
@@ -691,11 +707,19 @@
         + 'se dévoiler tout seul (une trappe cachée, par ex.) — clic droit dessus, en mode Jeu, reste toujours '
         + 'possible pour le révéler à la main.</p>'));
     } else if (el.type === 'image') {
-      const prev = document.createElement('img');
-      prev.src = resoudreSrc(el.src); prev.alt = el.nom || '';
-      prev.style.cssText = 'width:100%;max-height:160px;object-fit:contain;border-radius:5px;'
-        + 'display:block;margin-bottom:8px;border:1px solid var(--bord-clair);background:#000';
-      p.appendChild(prev);
+      const srcResolue = resoudreSrc(el.src);
+      if (srcResolue) {
+        const prev = document.createElement('img');
+        prev.src = srcResolue; prev.alt = el.nom || '';
+        prev.style.cssText = 'width:100%;max-height:160px;object-fit:contain;border-radius:5px;'
+          + 'display:block;margin-bottom:8px;border:1px solid var(--bord-clair);background:#000';
+        p.appendChild(prev);
+      } else {
+        const aide = document.createElement('p'); aide.className = 'aide';
+        aide.textContent = 'Image du compte indisponible : connecte-toi à ton compte MJ '
+          + '(bibliothèque → 🛡 Espace MJ), ou l’image a été supprimée du compte.';
+        p.appendChild(aide);
+      }
       p.appendChild(champ('Légende', inputTxt(el.nom, v => el.nom = v)));
       p.appendChild(caseACocher('Révélation automatique (un PJ entre dans la pièce)',
         el.auto !== false, v => el.auto = v));
@@ -800,7 +824,9 @@
     onPick = onPick || ((im) => { imgChoisi = im; majPanneau(); });
     if (actifSrc === undefined) actifSrc = imgChoisi && srcPose(imgChoisi);
 
-    p.appendChild(filAriane(imgChemin, (c) => { imgChemin = c; majPanneau(); }));
+    // naviguer efface la recherche : sinon les clics de dossiers ne changeaient
+    // rien à l'écran tant que le champ n'était pas vidé à la main
+    p.appendChild(filAriane(imgChemin, (c) => { imgFiltre = ''; imgChemin = c; majPanneau(); }));
 
     /* Recherche par nom, dans TOUS les dossiers à la fois : avec des dizaines
        d'images, descendre dossier par dossier ne suffit plus. Le champ ne
@@ -833,7 +859,13 @@
         if (!confirm('Supprimer « ' + (im.nom || 'cette image') + ' » de ton compte ?\n\n'
           + 'Les icônes déjà posées sur des cartes ne pourront plus l’afficher.')) return;
         KJ.session.supprimerImageMJ(im.id)
-          .then(() => { imgCompte = (imgCompte || []).filter(x => x.id !== im.id); majPanneau(); })
+          .then(() => {
+            imgCompte = (imgCompte || []).filter(x => x.id !== im.id);
+            // l'image supprimée ne doit plus être « choisie » : le clic suivant
+            // sur le plan poserait une référence morte
+            if (imgChoisi && imgChoisi.id === im.id) imgChoisi = null;
+            majPanneau();
+          })
           .catch(() => toast('Suppression impossible — vérifie ta connexion.'));
       });
       g.appendChild(b);
@@ -885,7 +917,7 @@
           // remonter d'un cran — et cible de dépôt pour sortir une image du dossier
           const up = document.createElement('button'); up.className = 'dossier';
           up.innerHTML = '<span class="ic-dossier">⬆</span><span>Dossier parent</span>';
-          up.addEventListener('click', () => { imgChemin = imgChemin.slice(0, -1); majPanneau(); });
+          up.addEventListener('click', () => { imgFiltre = ''; imgChemin = imgChemin.slice(0, -1); majPanneau(); });
           cibleDepot(up, sousChemin.slice(0, -1).join('/'));
           g.appendChild(up);
         }
@@ -897,7 +929,7 @@
         for (const d of dossiers) {
           const b = document.createElement('button'); b.className = 'dossier';
           b.innerHTML = `<span class="ic-dossier">🗀</span><span>${d}</span>`;
-          b.addEventListener('click', () => { imgChemin = imgChemin.concat([d]); majPanneau(); });
+          b.addEventListener('click', () => { imgFiltre = ''; imgChemin = imgChemin.concat([d]); majPanneau(); });
           cibleDepot(b, sousChemin.concat([d]).join('/'));
           b.addEventListener('contextmenu', (e) => {   // clic droit : supprimer un dossier vide
             e.preventDefault();
@@ -924,7 +956,7 @@
         if (!imgChemin.length) {
           const b = document.createElement('button'); b.className = 'dossier';
           b.innerHTML = '<span class="ic-dossier">👤</span><span>Mes images</span>';
-          b.addEventListener('click', () => { imgChemin = [MES_IMAGES]; majPanneau(); });
+          b.addEventListener('click', () => { imgFiltre = ''; imgChemin = [MES_IMAGES]; majPanneau(); });
           g.appendChild(b);
         }
         t.textContent = (!dossiers.length && !images.length && imgChemin.length) ? 'Dossier vide.'
@@ -932,7 +964,7 @@
         for (const d of dossiers) {
           const b = document.createElement('button'); b.className = 'dossier';
           b.innerHTML = `<span class="ic-dossier">🗀</span><span>${d}</span>`;
-          b.addEventListener('click', () => { imgChemin = imgChemin.concat([d]); majPanneau(); });
+          b.addEventListener('click', () => { imgFiltre = ''; imgChemin = imgChemin.concat([d]); majPanneau(); });
           g.appendChild(b);
         }
         for (const im of images) tuile(im, g);

@@ -85,7 +85,9 @@
     act.appendChild(jouer);
     const svg = document.createElement('button');
     svg.textContent = '↓ SVG';
-    svg.addEventListener('click', () => S.exporterSVG(carte));
+    // vue joueurs : l'export de la bibliothèque livrait la vue MJ — secrets,
+    // zones cachées et natures compris. Pour un export MJ, passer par l'éditeur.
+    svg.addEventListener('click', () => S.exporterSVG(carte, { vueMJ: false, grille: true }));
     act.appendChild(svg);
     if (modifiable) {
       const ren = document.createElement('button');
