@@ -135,8 +135,11 @@
       const salle = pieces
         .filter(p => cx >= p.x && cx <= p.x + p.w && cy >= p.y && cy <= p.y + p.h)
         .sort((a, c) => a.w * a.h - c.w * c.h)[0];
-      // pas de pièce englobante (élément posé en couloir, extérieur…) : repli en rayon (~2 cases)
-      const zone = salle || { x: cx - 80, y: cy - 80, w: 160, h: 160 };
+      // pas de pièce englobante (élément posé en couloir, extérieur…) : repli en
+      // rayon de ~2 cases — en unités de la GRILLE de la carte, pas en pixels fixes
+      // (à cases de 8 px, ±80 px couvrait 10 cases et révélait tout le voisinage)
+      const r = (carte.grille && carte.grille.cell) ? carte.grille.cell * 2 : 80;
+      const zone = salle || { x: cx - r, y: cy - r, w: r * 2, h: r * 2 };
       if (pjs.some(j => j.x >= zone.x && j.x <= zone.x + zone.w && j.y >= zone.y && j.y <= zone.y + zone.h)) {
         revelees.push(cible.id);
         changement = true;
