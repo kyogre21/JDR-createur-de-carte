@@ -134,17 +134,12 @@ KJ.rendu = (function () {
 
       case 'piece': {
         // défaut 2 : assez pour lire la structure sans manger la case (les cartes
-        // existantes gardent leur ep enregistré, 5 pour les plus anciennes)
+        // existantes gardent leur ep enregistré, 5 pour les plus anciennes).
+        // Le NOM de la pièce est dessiné à part, après toute la structure (voir corps) :
+        // la découpe d'une porte ne doit pas le gommer.
         const ep = ` style="stroke-width:${el.ep || 2}"`;
-        let s = `<g${id} class="kj-el"><rect class="kj-piece"${ep} x="${el.x}" y="${el.y}" `
-              + `width="${el.w}" height="${el.h}"/>`;
-        if (el.nom) {
-          // nomTaille : taille du libellé au choix (défaut 11.5 px, celle du style)
-          const st = el.nomTaille ? ` style="font-size:${el.nomTaille}px"` : '';
-          const dy = el.nomTaille ? 6 + el.nomTaille : 17;   // garde le nom sous le mur haut
-          s += `<text class="kj-txt-lbl"${st} x="${el.x + el.w / 2}" y="${el.y + dy}">${esc(el.nom)}</text>`;
-        }
-        return s + `</g>`;
+        return `<g${id} class="kj-el"><rect class="kj-piece"${ep} x="${el.x}" y="${el.y}" `
+              + `width="${el.w}" height="${el.h}"/></g>`;
       }
 
       case 'mur':
@@ -306,6 +301,22 @@ KJ.rendu = (function () {
         else s += unElement(el, opts);
       }
       s += `</g>`;
+      /* Les NOMS de pièces se dessinent après toute la structure : sinon la découpe
+         d'une porte posée sur le mur du haut (trait couleur de salle, épais) vient
+         gommer les premières lettres du libellé. */
+      if (c.id === 'structure') {
+        s += `<g data-calque="noms-pieces">`;
+        for (const el of parC[c.id]) {
+          if (el.type !== 'piece' || !el.nom) continue;
+          const revele = !!(opts.reveles && opts.reveles.includes(el.id));
+          if (el.cache && !opts.vueMJ && !revele) continue;
+          const st = el.nomTaille ? ` style="font-size:${el.nomTaille}px"` : '';
+          const dy = el.nomTaille ? 6 + el.nomTaille : 17;
+          const txt = `<text class="kj-txt-lbl"${st} x="${el.x + el.w / 2}" y="${el.y + dy}">${esc(el.nom)}</text>`;
+          s += (el.cache && opts.vueMJ && !revele) ? `<g class="kj-zone-cachee">${txt}</g>` : txt;
+        }
+        s += `</g>`;
+      }
     }
     return s;
   }
