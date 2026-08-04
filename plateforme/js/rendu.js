@@ -82,9 +82,12 @@ KJ.rendu = (function () {
       .kj-coupe{stroke:${salle};fill:none;stroke-linecap:butt}
       .kj-porte{stroke:${encre};stroke-width:1.8;fill:none}
       .kj-porte-secrete{stroke:${encre};stroke-width:1.8;fill:none;stroke-dasharray:5 4}
-      .kj-fenetre{fill:${salle};stroke:${encre};stroke-width:1.4}
+      .kj-fenetre{fill:${salle};stroke:${encre};stroke-width:1.8}
       .kj-grille{stroke:${encre};stroke-width:1;opacity:.09}
-      .kj-obj{fill:${salle};stroke:${encre};stroke-width:1.4;vector-effect:non-scaling-stroke}
+      /* trait à 2.4 : à 1.4 les symboles (mobilier, formes) devenaient filiformes
+         dès qu'on dézoomait — le trait ne suit pas le zoom (non-scaling-stroke) */
+      .kj-obj{fill:${salle};stroke:${encre};stroke-width:2.4;vector-effect:non-scaling-stroke}
+      .kj-obj *{vector-effect:non-scaling-stroke}
       .kj-obj .plein{fill:${encre};stroke:none}
       .kj-obj .tapis-ext{fill:${sang};fill-opacity:.15;stroke:${sang};stroke-opacity:.55}
       .kj-obj .tapis-int{fill:none;stroke:${sang};stroke-opacity:.4}
