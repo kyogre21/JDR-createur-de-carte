@@ -221,20 +221,23 @@ KJ.session = (function () {
   }
 
   /* Publication de l'état, avec lissage : peindre le brouillard déclenche des
-     dizaines de sauvegardes par seconde, on n'envoie que la dernière toutes
-     les 300 ms. L'état complet reste petit (quelques Ko). */
+     dizaines de sauvegardes par seconde, on n'envoie que la dernière. 1 000 ms :
+     l'état COMPLET part à chaque publication et chaque joueur le retélécharge
+     intégralement — à 300 ms, une séance de peinture pouvait engloutir plusieurs
+     Go de quota et de forfait mobile. Une seconde de latence sur le brouillard
+     des joueurs est indolore à table. */
   function publier(partie) {
     if (!etatSession || !etatSession.mj || !db) return;
     publierDernier = partie;
     if (publierTimer) return;
     publierTimer = setTimeout(() => {
       publierTimer = null;
-      // la table a pu être quittée pendant les 300 ms d'attente : plus rien à publier
+      // la table a pu être quittée pendant l'attente : plus rien à publier
       if (!etatSession || !etatSession.mj) return;
       db.ref('parties/' + etatSession.code)
         .update({ etat: JSON.parse(JSON.stringify(publierDernier)), modifiee: TS() })
         .catch(() => {});
-    }, 300);
+    }, 1000);
   }
 
   function surJoueurs(cb) {
@@ -249,8 +252,11 @@ KJ.session = (function () {
     await init();
     code = String(code || '').replace(/\D+/g, '');
     const ref = db.ref('parties/' + code);
-    const s = (await ref.get()).val();
-    if (!s || !s.mj) throw new Error('Aucune partie « ' + code + ' ». Vérifie le code avec le MJ.');
+    // ne lire QUE « mj » pour vérifier l'existence : un get du nœud entier
+    // téléchargeait l'état + la carte + toutes ses images… que les écouteurs
+    // ci-dessous retéléchargent aussitôt — chaque connexion payait tout en double
+    const proprio = (await ref.child('mj').get()).val();
+    if (!proprio) throw new Error('Aucune partie « ' + code + ' ». Vérifie le code avec le MJ.');
     etatSession = { code, mj: false, refs: [] };
     // présence : le MJ voit combien de joueurs suivent ; départ propre à la déconnexion
     const moi = ref.child('joueurs/' + uid());
@@ -412,6 +418,12 @@ KJ.session = (function () {
      elle-même. Le MJ la publie à chaque changement (rare), les joueurs l'écoutent. */
   function publierCartePartie(id, json, images) {
     if (!etatSession || !etatSession.mj || !db) return;
+    // ne pas republier ce que les joueurs ont déjà : un aller-retour d'escalier
+    // renvoyait carte + images (parfois des centaines de Ko) à l'identique
+    const sig = etatSession.code + '|' + id + '|' + json
+      + '|' + (images ? Object.keys(images).join(',') : '');
+    if (sig === publierCartePartie._sig) return;
+    publierCartePartie._sig = sig;
     // images : { idImage: dataURL } — celles du compte MJ que la carte référence
     // (src « img:<id> ») ; les joueurs n'ont pas accès au compte, la partie leur
     // apporte donc les données avec la carte.

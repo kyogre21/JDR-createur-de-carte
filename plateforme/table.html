@@ -14,7 +14,9 @@
   #scene{flex:1 1 auto;position:relative;overflow:hidden;touch-action:none;background:#0a0806;cursor:grab}
   #scene.o-reveal,#scene.o-hide{cursor:crosshair}
   #scene.o-mesure{cursor:cell}
-  #monde{position:absolute;left:0;top:0;transform-origin:0 0}
+  /* will-change : promeut le monde sur son propre calque GPU — le pan/zoom ne
+     repeint plus le SVG ni le canvas de brouillard, il ne fait que composer */
+  #monde{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
   #monde > *{position:absolute;left:0;top:0}
   #plan{display:block}
   /* côté MJ, le voile reste transparent pour travailler ; côté joueurs il est opaque */

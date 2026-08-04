@@ -121,8 +121,13 @@
     cam.ty = (vh - carte.taille.h * cam.s) / 2;
     applyCam();
   }
+  /* Rect du canevas en cache : le lire à chaque pointermove force un recalcul de
+     mise en page par événement (60-240/s selon le périphérique). Invalidé quand
+     la mise en page peut bouger (redimensionnement, panneau replié). */
+  let rectCanevas = null;
+  window.addEventListener('resize', () => { rectCanevas = null; });
   function toMonde(cx, cy) {
-    const r = canevas.getBoundingClientRect();
+    const r = rectCanevas || (rectCanevas = canevas.getBoundingClientRect());
     return { x: (cx - r.left - cam.tx) / cam.s, y: (cy - r.top - cam.ty) / cam.s };
   }
   const cell = () => carte.grille.cell || 0;
@@ -141,12 +146,23 @@
     R.dansSVG(plan, carte, { ids: true, vueMJ: vueMJ, grille: calquesVis.grille, calques: calquesVis });
     dessinerEdition();
   }
+  /* Coalescé sur une frame : appelé à chaque pointermove (pan, tracés, aperçu
+     d'accroche), il réécrivait le calque d'édition plus vite que l'écran. */
+  let besoinEdition = false;
   function dessinerEdition() {
+    if (besoinEdition) return;
+    besoinEdition = true;
+    requestAnimationFrame(() => { besoinEdition = false; dessinerEditionMaintenant(); });
+  }
+  function dessinerEditionMaintenant() {
     edition.setAttribute('viewBox', `0 0 ${carte.taille.w} ${carte.taille.h}`);
     edition.setAttribute('width', carte.taille.w);
     edition.setAttribute('height', carte.taille.h);
     const k = 1 / Math.max(cam.s, .0001);
     let s = '';
+    // index construit une fois par rendu : les recherches linéaires par id
+    // coûtaient O(k·n) quand la multi-sélection était grande
+    const parId = selMulti.length > 12 ? new Map(carte.elements.map(e => [e.id, e])) : null;
     const el = sel && M.trouver(carte, sel);
     if (el) {
       const b = M.boite(el);
@@ -168,7 +184,7 @@
     }
     // multi-sélection : un cadre pointillé par élément pris dans le rectangle
     for (const id of selMulti) {
-      const e = M.trouver(carte, id); if (!e) continue;
+      const e = parId ? parId.get(id) : M.trouver(carte, id); if (!e) continue;
       const b = M.boite(e);
       s += `<rect class="cadre" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" `
          + `style="stroke-width:${1.5 * k};stroke-dasharray:${4 * k} ${3 * k}"/>`;
@@ -337,7 +353,11 @@
     } else if (mode === 'move-multi') {
       const dx = acc(pt.x - depart.pt.x, true), dy = acc(pt.y - depart.pt.y, true);
       if (dx || dy) {
-        for (const id of selMulti) { const el = M.trouver(carte, id); if (el) M.deplacer(el, dx, dy); }
+        // index construit une fois par geste : M.trouver (find linéaire) par id et
+        // par frame était en O(k·n) — un « tout déplacer » sur une grosse carte
+        // faisait des centaines de milliers de comparaisons par frame
+        if (!depart.parId) depart.parId = new Map(carte.elements.map(e => [e.id, e]));
+        for (const id of selMulti) { const el = depart.parId.get(id); if (el) M.deplacer(el, dx, dy); }
         depart.pt = { x: depart.pt.x + dx, y: depart.pt.y + dy };
         depart.bouge++;
         dessinerPlus();
@@ -1392,7 +1412,7 @@
   $('b-cadrer').addEventListener('click', cadrer);
   $('b-panneau').addEventListener('click', () => {
     $('panneau').classList.toggle('replie');
-    setTimeout(dessinerEdition, 60);
+    setTimeout(() => { rectCanevas = null; dessinerEdition(); }, 60);
   });
   $('b-vue').addEventListener('click', () => {
     vueMJ = !vueMJ;

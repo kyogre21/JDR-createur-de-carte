@@ -314,15 +314,21 @@ KJ.rendu = (function () {
 
   /* ---------- rendu complet ----------
      opts : { grille, calques:{id:bool}, vueMJ, ids, grain, theme } */
-  function corps(carte, opts) {
-    opts = Object.assign({ grille: true, vueMJ: true, ids: false, grain: true, calques: null }, opts);
+  const optsDefaut = (opts) => Object.assign({ grille: true, vueMJ: true, ids: false, grain: true, calques: null }, opts);
+  /* Le SOCLE (fond, grain, grille) ne dépend que de la taille, de la grille et des
+     options — pas des éléments. Séparé des calques pour que dansSVG puisse le
+     garder en place pendant l'édition (voir plus bas). */
+  function socle(carte, opts) {
     const vis = (idc) => !opts.calques || opts.calques[idc] !== false;
-    const parC = KJ.modele.parCalque(carte);
-
     let s = `<rect class="kj-fond" x="0" y="0" width="${carte.taille.w}" height="${carte.taille.h}"/>`;
     if (opts.grain) s += `<rect x="0" y="0" width="${carte.taille.w}" height="${carte.taille.h}" filter="url(#kjGrain)"/>`;
     if (opts.grille && vis('grille')) s += grilleSVG(carte);
-
+    return s;
+  }
+  function calquesSVG(carte, opts) {
+    const vis = (idc) => !opts.calques || opts.calques[idc] !== false;
+    const parC = KJ.modele.parCalque(carte);
+    let s = '';
     for (const c of KJ.modele.CALQUES) {
       if (!vis(c.id)) continue;
       // un calque MJ se filtre élément par élément, pas en bloc : un élément révélé
@@ -364,6 +370,10 @@ KJ.rendu = (function () {
     }
     return s;
   }
+  function corps(carte, opts) {
+    opts = optsDefaut(opts);
+    return socle(carte, opts) + calquesSVG(carte, opts);
+  }
 
   function defs(theme) {
     return `<defs>
@@ -379,10 +389,32 @@ KJ.rendu = (function () {
          + defs((opts || {}).theme) + corps(carte, opts) + `</svg>`;
   }
 
-  /* Remplit un <svg> existant (utilisé par l'éditeur, qui ajoute ses poignées). */
+  /* Remplit un <svg> existant (éditeur et table). Redessin en trois étages :
+     - les DEFS (filtre de grain + feuille de style) : injectés UNE seule fois —
+       les recréer re-rastérisait le bruit et invalidait le style de tout le
+       document à chaque frame de déplacement ;
+     - le SOCLE (fond/grain/grille) : régénéré seulement quand sa signature change
+       (taille, cases, options) — 200 lignes de grille ne bougent pas quand on
+       déplace un mur ;
+     - les CALQUES d'éléments : seuls eux sont reconstruits à chaque appel. */
   function dansSVG(svgEl, carte, opts) {
+    opts = optsDefaut(opts);
     svgEl.setAttribute('viewBox', `0 0 ${carte.taille.w} ${carte.taille.h}`);
-    svgEl.innerHTML = defs((opts || {}).theme) + corps(carte, opts);
+    let gSocle = svgEl._kjSocle, gCalques = svgEl._kjCalques;
+    if (!gSocle || gSocle.ownerSVGElement !== svgEl || !gCalques) {
+      svgEl.innerHTML = defs(opts.theme) + '<g data-kj="socle"></g><g data-kj="calques"></g>';
+      gSocle = svgEl._kjSocle = svgEl.querySelector('g[data-kj="socle"]');
+      gCalques = svgEl._kjCalques = svgEl.querySelector('g[data-kj="calques"]');
+      svgEl._kjSigSocle = null;
+    }
+    const vis = (idc) => !opts.calques || opts.calques[idc] !== false;
+    const sigSocle = [carte.taille.w, carte.taille.h, carte.grille.cell,
+      !!opts.grain, !!(opts.grille && vis('grille')), opts.theme ? JSON.stringify(opts.theme) : ''].join('|');
+    if (svgEl._kjSigSocle !== sigSocle) {
+      svgEl._kjSigSocle = sigSocle;
+      gSocle.innerHTML = socle(carte, opts);
+    }
+    gCalques.innerHTML = calquesSVG(carte, opts);
   }
 
   return { SYM, styles, defs, corps, svgString, dansSVG, unElement, esc };

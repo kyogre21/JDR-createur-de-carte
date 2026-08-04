@@ -105,6 +105,32 @@
     if (doitDiffuser && canal) canal.postMessage({ t: 'partie', partie: partie });
     if (doitDiffuser && KJ.session && KJ.session.estMJ()) KJ.session.publier(partie);
   }
+  /* Sauvegarde LISSÉE pour les gestes continus (pinceau, états reçus en rafale) :
+     sérialiser + écrire localStorage + cloner vers l'autre fenêtre à chaque
+     pointermove bloquait le fil principal 60 fois par seconde. Les gestes discrets
+     (poser un jeton, révéler) continuent d'appeler sauverPartie directement. */
+  let sauverTimer = null, sauverRang = 0;   // 1 = false, 2 = défaut, 3 = true (diffusion)
+  function sauverPartieBientot(diffuser) {
+    const r = diffuser === true ? 3 : diffuser === false ? 1 : 2;
+    if (r > sauverRang) sauverRang = r;
+    if (sauverTimer) return;
+    sauverTimer = setTimeout(() => {
+      sauverTimer = null;
+      const d = sauverRang === 3 ? true : sauverRang === 1 ? false : undefined;
+      sauverRang = 0;
+      sauverPartie(d);
+    }, 400);
+  }
+  function flushSauver() {
+    if (!sauverTimer) return;
+    clearTimeout(sauverTimer); sauverTimer = null;
+    const d = sauverRang === 3 ? true : sauverRang === 1 ? false : undefined;
+    sauverRang = 0;
+    sauverPartie(d);
+  }
+  window.addEventListener('pagehide', flushSauver);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSauver(); });
+
   // éléments MJ (secret, image) révélés en permanence aux joueurs pour la carte affichée :
   // une session de partie, comme le brouillard — pas une donnée de la carte elle-même.
   const opsReveles = () => (partie.reveles[carte.id] = partie.reveles[carte.id] || []);
@@ -182,51 +208,95 @@
        Jetons, portails et icônes d'image suivent le zoom de la carte ; sur un plan
        dézoomé (le cas normal sur téléphone) un jeton tombe à ~17 px à l'écran, très
        en dessous de ce qu'un doigt peut viser. Cette variable permet de garder une
-       zone sensible de taille CONSTANTE À L'ÉCRAN sans toucher au dessin. */
-    monde.style.setProperty('--inv', 1 / (cam.s || 1));
+       zone sensible de taille CONSTANTE À L'ÉCRAN sans toucher au dessin.
+       Écrite SEULEMENT quand le zoom change : c'est une propriété héritée, la poser
+       invalide le style de tout le sous-arbre (des milliers de nœuds) — un pan la
+       laissait pourtant identique, à chaque frame. */
+    if (cam.s !== appliquerCam._s) {
+      appliquerCam._s = cam.s;
+      monde.style.setProperty('--inv', 1 / (cam.s || 1));
+    }
     if (canal && !vueJoueurs) {
-      const r = scene.getBoundingClientRect();
+      const r = rectScene();
       canal.postMessage({ t: 'cam', cx: (r.width / 2 - cam.tx) / cam.s, cy: (r.height / 2 - cam.ty) / cam.s, s: cam.s });
     }
   }
+  /* Le rectangle de la scène ne bouge qu'au redimensionnement : le lire à chaque
+     pointermove forçait un recalcul de mise en page par événement (60-120/s). */
+  let rectSceneCache = null;
+  function rectScene() { return rectSceneCache || (rectSceneCache = scene.getBoundingClientRect()); }
+  window.addEventListener('resize', () => { rectSceneCache = null; });
+  window.addEventListener('orientationchange', () => { rectSceneCache = null; });
   function cadrer() {
-    const r = scene.getBoundingClientRect();
+    rectSceneCache = null;   // la mise en page a pu changer (barre repliée, rotation)
+    const r = rectScene();
     cam.s = Math.min(r.width / carte.taille.w, r.height / carte.taille.h) * 0.94;
     cam.tx = (r.width - carte.taille.w * cam.s) / 2;
     cam.ty = (r.height - carte.taille.h * cam.s) / 2;
     appliquerCam();
   }
   function versMonde(cx, cy) {
-    const r = scene.getBoundingClientRect();
+    const r = rectScene();
     return { x: (cx - r.left - cam.tx) / cam.s, y: (cy - r.top - cam.ty) / cam.s };
   }
 
-  /* ---------------- brouillard ---------------- */
+  /* ---------------- brouillard ----------------
+     Dessin INCRÉMENTAL : l'ancienne version rejouait TOUTES les touches depuis le
+     début de la campagne à chaque mouvement du pinceau (coût quadratique : injouable
+     après une minute de peinture cumulée) et réallouait le bitmap du canvas
+     (10-30 Mo) à chaque appel. On mémorise ce que le canvas contient déjà (carte,
+     nombre d'ops, signature de la dernière) et on ne peint que le suffixe ; le
+     redessin complet ne sert qu'aux cas où l'historique a changé autrement
+     (annulation, couvrir, carte changée, état distant divergent). */
+  let fogCtx = null;
+  let fogPeint = { carte: null, nb: 0, sig: '' };
+  const sigOp = (o) => o ? o.m + o.x + ',' + o.y + ',' + o.r : '';
+  function peindreOp(c, op) {
+    if (op.m === 'reveal') {
+      c.globalCompositeOperation = 'destination-out';
+      const g = c.createRadialGradient(op.x, op.y, op.r * .55, op.x, op.y, op.r);
+      g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.fillStyle = g;
+    } else {
+      c.globalCompositeOperation = 'source-over';
+      c.fillStyle = '#080a12';   // noir légèrement bleuté : se distingue mieux du parchemin
+    }
+    c.beginPath(); c.arc(op.x, op.y, op.r, 0, 7); c.fill();
+  }
   function dessinerFog() {
     const w = carte.taille.w, h = carte.taille.h;
-    fog.width = w * QUAL; fog.height = h * QUAL;
-    fog.style.width = w + 'px'; fog.style.height = h + 'px';
-    const c = fog.getContext('2d');
-    c.setTransform(QUAL, 0, 0, QUAL, 0, 0);
-    c.globalCompositeOperation = 'source-over';
-    c.fillStyle = '#080a12';   // noir légèrement bleuté : se distingue mieux du parchemin
-    c.fillRect(0, 0, w, h);
-    for (const op of opsFog()) {
-      if (op.m === 'reveal') {
-        c.globalCompositeOperation = 'destination-out';
-        const g = c.createRadialGradient(op.x, op.y, op.r * .55, op.x, op.y, op.r);
-        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        c.fillStyle = g;
-      } else {
-        c.globalCompositeOperation = 'source-over';
-        c.fillStyle = '#080a12';   // noir légèrement bleuté : se distingue mieux du parchemin
-      }
-      c.beginPath(); c.arc(op.x, op.y, op.r, 0, 7); c.fill();
+    const ops = opsFog();
+    // willReadFrequently : sousBrouillard lit des pixels juste après le dessin —
+    // sur le chemin GPU, chaque lecture forçait une synchronisation coûteuse
+    if (!fogCtx) fogCtx = fog.getContext('2d', { willReadFrequently: true });
+    const c = fogCtx;
+    const memeBase = fogPeint.carte === carte.id
+      && fog.width === w * QUAL && fog.height === h * QUAL
+      && ops.length >= fogPeint.nb
+      && sigOp(ops[fogPeint.nb - 1]) === fogPeint.sig;
+    if (memeBase) {
+      for (let i = fogPeint.nb; i < ops.length; i++) peindreOp(c, ops[i]);
+    } else {
+      // écrire canvas.width VIDE le bitmap : ne réallouer que si la taille change
+      if (fog.width !== w * QUAL || fog.height !== h * QUAL) { fog.width = w * QUAL; fog.height = h * QUAL; }
+      fog.style.width = w + 'px'; fog.style.height = h + 'px';
+      c.setTransform(QUAL, 0, 0, QUAL, 0, 0);
+      c.globalCompositeOperation = 'source-over';
+      c.fillStyle = '#080a12';
+      c.fillRect(0, 0, w, h);
+      for (const op of ops) peindreOp(c, op);
     }
+    fogPeint = { carte: carte.id, nb: ops.length, sig: sigOp(ops[ops.length - 1]) };
   }
   function pinceau(m, x, y) {
-    opsFog().push({ m: m, x: Math.round(x), y: Math.round(y), r: PINCEAU });
-    dessinerFog(); sauverPartie();
+    const ops = opsFog();
+    const prec = ops[ops.length - 1];
+    x = Math.round(x); y = Math.round(y);
+    // filtre de distance : à 60-120 événements/s, garder chaque point multipliait
+    // par 5-10 la taille de l'état (réseau, stockage, redessin) sans gain visible
+    if (prec && prec.m === m && Math.hypot(prec.x - x, prec.y - y) < PINCEAU / 3) return;
+    ops.push({ m: m, x: x, y: y, r: PINCEAU });
+    dessinerFog(); sauverPartieBientot();
   }
   /* Un coup de pinceau malheureux dévoile une pièce entière : il faut pouvoir
      revenir en arrière. On retire le dernier geste (une traînée = plusieurs
@@ -253,8 +323,10 @@
     plan.setAttribute('width', carte.taille.w);
     plan.setAttribute('height', carte.taille.h);
     // ids:true : nécessaire pour retrouver un secret sous le clic droit (basculerRevele)
+    // grain:false — le bruit de parchemin (feTurbulence) se recalcule pixel par
+    // pixel à chaque rendu et à chaque palier de zoom : joli à l'export, ruineux à table
     R.dansSVG(plan, carte, { ids: true, vueMJ: document.body.dataset.vue === 'mj', grille: true,
-      portails: false, images: false, reveles: opsReveles() });
+      portails: false, images: false, grain: false, reveles: opsReveles() });
   }
   /* Icônes d'illustration (créatures, lieux) : comme les portails, dessinées en HTML
      pour être cliquables — un clic ouvre l'image en grand par-dessus le plan (lightbox),
@@ -543,7 +615,7 @@
         // « images: null » et les joueurs ne les recevraient jamais
         chargerImagesCompte().then(() => {
           if (carte === c && KJ.session.active() && KJ.session.estMJ())
-            KJ.session.publierCartePartie(c.id, KJ.modele.versJSON(c), imagesDeCarte(c));
+            KJ.session.publierCartePartie(c.id, JSON.stringify(c), imagesDeCarte(c));   // compact : -40 % d'octets
         });
       // dire une fois où cliquer : les portails ne sautent pas aux yeux
       if (!vueJoueurs && !chargerCarte._dit) {
@@ -762,6 +834,7 @@
       if (bouge <= 2) ouvrirImage(imgEnCours.src, imgEnCours.titre);
       imgEnCours = null;
     }
+    if (mode === 'fog') flushSauver();   // le geste est fini : la sauvegarde lissée part maintenant
     if (mode === 'mesure') {
       setTimeout(() => { regle.innerHTML = ''; const l = $('etiquette'); if (l) l.remove(); }, 1200);
       mesure = null;
@@ -1101,6 +1174,26 @@
   /* ---------------- sessions multi-appareils ----------------
      L'état reçu du réseau suit le même chemin qu'un message BroadcastChannel :
      une seule écriture locale, pas de rediffusion (sauverPartie(false)). */
+  /* Redessin COALESCÉ : les états arrivent jusqu'à 3/s (réseau) pendant que le MJ
+     peint — reconstruire tout le SVG du plan à chaque fois saturait le téléphone
+     des joueurs. Un seul redessin par frame, et le plan/les icônes (qui ne
+     dépendent que des révélations) ne sont refaits que si elles ont changé. */
+  let redessinPrevu = false;
+  function planifierRedessin() {
+    if (redessinPrevu) return;
+    redessinPrevu = true;
+    requestAnimationFrame(() => {
+      redessinPrevu = false;
+      if (!carte) return;
+      dessinerFog(); dessinerJetons();
+      const sig = carte.id + '|' + JSON.stringify(partie.reveles[carte.id] || [])
+        + '|' + JSON.stringify(partie.masques[carte.id] || []);
+      if (sig !== planifierRedessin._sig) {
+        planifierRedessin._sig = sig;
+        dessinerPlan(); dessinerImages(); dessinerPins();
+      }
+    });
+  }
   function appliquerEtatDistant(etat) {
     if (!etat) return;
     const changeCarte = etat.carte && (!carte || etat.carte !== carte.id);
@@ -1112,11 +1205,9 @@
     if (!partie.jetons) partie.jetons = [];
     if (!partie.reveles) partie.reveles = {};
     if (!partie.masques) partie.masques = {};
-    sauverPartie(false);
+    sauverPartieBientot(false);
     if (changeCarte) chargerCarte(partie.carte).catch(() => {});
-    // dessinerImages en fait partie : sans lui, une image révélée par le MJ (ou par
-    // l'automatisme) n'apparaissait chez les joueurs qu'au rechargement de la carte
-    else if (carte) { dessinerFog(); dessinerJetons(); dessinerPins(); dessinerPlan(); dessinerImages(); }
+    else if (carte) planifierRedessin();
   }
 
   let mjPresent = null;   // côté joueur : le MJ est-il à la table ? (null = pas encore su)
@@ -1165,7 +1256,7 @@
     // après le chargement des images du compte, sinon elles partiraient « null »
     chargerImagesCompte().then(() => {
       if (carte && KJ.session.active() && KJ.session.estMJ())
-        KJ.session.publierCartePartie(carte.id, KJ.modele.versJSON(carte), imagesDeCarte(carte));
+        KJ.session.publierCartePartie(carte.id, JSON.stringify(carte), imagesDeCarte(carte));   // compact
     });
   }
   function annoncerCode(code, reprise) {

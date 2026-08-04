@@ -195,19 +195,21 @@ KJ.stockage = (function () {
      plus si le dossier est lié (git). Échec seulement si NI l'un NI l'autre. */
   async function enregistrerCarte(carte) {
     carte.maj = Date.now();
-    const json = KJ.modele.versJSON(carte);
     let enLigne = false, disque = false;
     const s = sessionDispo();
     if (s) {
       try {
-        await s.enregistrerCarteMJ(carte.id, carte.nom, carte.campagne || '', carte.maj, json);
+        // COMPACT pour le réseau : l'indentation de versJSON (+40 % d'octets) n'a
+        // de valeur que pour les fichiers destinés à être lus/versionnés dans git
+        await s.enregistrerCarteMJ(carte.id, carte.nom, carte.campagne || '', carte.maj,
+          JSON.stringify(carte));
         enLigne = true;
       } catch (e) {}
     }
     let poignee = null;
     try { poignee = await dossierDepotActif(false); } catch (e) {}
     if (poignee) {
-      await ecrireFichierDepot(poignee, 'cartes/' + carte.id + '.json', json);
+      await ecrireFichierDepot(poignee, 'cartes/' + carte.id + '.json', KJ.modele.versJSON(carte));
       await reconstruireIndex(poignee);
       disque = true;
     }
