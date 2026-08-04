@@ -570,7 +570,7 @@
       const portes = els.filter(e => e.type === 'porte');
       if (portes.length)
         p.appendChild(champ('Style', select(portes[0].style,
-          [['simple', 'Simple'], ['double', 'Double'], ['secrete', 'Secrète']],
+          [['simple', 'Simple'], ['double', 'Double'], ['passage', 'Passage ouvert'], ['secrete', 'Secrète']],
           v => portes.forEach(e => e.style = v))));
       const objets = els.filter(e => e.type === 'objet');
       if (objets.length)
@@ -616,7 +616,8 @@
     } else if (el.type === 'mur') {
       p.appendChild(champ('Épaisseur', inputNum(el.ep, v => el.ep = Math.max(1, v))));
     } else if (el.type === 'porte') {
-      p.appendChild(champ('Style', select(el.style, [['simple', 'Simple'], ['double', 'Double'], ['secrete', 'Secrète']], v => el.style = v)));
+      p.appendChild(champ('Style', select(el.style, [['simple', 'Simple'], ['double', 'Double'],
+        ['passage', 'Passage ouvert'], ['secrete', 'Secrète']], v => el.style = v)));
       p.appendChild(champCases('Largeur', el.l, v => el.l = v, 6));
       p.appendChild(champ('Orientation', select(el.o, [['h', 'Horizontale'], ['v', 'Verticale']], v => el.o = v)));
       p.appendChild(bouton('⇄ Inverser l’ouverture (X)', () => { el.sens = -el.sens; apresModif(); dessiner(); }));
@@ -1195,6 +1196,8 @@
     if (id === 'construire') id = dernierConstruire;
     outil = id;
     if (groupeDe(id) === 'construire') dernierConstruire = id;
+    // un outil de pose affiche sa palette : garder un élément sélectionné la masquerait
+    if (id !== 'select' && id !== 'multi') sel = null;
     selMulti = []; canevas.classList.toggle('lasso', id === 'multi');
     const grp = groupeDe(id);
     document.querySelectorAll('#outils button').forEach(b => b.classList.toggle('actif', b.dataset.outil === grp));

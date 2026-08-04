@@ -152,7 +152,9 @@ KJ.rendu = (function () {
         // 1) on « efface » le mur sur la largeur de l'ouverture
         let s = `<g${id} class="kj-el"><line class="kj-coupe" style="stroke-width:11" `
               + `x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
-        if (el.style === 'secrete') {
+        if (el.style === 'passage') {
+          // passage ouvert : juste le trou dans le mur, ni battant ni menuiserie
+        } else if (el.style === 'secrete') {
           s += `<line class="kj-porte-secrete" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
         } else if (el.style === 'double') {
           const d = l / 2, m = { x: el.x, y: el.y };
