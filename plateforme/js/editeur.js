@@ -829,17 +829,20 @@
     dl.innerHTML = campagnesConnues.filter(x => x !== M.SANS_CAMPAGNE)
       .map(x => '<option value="' + x.replace(/"/g, '&quot;') + '">').join('');
     c.appendChild(champ('Campagne', camp));
-    c.appendChild(champ('Largeur', inputNum(carte.taille.w, v => carte.taille.w = Math.max(100, v))));
-    c.appendChild(champ('Hauteur', inputNum(carte.taille.h, v => carte.taille.h = Math.max(100, v))));
-    if (carte.grille.cell)
-      c.appendChild(champ('Cases (L×H)', duo(
+    /* La taille de la carte se pense en cases (le pixel n'est qu'un détail
+       technique) : deux champs explicites quand il y a une grille, les pixels
+       en secours pour les cartes sans grille (extérieurs). */
+    if (carte.grille.cell) {
+      c.appendChild(champ('Largeur case', inputNum(
         Math.round(carte.taille.w / carte.grille.cell),
+        v => { carte.taille.w = Math.max(4, Math.round(v)) * carte.grille.cell; majCartePanneau(); })));
+      c.appendChild(champ('Hauteur case', inputNum(
         Math.round(carte.taille.h / carte.grille.cell),
-        (a, b) => {
-          carte.taille.w = Math.max(4, Math.round(a)) * carte.grille.cell;
-          carte.taille.h = Math.max(4, Math.round(b)) * carte.grille.cell;
-          majCartePanneau();
-        })));
+        v => { carte.taille.h = Math.max(4, Math.round(v)) * carte.grille.cell; majCartePanneau(); })));
+    } else {
+      c.appendChild(champ('Largeur (px)', inputNum(carte.taille.w, v => carte.taille.w = Math.max(100, v))));
+      c.appendChild(champ('Hauteur (px)', inputNum(carte.taille.h, v => carte.taille.h = Math.max(100, v))));
+    }
     c.appendChild(champ('Case (px)', inputNum(carte.grille.cell, v => changerCase(Math.max(0, v)))));
     c.appendChild(champ('Case (m)', inputNum(carte.grille.metres, v => carte.grille.metres = v || 1.5, .1)));
     if (carte.grille.cell)
