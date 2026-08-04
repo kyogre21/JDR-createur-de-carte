@@ -225,7 +225,7 @@
       if (selMulti.length && dansSelection(pt)) {
         mode = 'move-multi'; depart = { pt: pt, bouge: 0 };
       } else {
-        selMulti = [];
+        selMulti = []; majPanneau();
         mode = 'trace-sel'; depart = { x: pt.x, y: pt.y };
         apercu = (k) => {
           const x2 = depart.x2 == null ? depart.x : depart.x2, y2 = depart.y2 == null ? depart.y : depart.y2;
@@ -371,6 +371,7 @@
       if (selMulti.length)
         toast(selMulti.length + ' élément' + (selMulti.length > 1 ? 's' : '')
           + ' — glisse la sélection pour déplacer, Suppr pour supprimer, Échap pour finir.');
+      majPanneau();
     } else if ((mode === 'move' && depart.bouge) || mode === 'resize'
       || (mode === 'move-multi' && depart.bouge)) {
       apresModif();
@@ -530,6 +531,47 @@
 
   function majPanneau() {
     const p = $('props'); p.innerHTML = '';
+
+    /* Multi-sélection active : un panneau de GROUPE — chaque champ s'applique
+       à tous les éléments sélectionnés qui portent cet attribut. */
+    if (selMulti.length) {
+      const els = selMulti.map(id => M.trouver(carte, id)).filter(Boolean);
+      $('t-props').textContent = 'Sélection — ' + els.length + ' élément' + (els.length > 1 ? 's' : '');
+      const NOMS = { piece: 'pièce(s)', mur: 'mur(s)', porte: 'porte(s)', fenetre: 'fenêtre(s)',
+        objet: 'objet(s)', numero: 'numéro(s)', texte: 'texte(s)', lumiere: 'lumière(s)',
+        portail: 'portail(s)', secret: 'secret(s)', image: 'image(s)' };
+      const parType = {};
+      els.forEach(e => parType[e.type] = (parType[e.type] || 0) + 1);
+      const resume = document.createElement('p'); resume.className = 'aide';
+      resume.textContent = Object.keys(parType).map(t => parType[t] + ' ' + (NOMS[t] || t)).join(', ')
+        + '. Chaque réglage s’applique à toute la sélection.';
+      p.appendChild(resume);
+
+      const avecEp = els.filter(e => e.type === 'mur' || e.type === 'piece');
+      if (avecEp.length)
+        p.appendChild(champ('Épaisseur', inputNum(avecEp[0].ep === undefined ? 5 : avecEp[0].ep,
+          v => avecEp.forEach(e => e.ep = Math.max(1, v)))));
+      const avecL = els.filter(e => e.type === 'porte' || e.type === 'fenetre');
+      if (avecL.length)
+        p.appendChild(champCases('Largeur', avecL[0].l, v => avecL.forEach(e => e.l = v), 6));
+      const portes = els.filter(e => e.type === 'porte');
+      if (portes.length)
+        p.appendChild(champ('Style', select(portes[0].style,
+          [['simple', 'Simple'], ['double', 'Double'], ['secrete', 'Secrète']],
+          v => portes.forEach(e => e.style = v))));
+      const objets = els.filter(e => e.type === 'objet');
+      if (objets.length)
+        p.appendChild(champ('Rotation', inputNum(objets[0].rot || 0,
+          v => objets.forEach(e => e.rot = v), 15)));
+
+      p.appendChild(bouton('✕ Supprimer la sélection (Suppr)', () => {
+        if (!confirm('Supprimer les ' + els.length + ' éléments sélectionnés ?')) return;
+        for (const e of els) M.supprimer(carte, e.id);
+        selMulti = []; sel = null; majPanneau(); apresModif(); dessiner();
+      }, 'danger'));
+      return;
+    }
+
     const el = sel && M.trouver(carte, sel);
     $('t-props').textContent = el ? 'Élément — ' + el.type : 'Élément';
 
@@ -1091,7 +1133,7 @@
     selMulti = carte.elements.map(e => e.id);
     toast('Tout est sélectionné (' + selMulti.length + ' éléments) : '
       + 'glisse la sélection pour déplacer — Échap pour terminer.');
-    dessinerEdition();
+    majPanneau(); dessinerEdition();
   }
 
   function choisirOutil(id) {
