@@ -192,7 +192,8 @@
 
   /* ---------------- interactions ---------------- */
   let mode = null, depart = null, elDrag = null, coin = null, apercu = null,
-      accSurbrillance = null, libre = false, pointeurs = new Map(), pinch = null;
+      accSurbrillance = null, libre = false, pointeurs = new Map(), pinch = null,
+      selTous = false;   // « tout déplacer » : le prochain glisser décale TOUTE la carte
 
   canevas.addEventListener('pointerdown', (e) => {
     if (e.button === 2) return;
@@ -211,6 +212,10 @@
     }
 
     if (outil === 'select') {
+      if (selTous) {
+        mode = 'move-tout'; depart = { pt: pt, bouge: 0 };
+        return;
+      }
       if (cible) {
         sel = cible.dataset.id;
         elDrag = M.trouver(carte, sel);
@@ -290,6 +295,14 @@
         depart.bouge++;
         dessinerPlus();
       }
+    } else if (mode === 'move-tout') {
+      const dx = acc(pt.x - depart.pt.x, true), dy = acc(pt.y - depart.pt.y, true);
+      if (dx || dy) {
+        for (const el of carte.elements) M.deplacer(el, dx, dy);
+        depart.pt = { x: depart.pt.x + dx, y: depart.pt.y + dy };
+        depart.bouge++;
+        dessinerPlus();
+      }
     } else if (mode === 'resize' && elDrag) {
       redimensionner(elDrag, coin, pt);
       dessinerPlus();
@@ -323,7 +336,8 @@
         const el = M.ajouter(carte, M.nouvelElement('mur', { x1: depart.x, y1: depart.y, x2: depart.x2, y2: depart.y2 }));
         sel = el.id; majPanneau(); apresModif();
       }
-    } else if ((mode === 'move' && depart.bouge) || mode === 'resize') {
+    } else if ((mode === 'move' && depart.bouge) || mode === 'resize'
+      || (mode === 'move-tout' && depart.bouge)) {
       apresModif();
     }
     apercu = null; mode = null; depart = null; elDrag = null; coin = null;
@@ -460,6 +474,25 @@
     return l;
   }
 
+  /* Taille exprimée en CASES quand la carte a une grille : on pense « une porte
+     d'une case », jamais « une porte de 8 px ». Sans grille (extérieurs), les px
+     restent la seule unité disponible. */
+  function champCases(label, valPx, onchPx, minPx) {
+    const cel = cell();
+    if (!cel) {
+      return champ(label + ' (px)', inputNum(valPx, v => onchPx(Math.max(minPx || 1, v))));
+    }
+    const i = document.createElement('input');
+    i.type = 'number';
+    i.value = +(valPx / cel).toFixed(2);
+    i.step = .5; i.min = .25;
+    i.addEventListener('change', () => {
+      onchPx(Math.max(minPx || 1, Math.round(+i.value * cel)));
+      apresModif(); dessiner(); majPanneau();
+    });
+    return champ(label + ' (cases)', i);
+  }
+
   function majPanneau() {
     const p = $('props'); p.innerHTML = '';
     const el = sel && M.trouver(carte, sel);
@@ -479,25 +512,26 @@
     if (el.type === 'piece') {
       p.appendChild(champ('Nom', inputTxt(el.nom, v => el.nom = v)));
       p.appendChild(champ('X / Y', duo(el.x, el.y, (a, b) => { el.x = a; el.y = b; })));
-      p.appendChild(champ('L / H', duo(el.w, el.h, (a, b) => { el.w = a; el.h = b; })));
+      p.appendChild(champCases('Largeur', el.w, v => el.w = v, 8));
+      p.appendChild(champCases('Hauteur', el.h, v => el.h = v, 8));
       p.appendChild(champ('Murs (ép.)', inputNum(el.ep === undefined ? 5 : el.ep, v => el.ep = Math.max(1, v))));
-      p.appendChild(champ('Cases', txtInfo(`${(el.w / (cell() || 40)).toFixed(1)} × ${(el.h / (cell() || 40)).toFixed(1)}`)));
       p.appendChild(champ('Mètres', txtInfo(`${(el.w / (cell() || 40) * carte.grille.metres).toFixed(1)} × ${(el.h / (cell() || 40) * carte.grille.metres).toFixed(1)} m`)));
     } else if (el.type === 'mur') {
       p.appendChild(champ('Épaisseur', inputNum(el.ep, v => el.ep = Math.max(1, v))));
     } else if (el.type === 'porte') {
       p.appendChild(champ('Style', select(el.style, [['simple', 'Simple'], ['double', 'Double'], ['secrete', 'Secrète']], v => el.style = v)));
-      p.appendChild(champ('Largeur', inputNum(el.l, v => el.l = Math.max(8, v))));
+      p.appendChild(champCases('Largeur', el.l, v => el.l = v, 6));
       p.appendChild(champ('Orientation', select(el.o, [['h', 'Horizontale'], ['v', 'Verticale']], v => el.o = v)));
       p.appendChild(bouton('⇄ Inverser l’ouverture (X)', () => { el.sens = -el.sens; apresModif(); dessiner(); }));
     } else if (el.type === 'fenetre') {
-      p.appendChild(champ('Largeur', inputNum(el.l, v => el.l = Math.max(8, v))));
+      p.appendChild(champCases('Largeur', el.l, v => el.l = v, 6));
       p.appendChild(champ('Orientation', select(el.o, [['h', 'Horizontale'], ['v', 'Verticale']], v => el.o = v)));
     } else if (el.type === 'objet') {
       p.appendChild(champ('Symbole', select(el.sym, M.SYMBOLES.map(s => [s.id, s.nom]), v => {
         const s = M.symbole(v); el.sym = v; el.w = s.w; el.h = s.h;
       })));
-      p.appendChild(champ('L / H', duo(el.w, el.h, (a, b) => { el.w = a; el.h = b; })));
+      p.appendChild(champCases('Largeur', el.w, v => el.w = v, 6));
+      p.appendChild(champCases('Hauteur', el.h, v => el.h = v, 6));
       p.appendChild(champ('Rotation', inputNum(el.rot || 0, v => el.rot = v, 15)));
       p.appendChild(bouton('↻ Tourner de 15° (R)', () => { el.rot = ((el.rot || 0) + 15) % 360; apresModif(); dessiner(); }));
     } else if (el.type === 'numero') {
@@ -530,7 +564,8 @@
         + 'Pose-le sur l’escalier ou la porte concernée, et pense au portail de retour sur l’autre carte.</p>'));
     } else if (el.type === 'secret') {
       p.appendChild(champ('Nature', inputTxt(el.nature, v => el.nature = v)));
-      p.appendChild(champ('L / H', duo(el.w, el.h, (a, b) => { el.w = a; el.h = b; })));
+      p.appendChild(champCases('Largeur', el.w, v => el.w = v, 6));
+      p.appendChild(champCases('Hauteur', el.h, v => el.h = v, 6));
       p.appendChild(caseACocher('Révélation automatique (un PJ entre dans la pièce)',
         el.auto !== false, v => el.auto = v));
       p.appendChild(document.createRange().createContextualFragment(
@@ -847,6 +882,7 @@
     c.appendChild(champ('Case (m)', inputNum(carte.grille.metres, v => carte.grille.metres = v || 1.5, .1)));
     if (carte.grille.cell)
       c.appendChild(bouton('⌗ Réaligner tout sur la grille', realignerGrille));
+    c.appendChild(bouton('✥ Tout déplacer (Ctrl+A)', () => basculerToutDeplacer(true)));
     const info = document.createElement('p'); info.className = 'aide';
     info.textContent = carte.grille.cell
       ? `Plan tactique : ${(carte.taille.w / carte.grille.cell * carte.grille.metres).toFixed(0)} × `
@@ -1003,8 +1039,26 @@
       c.appendChild(b);
     }
   }
+  /* « Tout déplacer » : recentrer un donjon entier sans reprendre chaque salle.
+     Pas une vraie multi-sélection (poignées, suppression…) — le besoin est de
+     décaler toute la carte d'un bloc, on ne construit que ça. Ctrl+A ou le
+     bouton du panneau Carte ; Échap, ou changer d'outil, pour terminer. */
+  function basculerToutDeplacer(on) {
+    const veut = on === undefined ? !selTous : on;
+    if (veut) {
+      choisirOutil('select');           // remet selTous à false, donc on l'active après
+      sel = null; majPanneau();
+      selTous = true;
+      toast('Tout est sélectionné (' + carte.elements.length + ' éléments) : '
+        + 'glisse le plan pour tout déplacer — Échap pour terminer.');
+    } else selTous = false;
+    canevas.classList.toggle('tout', selTous);
+    dessinerEdition();
+  }
+
   function choisirOutil(id) {
     outil = id;
+    selTous = false; canevas.classList.remove('tout');
     document.querySelectorAll('#outils button').forEach(b => b.classList.toggle('actif', b.dataset.outil === id));
     accSurbrillance = null;
     canevas.classList.toggle('pan', id === 'select');
@@ -1020,6 +1074,7 @@
     if (ctrl && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); annuler(); return; }
     if (ctrl && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); refaire(); return; }
     if (ctrl && (e.key === 's' || e.key === 'S')) { e.preventDefault(); enregistrerMaintenant(); return; }
+    if (ctrl && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); basculerToutDeplacer(); return; }
     const el = sel && M.trouver(carte, sel);
     if ((e.key === 'Delete' || e.key === 'Backspace') && el) {
       e.preventDefault(); M.supprimer(carte, el.id); sel = null; majPanneau(); apresModif(); dessiner(); return;
@@ -1030,7 +1085,7 @@
     if ((e.key === 'x' || e.key === 'X') && el && el.type === 'porte') {
       el.sens = -el.sens; apresModif(); dessiner(); return;
     }
-    if (e.key === 'Escape') { sel = null; majPanneau(); dessinerEdition(); return; }
+    if (e.key === 'Escape') { if (selTous) basculerToutDeplacer(false); sel = null; majPanneau(); dessinerEdition(); return; }
     const o = OUTILS.find(x => x.k === e.key.toLowerCase());
     if (o) choisirOutil(o.id);
   });
