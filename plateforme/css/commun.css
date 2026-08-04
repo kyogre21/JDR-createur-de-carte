@@ -19,7 +19,8 @@ body{overflow:hidden;display:flex;flex-direction:column;
 header{display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--panneau);
   border-bottom:1px solid var(--bord);flex:0 0 auto;flex-wrap:wrap}
 header .marque{font-family:var(--serif);font-variant:small-caps;letter-spacing:.09em;
-  font-size:16px;color:var(--or);white-space:nowrap}
+  font-size:16px;color:var(--or);white-space:nowrap;text-decoration:none}
+header a.marque:hover{color:var(--or-clair,#e8c777)}
 header .marque span{opacity:.6;font-size:12px;color:var(--encre)}
 header .esp{flex:1 1 auto}
 #grp-export{display:contents}
