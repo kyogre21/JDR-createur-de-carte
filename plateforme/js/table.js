@@ -1360,14 +1360,23 @@
     const err = noteModale(corps, ''); err.style.color = 'var(--sang)';
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:7px;justify-content:flex-end;margin-top:12px';
+    /* retour visible pendant la tentative (le chargement du SDK peut être long) :
+       sans lui, une connexion lente semblait ignorée et on rafraîchissait la page */
     const tenter = (fn) => {
-      err.textContent = '';
-      if (!em.value.trim() || !mp.value) { err.textContent = 'E-mail et mot de passe requis.'; return; }
+      if (co.disabled) return;
+      if (!em.value.trim() || !mp.value) { err.style.color = 'var(--sang)'; err.textContent = 'E-mail et mot de passe requis.'; return; }
+      err.style.color = 'var(--encre)'; err.textContent = 'Connexion…';
+      co.disabled = true; cr.disabled = true;
+      const lent = setTimeout(() => { err.textContent = 'Toujours en cours (réseau lent ?)… ça peut encore aboutir.'; }, 8000);
       fn(em.value, mp.value)
-        .then(() => rendreEcranPartie(corps))
-        .catch(e => { err.textContent = e.message; });
+        .then(() => { clearTimeout(lent); rendreEcranPartie(corps); chargerImagesCompte(); })
+        .catch(e => {
+          clearTimeout(lent); co.disabled = false; cr.disabled = false;
+          err.style.color = 'var(--sang)'; err.textContent = (e && e.message) || 'Connexion impossible.';
+        });
     };
-    actions.appendChild(bouton('Créer un compte', () => tenter(KJ.session.creerCompteMJ)));
+    const cr = bouton('Créer un compte', () => tenter(KJ.session.creerCompteMJ));
+    actions.appendChild(cr);
     const co = bouton('Se connecter', () => tenter(KJ.session.connexionMJ));
     co.classList.add('actif');
     actions.appendChild(co);

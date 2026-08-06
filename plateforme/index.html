@@ -543,23 +543,41 @@
       const err = document.createElement('p');
       err.className = 'aide'; err.style.color = 'var(--sang)';
       corps.appendChild(err);
+      /* Tentative avec RETOUR VISIBLE : l'ancienne version ne montrait rien pendant
+         l'attente (chargement du SDK compris, parfois long) — la connexion pouvait
+         réussir sans que la page ne réagisse, obligeant à rafraîchir. */
+      function tenter(fn) {
+        const ok = $('modale-ok');
+        if (ok.disabled) return;   // une tentative est déjà en cours
+        err.style.color = 'var(--encre)'; err.textContent = 'Connexion…';
+        ok.disabled = true; bc.disabled = true;
+        const lent = setTimeout(function () {
+          err.textContent = 'Toujours en cours (réseau lent ?)… ça peut encore aboutir.';
+        }, 8000);
+        fn(em.value, mp.value)
+          .then(function () {
+            clearTimeout(lent);
+            $('modale-annuler').click();
+            // si le rechargement de la bibliothèque échoue, on recharge la page
+            // plutôt que de laisser un écran connecté-mais-pas-à-jour
+            Promise.resolve().then(charger).catch(function () { location.reload(); });
+          })
+          .catch(function (e) {
+            clearTimeout(lent);
+            ok.disabled = false; bc.disabled = false;
+            err.style.color = 'var(--sang)';
+            err.textContent = (e && e.message) || 'Connexion impossible.';
+          });
+      }
       const pc = document.createElement('p'); pc.className = 'aide';
       const bc = document.createElement('button');
       bc.textContent = 'Première fois ? Créer un compte MJ';
-      bc.addEventListener('click', function () {
-        err.textContent = '';
-        KJ.session.creerCompteMJ(em.value, mp.value)
-          .then(function () { $('modale-annuler').click(); charger(); })
-          .catch(function (e) { err.textContent = e.message; });
-      });
+      bc.addEventListener('click', function () { tenter(KJ.session.creerCompteMJ); });
       pc.appendChild(bc); corps.appendChild(pc);
       $('modale-ok').textContent = 'Se connecter';
-      return { em: em, mp: mp, err: err };
+      return { tenter: tenter };
     }, function (ctx) {
-      ctx.err.textContent = '';
-      KJ.session.connexionMJ(ctx.em.value, ctx.mp.value)
-        .then(function () { $('modale-annuler').click(); charger(); })
-        .catch(function (e) { ctx.err.textContent = e.message; });
+      ctx.tenter(KJ.session.connexionMJ);
       return false;   // fermeture uniquement en cas de succès (asynchrone)
     });
   }
