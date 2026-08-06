@@ -409,7 +409,7 @@
     construire(corps);
     $('modale').hidden = false;
   }
-  function fermerModale() { $('modale').hidden = true; }
+  function fermerModale() { $('modale').hidden = true; $('modale').classList.remove('pour-joueur'); }
   $('b-fermer-modale').addEventListener('click', fermerModale);
   $('modale').addEventListener('click', (e) => { if (e.target.id === 'modale') fermerModale(); });
   window.addEventListener('keydown', (e) => {
@@ -1014,6 +1014,8 @@
         </div>`;
       $('j-nom').value = jetonExistant ? jetonExistant.nom : '';
       $('j-pj').checked = jetonExistant ? !!jetonExistant.pj : true;
+      // un invité ne crée QUE des jetons PJ : la case n'a pas à se discuter
+      if (vueJoueurs) { $('j-pj').checked = true; $('j-pj').closest('label').style.display = 'none'; }
       $('j-nom').focus();
       let img = jetonExistant ? (jetonExistant.img || null) : null;
       const preview = $('j-preview');
@@ -1062,6 +1064,16 @@
         }
         const r = scene.getBoundingClientRect();
         const c = versMonde(r.left + r.width / 2, r.top + r.height / 2);
+        /* joueur invité : il n'écrit jamais l'état — la création part au MJ par la
+           boîte aux lettres (comme les déplacements), le MJ l'applique et l'état
+           officiel redescend vers tout le monde. */
+        if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
+          KJ.session.envoyerMouvement({ creer: true, id: 'j' + Date.now(), nom: nom,
+            img: img || null, x: Math.round(c.x), y: Math.round(c.y), carte: carte.id });
+          fermerModale();
+          toast('Jeton envoyé au MJ — il apparaît dans un instant.');
+          return;
+        }
         partie.jetons.push({
           id: 'j' + Date.now(), nom: nom, pj: pj,
           couleur: COULEURS[partie.jetons.length % COULEURS.length],
@@ -1263,6 +1275,22 @@
     KJ.session.surJoueurs(majBadgeSession);
     KJ.session.surMouvements((m) => {
       if (!m || !m.id) return;
+      /* un joueur crée SON jeton : appliqué ici, chez le MJ — toujours PJ,
+         portrait borné (vignette), jamais deux fois le même id (message rejoué) */
+      if (m.creer) {
+        if (!carte || partie.jetons.some(x => x.id === m.id)) return;
+        partie.jetons.push({
+          id: String(m.id), nom: String(m.nom || 'J').slice(0, 2), pj: true,
+          couleur: COULEURS[partie.jetons.length % COULEURS.length],
+          img: (typeof m.img === 'string' && m.img.length < 40000) ? m.img : undefined,
+          x: +m.x || Math.round(carte.taille.w / 2),
+          y: +m.y || Math.round(carte.taille.h / 2),
+          carte: carte.id,   // toujours sur la carte affichée, où qu'en soit le joueur
+        });
+        dessinerJetons(); sauverPartie();
+        toast('Un joueur a créé son jeton PJ.');
+        return;
+      }
       const j = partie.jetons.find(x => x.id === m.id);
       if (!j || !j.pj) return;   // seuls les jetons PJ sont déplaçables par les joueurs
       // le joueur a lâché son jeton sur un portail : le MJ traverse pour tout le
@@ -1450,6 +1478,23 @@
   });
 
   if (codeSessionURL && KJ.session) {
+    /* Boutons réservés à la fenêtre d'invité : créer SON jeton PJ, et quitter la
+       partie (pour, par exemple, se reconnecter ensuite en MJ depuis l'accueil). */
+    $('b-jeton-joueur').hidden = false;
+    $('b-jeton-joueur').addEventListener('click', () => {
+      if (!carte) { toast('La carte du MJ n’est pas encore arrivée — réessaie dans un instant.'); return; }
+      $('modale').classList.add('pour-joueur');   // seule modale autorisée côté joueur
+      ouvrirDialogueJeton();
+    });
+    $('b-quitter-partie').hidden = false;
+    $('b-quitter-partie').addEventListener('click', () => {
+      if (!confirm('Quitter cette partie ?\n\nLe lien de la partie continue de marcher si tu veux revenir.')) return;
+      Promise.resolve(KJ.session.fermer()).catch(() => {}).then(() => {
+        try { localStorage.removeItem(CLE_PARTIE); } catch (e) {}
+        location.replace('index.html');
+      });
+    });
+
     /* Si l'utilisateur connecté est le PROPRIÉTAIRE de cette partie, entrer par le
        code (ou le lien des joueurs) doit le ramener en MJ, pas en invité : on
        recharge la table en mode reprise (?partie=), qui n'impose pas la vue joueurs. */

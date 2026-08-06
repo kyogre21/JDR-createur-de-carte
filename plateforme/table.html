@@ -99,7 +99,9 @@
   #modale .entete-modale{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
   #modale .entete-modale h3{margin:0}
   #modale .aide{margin:6px 0}
-  body.fenetre-joueurs #modale{display:none !important}
+  /* la fenêtre joueurs n'a pas de dialogues… sauf celui explicitement autorisé
+     (création de SON jeton PJ, classe posée par le bouton « ＋ Mon jeton ») */
+  body.fenetre-joueurs #modale:not(.pour-joueur){display:none !important}
 
   #jetons{width:100%;height:100%;pointer-events:none}
   .jeton{position:absolute;width:32px;height:32px;margin:-16px 0 0 -16px;border-radius:50%;
@@ -212,6 +214,8 @@
   <span id="barre-joueurs">
     <button id="b-suivre" class="actif">Suivre le MJ</button>
     <button id="b-cadrer-j" title="Recadrer la carte (utile en Vue libre)">⤢</button>
+    <button id="b-jeton-joueur" hidden title="Créer ton jeton de personnage (envoyé au MJ)">＋ Mon jeton</button>
+    <button id="b-quitter-partie" hidden title="Quitter cette partie et revenir à l’accueil">✕ Quitter</button>
   </span>
 </header>
 <div id="toast"></div>
