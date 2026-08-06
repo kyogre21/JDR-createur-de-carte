@@ -11,12 +11,24 @@
   const scene = $('scene'), monde = $('monde'), plan = $('plan'), fog = $('fog'),
         pinsEl = $('pins'), imagesEl = $('images'), jetonsEl = $('jetons'), regle = $('regle'), sur = $('sur');
 
-  const QUAL = 2, PINCEAU = 26, CLE_PARTIE = 'kj-partie';
+  const QUAL = 2, CLE_PARTIE = 'kj-partie', CLE_MJ_PARTIE = 'kj-mj-partie';
   const params = new URLSearchParams(location.search);
   const codeSessionURL = (params.get('session') || '').trim() || null;
   const codePartieURL = (params.get('partie') || '').trim() || null;   // reprise MJ par l'adresse
   // rejoindre une session par lien impose la vue joueurs, comme ?vue=joueurs
   const vueJoueurs = params.get('vue') === 'joueurs' || !!codeSessionURL;
+  /* Reprise de la partie du MJ : ?partie=CODE, sinon la dernière partie mémorisée
+     (voir brancherPartie). Décidé ICI, avant tout chargement de carte : c'est
+     l'état de la partie qui dit quelle carte afficher — charger d'abord la
+     dernière carte locale créait une course, et pouvait publier la MAUVAISE carte
+     aux joueurs. */
+  let repriseMemoire = null;
+  if (!codePartieURL && !codeSessionURL && !vueJoueurs) {
+    try { repriseMemoire = localStorage.getItem(CLE_MJ_PARTIE) || null; } catch (e) {}
+  }
+  const codeReprise = codePartieURL || repriseMemoire;
+  const repriseEnCours = !!(codeReprise && !vueJoueurs && window.KJ && KJ.session
+    && KJ.session.configuree() && (codePartieURL || KJ.session.mjProbable()));
   if (vueJoueurs) {
     document.body.dataset.vue = 'joueurs';
     // classe séparée de data-vue (qui, elle, bascule aussi pour la préview locale du MJ) :
@@ -257,18 +269,24 @@
      (annulation, couvrir, carte changée, état distant divergent). */
   let fogCtx = null;
   let fogPeint = { carte: null, nb: 0, sig: '' };
-  const sigOp = (o) => o ? o.m + o.x + ',' + o.y + ',' + o.r : '';
+  const sigOp = (o) => o ? o.m + o.x + ',' + o.y + ',' + (o.w ? o.w + 'x' + o.h : o.r) : '';
   function peindreOp(c, op) {
     if (op.m === 'reveal') {
       c.globalCompositeOperation = 'destination-out';
-      const g = c.createRadialGradient(op.x, op.y, op.r * .55, op.x, op.y, op.r);
-      g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-      c.fillStyle = g;
+      if (op.w) c.fillStyle = 'rgba(0,0,0,1)';   // zone rectangulaire : bord net
+      else {
+        const g = c.createRadialGradient(op.x, op.y, op.r * .55, op.x, op.y, op.r);
+        g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+        c.fillStyle = g;
+      }
     } else {
       c.globalCompositeOperation = 'source-over';
       c.fillStyle = '#080a12';   // noir légèrement bleuté : se distingue mieux du parchemin
     }
-    c.beginPath(); c.arc(op.x, op.y, op.r, 0, 7); c.fill();
+    // op.w présent = zone rectangulaire (une pièce entière révélée d'un clic) :
+    // une seule op au lieu de dizaines de touches de pinceau
+    if (op.w) { c.beginPath(); c.rect(op.x, op.y, op.w, op.h); c.fill(); }
+    else { c.beginPath(); c.arc(op.x, op.y, op.r, 0, 7); c.fill(); }
   }
   function dessinerFog() {
     const w = carte.taille.w, h = carte.taille.h;
@@ -280,7 +298,7 @@
     const memeBase = fogPeint.carte === carte.id
       && fog.width === w * QUAL && fog.height === h * QUAL
       && ops.length >= fogPeint.nb
-      && sigOp(ops[fogPeint.nb - 1]) === fogPeint.sig;
+      && (fogPeint.nb === 0 || sigOp(ops[fogPeint.nb - 1]) === fogPeint.sig);
     if (memeBase) {
       for (let i = fogPeint.nb; i < ops.length; i++) peindreOp(c, ops[i]);
     } else {
@@ -295,15 +313,40 @@
     }
     fogPeint = { carte: carte.id, nb: ops.length, sig: sigOp(ops[ops.length - 1]) };
   }
+  /* Taille du pinceau : réglable (le diamètre fixe de 26 px ne couvrait que 0,65
+     case — révéler une salle demandait des dizaines d'allers-retours). Mémorisée
+     d'une séance à l'autre. */
+  const TAILLES_PINCEAU = [26, 60, 120];
+  let taillePinceau = 60;
+  try { const t = +localStorage.getItem('kj-pinceau'); if (TAILLES_PINCEAU.includes(t)) taillePinceau = t; } catch (e) {}
   function pinceau(m, x, y) {
     const ops = opsFog();
     const prec = ops[ops.length - 1];
     x = Math.round(x); y = Math.round(y);
     // filtre de distance : à 60-120 événements/s, garder chaque point multipliait
     // par 5-10 la taille de l'état (réseau, stockage, redessin) sans gain visible
-    if (prec && prec.m === m && Math.hypot(prec.x - x, prec.y - y) < PINCEAU / 3) return;
-    ops.push({ m: m, x: x, y: y, r: PINCEAU });
+    if (prec && prec.m === m && !prec.w && Math.hypot(prec.x - x, prec.y - y) < taillePinceau / 3) return;
+    ops.push({ m: m, x: x, y: y, r: taillePinceau });
     dessinerFog(); sauverPartieBientot();
+  }
+  /* Un clic (sans glisser) avec le pinceau : révèle ou recouvre LA PIÈCE ENTIÈRE
+     sous le curseur, en une seule op — le geste le plus fréquent d'une séance.
+     Hors pièce, on laisse la touche de pinceau déjà posée au pointerdown. */
+  function pinceauPiece(m, x, y, nbAvant) {
+    const salle = carte.elements
+      .filter(e => e.type === 'piece' && x >= e.x && x <= e.x + e.w && y >= e.y && y <= e.y + e.h)
+      .sort((a, b) => a.w * a.h - b.w * b.h)[0];
+    if (!salle) return false;
+    const ep = (salle.ep || 2) + 2;   // déborde un peu pour couvrir l'épaisseur des murs
+    const ops = opsFog();
+    // la touche posée au pointerdown fait partie du même geste : on la retire
+    if (ops.length > nbAvant && !ops[ops.length - 1].w) ops.pop();
+    ops.push({ m: m, x: Math.round(salle.x - ep), y: Math.round(salle.y - ep),
+      w: Math.round(salle.w + ep * 2), h: Math.round(salle.h + ep * 2) });
+    dessinerFog(); sauverPartie();
+    toast(m === 'reveal' ? 'Pièce révélée' + (salle.nom ? ' : ' + salle.nom : '') + '.'
+      : 'Pièce recouverte' + (salle.nom ? ' : ' + salle.nom : '') + '.');
+    return true;
   }
   /* Le pinceau ne touche QUE le décor (choix de design après essai à table) : les
      révélations automatiques appartiennent aux mouvements des JOUEURS — entrée
@@ -318,16 +361,35 @@
      heures d'exploration d'une autre carte, ou pire, AGRANDIR le tableau (index
      d'une grande carte appliqué à une petite) et créer des trous qui faisaient
      planter dessinerFog à chaque redessin. */
-  let marqueursFog = {};
-  const pileFog = () => (marqueursFog[carte.id] = marqueursFog[carte.id] || []);
-  function debutGesteFog() { const p = pileFog(); p.push(opsFog().length); if (p.length > 40) p.shift(); }
-  function annulerFog() {
-    const ops = opsFog(), pile = pileFog();
-    if (!ops.length) { toast('Rien à annuler.'); return; }
-    const depuis = pile.length ? pile.pop() : ops.length - 1;
-    ops.length = Math.max(0, Math.min(depuis, ops.length));   // ne jamais agrandir
-    dessinerFog(); sauverPartie();
-    toast('Dernier geste de brouillard annulé.');
+  /* Historique d'annulation UNIFIÉ, par carte : brouillard ET jetons. Avant, seul
+     le brouillard était annulable (un jeton supprimé par erreur était perdu), et
+     « Tout couvrir / Tout révéler » écrasaient les marqueurs — l'annulation qui
+     suivait recouvrait alors toute la carte au lieu de revenir en arrière.
+       { t:'fog', nb }          — retour au nombre d'ops d'avant le geste
+       { t:'fog-tout', ops }    — restauration complète (actions globales)
+       { t:'jetons', snap }     — restauration de la liste des jetons */
+  let pileAnnul = [];
+  function pousserAnnul(e) {
+    e.carte = carte.id;
+    pileAnnul.push(e);
+    if (pileAnnul.length > 60) pileAnnul.shift();
+  }
+  function debutGesteFog() { pousserAnnul({ t: 'fog', nb: opsFog().length }); }
+  function avantJetons() { pousserAnnul({ t: 'jetons', snap: JSON.stringify(partie.jetons) }); }
+  let snapJetons = null;   // instantané pris au début d'un glisser de jeton
+  function annulerTable() {
+    for (let i = pileAnnul.length - 1; i >= 0; i--) {
+      if (pileAnnul[i].carte !== carte.id) continue;   // jamais annuler sur une autre carte
+      const e = pileAnnul.splice(i, 1)[0];
+      let quoi = 'brouillard';
+      if (e.t === 'fog') { const ops = opsFog(); ops.length = Math.max(0, Math.min(e.nb, ops.length)); }
+      else if (e.t === 'fog-tout') { partie.fog[carte.id] = e.ops.slice(); }
+      else if (e.t === 'jetons') { partie.jetons = JSON.parse(e.snap); quoi = 'jetons'; }
+      dessinerFog(); dessinerJetons(); sauverPartie();
+      toast(quoi === 'jetons' ? 'Jetons : dernière action annulée.' : 'Brouillard : dernier geste annulé.');
+      return;
+    }
+    toast('Rien à annuler sur cette carte.');
   }
 
   /* ---------------- rendu ---------------- */
@@ -476,6 +538,21 @@
         .getImageData(Math.round(x * QUAL), Math.round(y * QUAL), 1, 1).data[3] > 140;
     } catch (e) { return false; }
   }
+  /* « Mon jeton » (côté joueur) : l'identifiant du jeton créé depuis CET appareil,
+     mémorisé localement. Sans cette notion, un joueur pouvait déplacer le
+     personnage de son voisin — d'autant plus facilement que « Amener les PJ » les
+     aligne à une case d'écart, donc leurs zones tactiles se recouvrent.
+     Repli volontaire : si ce joueur n'a créé aucun jeton (le MJ l'a fait pour lui),
+     il garde le droit de déplacer les PJ, sinon il ne pourrait plus rien bouger. */
+  let monJeton = null;
+  try { monJeton = localStorage.getItem('kj-mon-jeton') || null; } catch (e) {}
+  const aMonJeton = () => !!(monJeton && partie.jetons.some(j => j.id === monJeton));
+  function peutDeplacer(jetEl) {
+    if (jetEl.dataset.pj !== 'true') return false;   // un joueur ne bouge jamais un PNJ
+    if (!aMonJeton()) return true;                   // repli : aucun jeton attitré
+    return jetEl.dataset.id === monJeton;
+  }
+
   function dessinerJetons() {
     jetonsEl.innerHTML = '';
     // les jetons flottent au-dessus du brouillard (les PJ doivent toujours se voir),
@@ -486,7 +563,9 @@
       if (j.carte !== carte.id) continue;
       if (vueJ && !j.pj && sousBrouillard(j.x, j.y)) continue;
       const d = document.createElement('div');
-      d.className = 'jeton'; d.dataset.id = j.id; d.dataset.pj = j.pj ? 'true' : 'false';
+      d.className = 'jeton' + (j.id === monJeton ? ' mien' : '');
+      d.dataset.id = j.id; d.dataset.pj = j.pj ? 'true' : 'false';
+      d.title = (j.nom || 'Jeton') + (j.id === monJeton ? ' — ton personnage' : '');
       d.style.left = j.x + 'px'; d.style.top = j.y + 'px';
       if (j.img) d.style.backgroundImage = `url("${j.img}")`;
       // le rond porte l'initiale, le nom complet vit dans la pastille .lab dessous
@@ -603,11 +682,14 @@
       if (gen !== generationCarte) return c;   // un chargement plus récent a gagné
       // un geste en cours (pinceau de brouillard, jeton tenu) ne doit pas continuer
       // sur la nouvelle carte : il écrirait dans le brouillard de la mauvaise carte
-      mode = null; jDrag = null;
+      mode = null; jDrag = null; jPointer = null; snapJetons = null;
       carte = c;
-      const vide = document.getElementById('scene-vide');
-      if (vide) vide.remove();   // le message d'attente s'efface dès qu'une carte arrive
+      majAttente();   // une carte s'affiche : l'écran d'attente s'efface
       partie.carte = c.id;
+      // nom du lieu en texte : chez un invité le <select> est vide (bibliothèque
+      // privée), donc le libellé du lieu était systématiquement absent
+      if ($('nom-lieu')) $('nom-lieu').textContent = c.nom || '';
+      if (vueJoueurs) toast('Lieu : ' + (c.nom || 'nouvelle carte') + '.');
       $('choix-carte').value = c.id;
       $('b-editer').href = 'editeur.html?id=' + encodeURIComponent(c.id);
       dessinerPlan(); dessinerFog(); dessinerJetons(); dessinerPins(); dessinerImages();
@@ -679,9 +761,11 @@
     actionDoubleTap._t = Date.now();   // dédoublonnage si le navigateur synthétise AUSSI dblclick
     const jet = cible.closest('.jeton');
     if (jet) {
-      if (!vueJoueurs) {
-        const j = partie.jetons.find(x => x.id === jet.dataset.id);
-        if (j) ouvrirDialogueJeton(j);
+      const j = partie.jetons.find(x => x.id === jet.dataset.id);
+      // le MJ édite n'importe quel jeton ; un joueur, seulement le sien
+      if (j && (!vueJoueurs || j.id === monJeton)) {
+        if (vueJoueurs) $('modale').classList.add('pour-joueur');
+        ouvrirDialogueJeton(j);
       }
       return;
     }
@@ -700,14 +784,17 @@
 
   /* ---------------- outils ---------------- */
   let outil = 'deplacer';
-  document.querySelectorAll('#barre-mj [data-o]').forEach(b => b.addEventListener('click', () => {
-    outil = b.dataset.o;
-    document.querySelectorAll('#barre-mj [data-o]').forEach(x => x.classList.toggle('actif', x === b));
+  function choisirOutil(id) {
+    outil = id;
+    document.querySelectorAll('#barre-mj [data-o]').forEach(x => x.classList.toggle('actif', x.dataset.o === id));
     scene.className = 'o-' + outil;
-  }));
+  }
+  document.querySelectorAll('#barre-mj [data-o]').forEach(b =>
+    b.addEventListener('click', () => choisirOutil(b.dataset.o)));
 
   /* ---------------- pointeurs ---------------- */
   const actifs = new Map();
+  let jPointer = null;   // identifiant du doigt/souris qui tient le jeton en cours
   let mode = null, dep = null, jDrag = null, bouge = 0, mesure = null, pincePrec = null, pinEnCours = null,
       imgEnCours = null, dernierPointeur = '';
 
@@ -716,7 +803,11 @@
     if (e.button === 2 || !carte) return;
     try { scene.setPointerCapture(e.pointerId); } catch (err) {}
     actifs.set(e.pointerId, e);
-    if (actifs.size === 2) { mode = 'pince'; pincePrec = null; return; }
+    // un second doigt NE DOIT PAS abandonner un jeton en cours de déplacement :
+    // la paume ou le pouce de la main qui tient le téléphone suffisaient à annuler
+    // le geste en silence (le jeton revenait en arrière une seconde plus tard)
+    if (actifs.size === 2 && mode !== 'jeton') { mode = 'pince'; pincePrec = null; return; }
+    if (actifs.size === 2) return;
 
     const w = versMonde(e.clientX, e.clientY);
     const jet = e.target.closest('.jeton');
@@ -730,14 +821,22 @@
     if (imgPin && (!vueJoueurs || imgPin.classList.contains('revele'))) {
       mode = 'img'; imgEnCours = { src: resoudreImage(imgPin.dataset.src), titre: imgPin.title }; return;
     }
-    // un joueur peut déplacer son propre jeton PJ, même dans la vraie fenêtre séparée ;
-    // le MJ peut toujours déplacer n'importe quel jeton, depuis n'importe où.
-    if (jet && outil === 'deplacer' && (!vueJoueurs || jet.dataset.pj === 'true')) {
+    /* Attraper un jeton l'emporte sur TOUS les outils : exiger l'outil ✥ faisait
+       qu'après avoir peint (le cas normal), la première tentative de bouger un
+       monstre tartinait du brouillard dessus, sans le moindre avertissement. */
+    if (jet && (!vueJoueurs || peutDeplacer(jet))) {
       mode = 'jeton'; jDrag = partie.jetons.find(j => j.id === jet.dataset.id);
+      jPointer = e.pointerId;                          // seul ce doigt pilote le jeton
+      snapJetons = JSON.stringify(partie.jetons);      // pour annuler le déplacement
       jet.classList.add('drag'); return;
     }
     if (!vueJoueurs && (outil === 'reveal' || outil === 'hide')) {
-      mode = 'fog'; debutGesteFog(); pinceau(outil, w.x, w.y); return;
+      // mx/my : point monde du clic, pour « révéler la pièce » si on ne glisse pas ;
+      // nbAvant : nombre d'ops avant ce geste (le filtre de distance peut avoir
+      // refusé la touche du pointerdown — sans ça, pinceauPiece retirait l'op d'un
+      // geste PRÉCÉDENT en croyant retirer la sienne)
+      mode = 'fog'; dep = { mx: w.x, my: w.y, nbAvant: opsFog().length };
+      debutGesteFog(); pinceau(outil, w.x, w.y); return;
     }
     if (!vueJoueurs && outil === 'mesure') {
       mode = 'mesure'; mesure = { x: w.x, y: w.y };
@@ -767,10 +866,12 @@
     }
     const w = versMonde(e.clientX, e.clientY);
     if (mode === 'jeton' && jDrag) {
+      if (e.pointerId !== jPointer) return;   // seul le doigt qui a saisi le jeton le pilote
       bouge++; jDrag.x = w.x; jDrag.y = w.y;
       const el = jetonsEl.querySelector('[data-id="' + jDrag.id + '"]');
       if (el) { el.style.left = w.x + 'px'; el.style.top = w.y + 'px'; }
     } else if (mode === 'fog') {
+      bouge++;   // distingue le clic (révéler la pièce) du glisser (pinceau)
       pinceau(outil, w.x, w.y);
     } else if (mode === 'pin' || mode === 'img') {
       bouge++;
@@ -800,6 +901,12 @@
       return;
     }
     if (mode === 'jeton' && jDrag) {
+      // un autre doigt qui se lève ne termine pas le geste : on attend celui qui tient
+      if (jPointer !== null && e.pointerId !== jPointer) return;
+      // le déplacement devient annulable (↶ / Ctrl+Z) — seulement s'il a bougé,
+      // pour ne pas remplir l'historique de simples taps
+      if (bouge > 2 && snapJetons) pousserAnnul({ t: 'jetons', snap: snapJetons });
+      snapJetons = null; jPointer = null;
       // avant le repositionnement sur la grille ci-dessous : la position brute où le jeton a
       // été lâché est plus fidèle à l'intention que sa case la plus proche (voir trouverPortailProche)
       const portail = jDrag.pj ? trouverPortailProche(jDrag) : null;
@@ -847,7 +954,11 @@
       if (bouge <= 2) ouvrirImage(imgEnCours.src, imgEnCours.titre);
       imgEnCours = null;
     }
-    if (mode === 'fog') flushSauver();   // le geste est fini : la sauvegarde lissée part maintenant
+    if (mode === 'fog') {
+      // clic sans glisser : on dévoile (ou recouvre) la PIÈCE entière d'un coup
+      if (bouge <= 2 && dep) pinceauPiece(outil, dep.mx, dep.my, dep.nbAvant || 0);
+      flushSauver();   // le geste est fini : la sauvegarde lissée part maintenant
+    }
     if (mode === 'mesure') {
       setTimeout(() => { regle.innerHTML = ''; const l = $('etiquette'); if (l) l.remove(); }, 1200);
       mesure = null;
@@ -863,7 +974,7 @@
         if (Date.now() - (actionDoubleTap._t || 0) >= 700) actionDoubleTap(sous, e.clientX, e.clientY);
       } else fin._tap = { t: t, x: e.clientX, y: e.clientY };
     }
-    mode = null; dep = null;
+    mode = null; dep = null; jPointer = null; snapJetons = null;
   }
   scene.addEventListener('pointerup', fin);
   scene.addEventListener('pointercancel', fin);
@@ -889,13 +1000,15 @@
       // au doigt, l'appui long part trop facilement tout seul : on confirme avant
       // de supprimer (à la souris, le clic droit reste immédiat comme avant)
       const jNom = (partie.jetons.find(j => j.id === jet.dataset.id) || {}).nom;
-      if (dernierPointeur === 'touch'
-          && !confirm('Supprimer le jeton « ' + (jNom || '?') + ' » ?')) return;
+      // confirmation à la souris AUSSI : la suppression était immédiate et, avant
+      // l'historique des jetons, définitive
+      if (!confirm('Supprimer le jeton « ' + (jNom || '?') + ' » ?')) return;
+      avantJetons();
       partie.jetons = partie.jetons.filter(j => j.id !== jet.dataset.id);
       // le geste en cours tenait ce jeton : sans ça, le relâchement du doigt
       // rejouait un « lâcher sur portail » avec un jeton supprimé → changement
       // de carte fantôme pour toute la table
-      mode = null; jDrag = null;
+      mode = null; jDrag = null; jPointer = null; snapJetons = null;
       dessinerJetons(); sauverPartie();
       return;
     }
@@ -912,12 +1025,46 @@
 
   /* ---------------- commandes ---------------- */
   $('choix-carte').addEventListener('change', (e) => chargerCarte(e.target.value).catch(() => toast('Chargement impossible.')));
-  $('b-annuler-fog').addEventListener('click', annulerFog);
-  $('b-couvrir').addEventListener('click', () => { partie.fog[carte.id] = []; marqueursFog[carte.id] = []; dessinerFog(); sauverPartie(); toast('Carte entièrement recouverte.'); });
+  /* Le catalogue n'était chargé qu'au démarrage : une carte créée pendant la séance
+     n'apparaissait jamais dans la liste sans recharger toute la page. On le
+     rafraîchit à l'ouverture du sélecteur (au plus une fois toutes les 5 s). */
+  $('choix-carte').addEventListener('pointerdown', () => {
+    if (vueJoueurs) return;
+    const t = Date.now();
+    if (t - (chargerCatalogue._t || 0) < 5000) return;
+    chargerCatalogue._t = t;
+    const garde = carte && carte.id;
+    chargerCatalogue().then(() => { if (garde) $('choix-carte').value = garde; }).catch(() => {});
+  });
+  /* Taille du pinceau : le diamètre fixe de 26 px (0,65 case) imposait des dizaines
+     d'allers-retours pour une salle. Trois tailles, mémorisées. */
+  const selP = $('taille-pinceau');
+  if (selP) {
+    selP.value = String(taillePinceau);
+    selP.addEventListener('change', () => {
+      taillePinceau = +selP.value || 60;
+      try { localStorage.setItem('kj-pinceau', String(taillePinceau)); } catch (e) {}
+      if (outil !== 'reveal' && outil !== 'hide') choisirOutil('reveal');
+    });
+  }
+  $('b-annuler-fog').addEventListener('click', annulerTable);
+  /* Actions GLOBALES : confirmation (elles effacent d'un clic des heures
+     d'exploration) et snapshot dans l'historique — l'annulation revient
+     vraiment à l'état d'avant au lieu de tout recouvrir de noir. */
+  $('b-couvrir').addEventListener('click', () => {
+    const ops = opsFog();
+    if (ops.length && !confirm('Recouvrir TOUTE la carte de brouillard ?\n\n'
+      + 'Tout ce qui a été révélé sur « ' + carte.nom + ' » redevient caché (annulable avec ↶).')) return;
+    pousserAnnul({ t: 'fog-tout', ops: ops.slice() });
+    partie.fog[carte.id] = [];
+    dessinerFog(); sauverPartie(); toast('Carte entièrement recouverte.');
+  });
   $('b-decouvrir').addEventListener('click', () => {
+    if (!confirm('Révéler TOUT le terrain aux joueurs ?\n\n'
+      + 'Le plan entier de « ' + carte.nom + ' » leur devient visible (annulable avec ↶).')) return;
+    pousserAnnul({ t: 'fog-tout', ops: opsFog().slice() });
     partie.fog[carte.id] = [{ m: 'reveal', x: carte.taille.w / 2, y: carte.taille.h / 2,
       r: Math.max(carte.taille.w, carte.taille.h) }];
-    marqueursFog[carte.id] = [];
     dessinerFog(); sauverPartie(); toast('Terrain entièrement révélé.');
   });
   /* Repartir à neuf sur cette carte pour une nouvelle table (d'autres joueurs) : brouillard,
@@ -943,7 +1090,7 @@
       $('r-annuler').addEventListener('click', fermerModale);
       $('r-ok').addEventListener('click', () => {
         const touche = [];
-        if ($('r-fog').checked) { partie.fog[carte.id] = []; marqueursFog[carte.id] = []; touche.push('brouillard'); }
+        if ($('r-fog').checked) { partie.fog[carte.id] = []; touche.push('brouillard'); }
         // masques aussi : un élément re-caché à la main restait sinon désarmé pour
         // toujours — la révélation automatique ne marchait plus pour le groupe suivant
         if ($('r-reveles').checked) { partie.reveles[carte.id] = []; partie.masques[carte.id] = []; touche.push('révélations'); }
@@ -984,19 +1131,23 @@
      de le supprimer. */
   function ouvrirDialogueJeton(jetonExistant) {
     ouvrirModale(jetonExistant ? 'Modifier le jeton' : 'Nouveau jeton', true, (corps) => {
+      /* Nom COMPLET (14 car.) : la limite de 2 caractères, non annoncée, tronquait
+         « Aldric » en « Al ». Le rond n'affiche que l'initiale, le nom entier vit
+         dans la pastille sous le jeton. Actions en HAUT : enterrées sous la grille
+         de portraits, il fallait scroller tout le catalogue pour trouver « Créer ». */
       corps.innerHTML = `
-        <div class="champ"><label>Étiquette</label><input id="j-nom" type="text" maxlength="2" placeholder="J"></div>
+        <div class="champ"><label>Nom</label><input id="j-nom" type="text" maxlength="14" placeholder="Aldric"></div>
         <label class="coche"><input id="j-pj" type="checkbox"> PJ — suit le groupe de carte en carte</label>
+        <div class="actions-modale" style="margin:10px 0 0">
+          ${jetonExistant ? '<button id="j-supprimer" class="danger">✕ Supprimer</button>' : ''}
+          <button id="j-annuler">Annuler</button>
+          <button id="j-creer" class="primaire">${jetonExistant ? 'Enregistrer' : 'Créer'}</button>
+        </div>
         <p class="aide">Portrait (facultatif, sinon disque de couleur) :</p>
         <div id="j-preview"></div>
         <button id="j-depuis-appareil">📁 Depuis cet appareil</button>
         <div id="j-dossiers" class="fil-ariane"></div>
-        <div id="j-grille" class="palette"></div>
-        <div class="actions-modale">
-          ${jetonExistant ? '<button id="j-supprimer" class="danger">✕ Supprimer</button>' : ''}
-          <button id="j-annuler">Annuler</button>
-          <button id="j-creer" class="primaire">${jetonExistant ? 'Enregistrer' : 'Créer'}</button>
-        </div>`;
+        <div id="j-grille" class="palette"></div>`;
       $('j-nom').value = jetonExistant ? jetonExistant.nom : '';
       $('j-pj').checked = jetonExistant ? !!jetonExistant.pj : true;
       // un invité ne crée QUE des jetons PJ : la case n'a pas à se discuter
@@ -1033,15 +1184,27 @@
         input.click();
       });
       if (jetonExistant) $('j-supprimer').addEventListener('click', () => {
+        if (!confirm('Supprimer le jeton « ' + (jetonExistant.nom || '?') + ' » ?')) return;
+        avantJetons();
         partie.jetons = partie.jetons.filter(j => j.id !== jetonExistant.id);
         dessinerJetons(); sauverPartie(true); fermerModale();
-        toast('Jeton supprimé.');
+        toast('Jeton supprimé (↶ pour le récupérer).');
       });
       $('j-annuler').addEventListener('click', fermerModale);
       $('j-creer').addEventListener('click', () => {
-        const nom = ($('j-nom').value || 'J').trim().slice(0, 2) || 'J';
+        const nom = ($('j-nom').value || '').trim().slice(0, 14) || 'J';
         const pj = $('j-pj').checked;
         if (jetonExistant) {
+          /* un joueur ne modifie que SON jeton : la demande passe par la boîte aux
+             lettres, comme la création — le MJ reste seul maître de l'état */
+          if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
+            KJ.session.envoyerMouvement({ modifier: true, id: jetonExistant.id, nom: nom,
+              img: img || null, carte: carte.id });
+            fermerModale();
+            toast('Modification envoyée au MJ.');
+            return;
+          }
+          avantJetons();
           jetonExistant.nom = nom; jetonExistant.pj = pj; jetonExistant.img = img || undefined;
           dessinerJetons(); sauverPartie(true); fermerModale();
           toast('Jeton mis à jour' + (pj ? ' (PJ).' : '.'));
@@ -1053,12 +1216,19 @@
            boîte aux lettres (comme les déplacements), le MJ l'applique et l'état
            officiel redescend vers tout le monde. */
         if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
-          KJ.session.envoyerMouvement({ creer: true, id: 'j' + Date.now(), nom: nom,
+          const id = 'j' + Date.now();
+          // « mon jeton » : mémorisé pour le reconnaître (liseré) et pour être le
+          // seul que CET appareil pourra déplacer
+          monJeton = id;
+          try { localStorage.setItem('kj-mon-jeton', id); } catch (e) {}
+          KJ.session.envoyerMouvement({ creer: true, id: id, nom: nom,
             img: img || null, x: Math.round(c.x), y: Math.round(c.y), carte: carte.id });
           fermerModale();
+          majAttente();
           toast('Jeton envoyé au MJ — il apparaît dans un instant.');
           return;
         }
+        avantJetons();
         partie.jetons.push({
           id: 'j' + Date.now(), nom: nom, pj: pj,
           couleur: COULEURS[partie.jetons.length % COULEURS.length],
@@ -1079,8 +1249,9 @@
     const n = partie.jetons.filter(j => j.carte === carte.id).length + 1;
     const r = scene.getBoundingClientRect();
     const c = versMonde(r.left + r.width / 2, r.top + r.height / 2);
+    avantJetons();
     partie.jetons.push({
-      id: 'j' + Date.now(), nom: ('J' + n).slice(0, 2), pj: true,
+      id: 'j' + Date.now(), nom: 'J' + n, pj: true,
       couleur: COULEURS[partie.jetons.length % COULEURS.length],
       x: Math.round(c.x), y: Math.round(c.y), carte: carte.id,
     });
@@ -1153,7 +1324,7 @@
   window.addEventListener('keydown', (e) => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || vueJoueurs) return;
     if (e.key === 'g' || e.key === 'G') $('b-vue').click();
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); annulerFog(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); annulerTable(); }
   });
   window.addEventListener('resize', () => { if (carte) cadrer(); });
 
@@ -1171,6 +1342,40 @@
     document.body.insertBefore(a, document.getElementById('scene'));
   }
 
+  /* ---------------- écran d'attente du joueur ----------------
+     Avant : écran noir, puis un micro-texte gris dans un coin — un joueur sur 4G
+     rechargeait la page en croyant que c'était cassé, et rien ne signalait « le MJ
+     n'a pas encore ouvert la table » ni une perte de réseau. */
+  function majAttente(msgErreur) {
+    if (carte && !msgErreur) { const v = $('scene-vide'); if (v) v.remove(); return; }
+    let v = $('scene-vide');
+    if (!v) {
+      v = document.createElement('div'); v.id = 'scene-vide';
+      document.getElementById('scene').appendChild(v);
+    }
+    let titre, detail, bouton = '';
+    if (msgErreur) {
+      titre = '⚠ ' + msgErreur;
+      detail = 'Vérifie le code avec ton MJ, ou réessaie.';
+      bouton = '<button id="attente-reessayer">↻ Réessayer</button>';
+    } else if (!navigator.onLine) {
+      titre = '📶 Pas de connexion';
+      detail = 'La table reprendra dès que le réseau revient.';
+      bouton = '<button id="attente-reessayer">↻ Réessayer</button>';
+    } else if (codeSessionURL && mjPresent === false) {
+      titre = '⏳ En attente du MJ';
+      detail = 'Il n’a pas encore ouvert la table. L’écran se remplira tout seul.';
+    } else {
+      titre = '⏳ Connexion à la partie' + (codeSessionURL ? ' ' + codeSessionURL : '') + '…';
+      detail = 'La carte du MJ arrive.';
+    }
+    v.innerHTML = '<div class="boite-attente"><b>' + titre + '</b><p>' + detail + '</p>' + bouton + '</div>';
+    const r = $('attente-reessayer');
+    if (r) r.addEventListener('click', () => location.reload());
+  }
+  window.addEventListener('online', () => majAttente());
+  window.addEventListener('offline', () => { majAttente(); majBadgeSession(0); });
+
   /* IMPORTANT : ce message ne doit JAMAIS remplacer le contenu de #scene
      (innerHTML) — ça détruirait les calques de rendu, et la carte transportée
      par la partie, qui arrive quelques instants PLUS TARD chez un joueur,
@@ -1180,18 +1385,15 @@
        d'abord une carte locale (première du site, ou dernière vue d'une autre
        partie) faisait apparaître un AUTRE lieu pendant une seconde ou deux
        avant l'arrivée de la vraie carte. On attend, message à l'appui. */
-    if (codeSessionURL) return Promise.reject();
+    // en session (joueur) comme en reprise (MJ), c'est la PARTIE qui dit quelle
+    // carte afficher : charger la dernière carte locale d'abord ferait clignoter
+    // un autre lieu, et pourrait publier la mauvaise carte aux joueurs
+    if (codeSessionURL || repriseEnCours) return Promise.reject();
     const voulue = params.get('carte') || partie.carte;
     return chargerCarte(voulue);
   }).catch(() => {
-    const p = document.createElement('p');
-    p.id = 'scene-vide';
-    p.style.cssText = 'position:absolute;top:16px;left:16px;z-index:5;'
-      + 'font-family:var(--serif);font-style:italic;opacity:.7';
-    p.textContent = codeSessionURL
-      ? 'Connexion à la partie… la carte du MJ arrive.'
-      : 'Aucune carte dans la bibliothèque. Crée-en une dans l’éditeur, puis reviens ici.';
-    document.getElementById('scene').appendChild(p);
+    if (codeSessionURL) majAttente();
+    else majAttente('Aucune carte dans la bibliothèque');
   });
   // indépendante du chargement de la carte : la galerie doit marcher même sans plan affiché
   chargerGalerie().catch(() => {});
@@ -1241,6 +1443,7 @@
   }
 
   let mjPresent = null;   // côté joueur : le MJ est-il à la table ? (null = pas encore su)
+  let timerAbsence = null;   // annonce d'absence différée (voir onPresence)
   function majBadgeSession(nb) {
     const b = $('badge-session');
     if (!b) return;
@@ -1255,6 +1458,11 @@
      boîte aux lettres des gestes, et état initial (celui CONSERVÉ par la base pour
      une reprise, ou l'état local publié pour une partie neuve). */
   function brancherPartie(etatConserve) {
+    /* Mémoriser la partie en cours : recharger la page ou aller dans l'éditeur
+       débranchait la table SANS RIEN DIRE — le MJ continuait à peindre et à
+       déplacer des jetons dans le vide, les joueurs restaient figés. Le code est
+       oublié seulement quand le MJ clique explicitement « Quitter la table ». */
+    try { localStorage.setItem(CLE_MJ_PARTIE, KJ.session.code() || ''); } catch (e) {}
     btnSession.classList.add('actif');
     majBadgeSession(0);
     KJ.session.surJoueurs(majBadgeSession);
@@ -1262,10 +1470,22 @@
       if (!m || !m.id) return;
       /* un joueur crée SON jeton : appliqué ici, chez le MJ — toujours PJ,
          portrait borné (vignette), jamais deux fois le même id (message rejoué) */
+      /* un joueur renomme / change le portrait de SON jeton (même boîte aux lettres
+         que la création : lui n'écrit jamais l'état officiel) */
+      if (m.modifier) {
+        const cible = partie.jetons.find(x => x.id === m.id);
+        if (!cible || !cible.pj) return;
+        cible.nom = String(m.nom || cible.nom || 'J').slice(0, 14);
+        if (typeof m.img === 'string' && m.img.length < 40000) cible.img = m.img;
+        else if (m.img === null) cible.img = undefined;
+        dessinerJetons(); sauverPartie();
+        toast('Un joueur a modifié son jeton : ' + cible.nom + '.');
+        return;
+      }
       if (m.creer) {
         if (!carte || partie.jetons.some(x => x.id === m.id)) return;
         partie.jetons.push({
-          id: String(m.id), nom: String(m.nom || 'J').slice(0, 2), pj: true,
+          id: String(m.id), nom: String(m.nom || 'J').slice(0, 14), pj: true,
           couleur: COULEURS[partie.jetons.length % COULEURS.length],
           img: (typeof m.img === 'string' && m.img.length < 40000) ? m.img : undefined,
           x: +m.x || Math.round(carte.taille.w / 2),
@@ -1394,6 +1614,9 @@
       const t = document.createElement('b'); t.textContent = 'À la table : partie ' + KJ.session.code();
       enCours.appendChild(t);
       enCours.appendChild(bouton('Quitter la table', () => {
+        // départ EXPLICITE : c'est le seul geste qui fait oublier la partie (donc
+        // qui désactive la reprise automatique au prochain chargement)
+        try { localStorage.removeItem(CLE_MJ_PARTIE); } catch (e) {}
         KJ.session.fermer().then(() => {
           majBadgeSession(0); btnSession.classList.remove('actif');
           toast('Table quittée — la partie et son état restent conservés.');
@@ -1480,6 +1703,28 @@
       $('modale').classList.add('pour-joueur');   // seule modale autorisée côté joueur
       ouvrirDialogueJeton();
     });
+    /* Aide JOUEUR : le bouton « ? » du MJ lui est masqué, donc le geste central
+       (glisser son jeton sur un losange doré pour changer d'étage) n'était écrit
+       nulle part pour lui. */
+    $('b-aide-joueur').hidden = false;
+    $('b-aide-joueur').addEventListener('click', () => {
+      $('modale').classList.add('pour-joueur');
+      ouvrirModale('Comment jouer', false, (corps) => {
+        corps.innerHTML = '<div class="aide-jeu">'
+          + '<p><b>Ton personnage</b> — « ＋ Mon jeton » le crée (nom + portrait). '
+          + 'Il porte un <b>liseré clair</b> : c’est le seul que tu peux déplacer. '
+          + 'Double-tape dessus pour le renommer ou changer son portrait.</p>'
+          + '<p><b>Se déplacer</b> — glisse ton jeton. Pour naviguer : un doigt pour '
+          + 'faire glisser la carte, deux doigts pour zoomer, ⤢ pour tout revoir.</p>'
+          + '<p><b>Changer d’étage</b> — glisse ton jeton sur un <b>losange doré</b> '
+          + '(les escaliers) : tout le groupe passe avec toi.</p>'
+          + '<p><b>Images</b> — quand le MJ révèle une illustration, une petite '
+          + 'vignette 🖼 apparaît sur la carte : tape-la pour la voir en grand.</p>'
+          + '<p><b>Le noir</b> — c’est le brouillard : le MJ dévoile le terrain au fur '
+          + 'et à mesure. Les autres personnages restent visibles à travers.</p>'
+          + '</div>';
+      });
+    });
     $('b-quitter-partie').hidden = false;
     $('b-quitter-partie').addEventListener('click', () => {
       if (!confirm('Quitter cette partie ?\n\nLe lien de la partie continue de marcher si tu veux revenir.')) return;
@@ -1514,11 +1759,21 @@
       onPing: (p) => { if (carte && p.carte === carte.id) montrerPing(p.x, p.y); },
       // la partie SURVIT aux absences du MJ : on montre la table telle qu'il l'a
       // laissée, on signale seulement s'il est là ou non
+      /* Absence du MJ annoncée avec RETARD (20 s) : un simple rechargement de sa
+         page ou un aller-retour dans l'éditeur coupait sa connexion une seconde et
+         alarmait les joueurs pour rien. S'il revient avant, on ne dit rien. */
       onPresence: (present) => {
-        if (mjPresent !== null)
-          toast(present ? 'Le MJ est à la table.' : 'Le MJ a quitté la table — la partie reste consultable.');
-        mjPresent = present;
-        majBadgeSession(0);
+        clearTimeout(timerAbsence);
+        if (present) {
+          if (mjPresent === false) toast('Le MJ est à la table.');
+          mjPresent = true; majBadgeSession(0); majAttente();
+        } else {
+          timerAbsence = setTimeout(() => {
+            if (mjPresent !== null) toast('Le MJ a quitté la table — la partie reste consultable.');
+            mjPresent = false; majBadgeSession(0); majAttente();
+          }, 20000);
+          if (mjPresent === null) { mjPresent = false; majBadgeSession(0); majAttente(); }
+        }
       },
       onFin: () => {
         majBadgeSession(0);
@@ -1530,21 +1785,33 @@
       // en réseau, cette fenêtre reflète le MJ : le suivi de caméra locale n'a pas de sens
       if ($('b-suivre')) $('b-suivre').style.display = 'none';
     }).catch(e => {
-      const a = document.createElement('div');
-      a.className = 'alerte';
-      a.textContent = e.message;
-      document.body.insertBefore(a, document.getElementById('scene'));
+      // plein écran avec bouton Réessayer : une bannière de 12 px sans action
+      // laissait le joueur dans une impasse (code faux, réseau absent)
+      majAttente(e.message);
     });
     });   // fin de la vérification de propriété
   }
 
   /* Reprise directe par l'adresse (?partie=CODE) : la table du MJ, branchée sur sa
-     partie — c'est ici qu'atterrit le propriétaire qui a suivi le lien des joueurs. */
-  if (codePartieURL && !vueJoueurs && KJ.session && KJ.session.configuree()) {
-    KJ.session.reprendrePartie(codePartieURL).then(etat => {
+     partie — c'est ici qu'atterrit le propriétaire qui a suivi le lien des joueurs.
+     Sans code dans l'adresse, on reprend AUTOMATIQUEMENT la dernière partie du MJ
+     (mémorisée par brancherPartie) : un rechargement de page, un aller-retour dans
+     l'éditeur ou un clic sur « Cartes » ne doivent plus débrancher la table en
+     silence. Le code n'est oublié que par « Quitter la table ». */
+  if (repriseEnCours) {
+    KJ.session.reprendrePartie(codeReprise).then(etat => {
       brancherPartie(etat);
-      toast('Partie ' + codePartieURL + ' reprise — tu es à la table en MJ.');
-    }).catch(e => toast(e.message));
+      toast(codePartieURL ? 'Partie ' + codeReprise + ' reprise — tu es à la table en MJ.'
+        : 'Partie ' + codeReprise + ' reprise automatiquement — tes joueurs te suivent.');
+      // l'état conservé n'imposait aucune carte : on affiche la dernière carte locale
+      if (!carte) chargerCarte(params.get('carte') || partie.carte).catch(() => majAttente('Aucune carte à afficher'));
+    }).catch(e => {
+      // partie supprimée, ou plus les droits : on oublie, sans alarmer — et on
+      // retombe sur l'affichage local normal
+      if (!codePartieURL) { try { localStorage.removeItem(CLE_MJ_PARTIE); } catch (er) {} }
+      else toast(e.message);
+      chargerCarte(params.get('carte') || partie.carte).catch(() => majAttente('Aucune carte dans la bibliothèque'));
+    });
   }
 
   S.gererServiceWorker();

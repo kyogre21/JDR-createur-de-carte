@@ -58,6 +58,9 @@
   /* portail marqué « caché aux joueurs » : estompé côté MJ, absent côté joueurs
      (préview locale comprise) tant qu'il n'est pas révélé */
   .pin.zone-cachee{opacity:.45}
+  /* « mon jeton » côté joueur : liseré clair pour le distinguer de ceux des autres
+     PJ (ils sont alignés à une case d'écart, on les confondait au doigt) */
+  .jeton.mien{box-shadow:0 0 0 2.5px #f0e2bd,0 0 10px rgba(240,226,189,.55)}
   body[data-vue="joueurs"] .pin.zone-cachee{display:none}
   /* fenêtre projetée : rien n'y est manipulable */
   body[data-vue="joueurs"] #choix-carte{pointer-events:none;opacity:.75}
@@ -176,8 +179,34 @@
     #barre-mj::-webkit-scrollbar{display:none}
     #barre-mj button, #barre-mj .btn{flex:0 0 auto;padding:5px 7px;font-size:11px;min-height:34px}
     #barre-mj .sep{flex:0 0 1px}
+    /* La barre des JOUEURS n'avait aucune règle mobile — c'est pourtant le seul
+       public toujours sur téléphone : ses boutons étaient écrasés ou poussés hors
+       écran, sans défilement possible. Mêmes règles que la barre MJ, et cibles
+       tactiles confortables (42 px). */
+    #barre-joueurs{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;scrollbar-width:none;gap:5px}
+    #barre-joueurs::-webkit-scrollbar{display:none}
+    #barre-joueurs button{flex:0 0 auto;padding:6px 9px;font-size:12px;min-height:42px}
     #scene{min-height:0}
   }
+  /* Chez un invité, le sélecteur de carte est VIDE (bibliothèque privée) : il
+     occupait jusqu'à 40 % de la largeur pour rien. Le nom du lieu s'affiche à la
+     place, en texte simple (voir majNomLieu dans table.js). */
+  body.fenetre-joueurs #choix-carte{display:none}
+  #nom-lieu{font-family:var(--serif);font-style:italic;opacity:.75;font-size:13px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}
+  body[data-vue="mj"] #nom-lieu{display:none}
+
+  /* Écran d'attente / d'erreur du joueur : centré et explicite (avant : un
+     micro-texte gris dans un coin, qu'on prenait pour une page cassée). */
+  #scene-vide{position:absolute;inset:0;z-index:6;display:flex;align-items:center;
+    justify-content:center;padding:24px;pointer-events:none}
+  #scene-vide .boite-attente{pointer-events:auto;max-width:min(420px,86vw);text-align:center;
+    background:rgba(13,10,7,.92);border:1px solid var(--bord-clair);border-radius:10px;
+    padding:20px 22px;box-shadow:0 10px 34px rgba(0,0,0,.5)}
+  #scene-vide b{display:block;font-family:var(--serif);font-size:17px;color:var(--or);margin-bottom:8px}
+  #scene-vide p{margin:0 0 12px;font-size:13.5px;opacity:.85;line-height:1.45}
+  #scene-vide button{min-height:42px;padding:8px 16px;font-size:13px}
 </style>
 </head>
 <body data-vue="mj">
@@ -186,13 +215,19 @@
   <div class="marque">Table <span>de jeu</span></div>
   <span id="badge-session" hidden></span>
   <select id="choix-carte" title="Carte affichée"></select>
+  <span id="nom-lieu"></span>
   <div class="esp"></div>
   <span id="barre-mj">
     <button data-o="deplacer" class="actif" title="Déplacer les jetons et la vue">✥</button>
-    <button data-o="reveal" title="Révéler le terrain au pinceau">☀ Révéler</button>
-    <button data-o="hide" title="Recouvrir de brouillard">☁ Cacher</button>
+    <button data-o="reveal" title="Révéler le terrain au pinceau — un clic simple dans une pièce la révèle entièrement">☀ Révéler</button>
+    <button data-o="hide" title="Recouvrir de brouillard — un clic simple dans une pièce la recouvre entièrement">☁ Cacher</button>
+    <select id="taille-pinceau" title="Taille du pinceau">
+      <option value="26">Pinceau fin</option>
+      <option value="60">Pinceau moyen</option>
+      <option value="120">Pinceau large</option>
+    </select>
     <button data-o="mesure" title="Mesurer une distance">⟷</button>
-    <button id="b-annuler-fog" title="Annuler le dernier geste de brouillard (Ctrl+Z)">↶</button>
+    <button id="b-annuler-fog" title="Annuler la dernière action : brouillard ou jetons (Ctrl+Z)">↶ Annuler</button>
     <span class="sep"></span>
     <button id="b-couvrir" title="Recouvrir toute la carte">Tout couvrir</button>
     <button id="b-decouvrir" title="Tout révéler">Tout révéler</button>
@@ -208,13 +243,15 @@
     <button id="b-vue" title="Prévisualiser ce que voient les joueurs (G)">Vue joueurs</button>
     <button id="b-cadrer" title="Recadrer">⤢</button>
     <button id="b-aide" title="Aide : gestes et raccourcis">?</button>
-    <a class="btn" id="b-editer" href="editeur.html" title="Modifier cette carte">✎ Éditer</a>
+    <!-- nouvel onglet : quitter la page débranchait la partie en pleine séance -->
+    <a class="btn" id="b-editer" href="editeur.html" target="_blank" rel="noopener" title="Modifier cette carte (nouvel onglet : la partie reste ouverte ici)">✎ Éditer</a>
     <a class="btn" href="index.html">☰ Cartes</a>
   </span>
   <span id="barre-joueurs">
     <button id="b-suivre" class="actif">Suivre le MJ</button>
     <button id="b-cadrer-j" title="Recadrer la carte (utile en Vue libre)">⤢</button>
     <button id="b-jeton-joueur" hidden title="Créer ton jeton de personnage (envoyé au MJ)">＋ Mon jeton</button>
+    <button id="b-aide-joueur" hidden title="Comment jouer : gestes de base">?</button>
     <button id="b-quitter-partie" hidden title="Quitter cette partie et revenir à l’accueil">✕ Quitter</button>
   </span>
 </header>
