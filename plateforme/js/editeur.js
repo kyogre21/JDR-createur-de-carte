@@ -234,7 +234,8 @@
   /* ---------------- interactions ---------------- */
   let mode = null, depart = null, elDrag = null, coin = null, apercu = null,
       accSurbrillance = null, libre = false, pointeurs = new Map(), pinch = null,
-      selMulti = [];   // multi-sélection (outil 🖱) : ids des éléments pris dans le rectangle
+      selMulti = [],   // multi-sélection (outil 🖱) : ids des éléments pris dans le rectangle
+      pressePapier = null;   // Ctrl+C/Ctrl+V : { els: copies JSON, n: collages successifs }
 
   canevas.addEventListener('pointerdown', (e) => {
     if (e.button === 2) return;
@@ -1382,6 +1383,37 @@
     if (ctrl && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); refaire(); return; }
     if (ctrl && (e.key === 's' || e.key === 'S')) { e.preventDefault(); enregistrerMaintenant(); return; }
     if (ctrl && (e.key === 'a' || e.key === 'A')) { e.preventDefault(); toutSelectionner(); return; }
+    /* Copier/coller classiques — presse-papier interne (pas celui du système :
+       aucune permission à demander, et on copie des ÉLÉMENTS, pas du texte).
+       Chaque collage successif décale d'une case de plus. */
+    if (ctrl && (e.key === 'c' || e.key === 'C')) {
+      const els = selMulti.length
+        ? selMulti.map(id => M.trouver(carte, id)).filter(Boolean)
+        : (sel && M.trouver(carte, sel) ? [M.trouver(carte, sel)] : []);
+      if (!els.length) return;
+      e.preventDefault();
+      pressePapier = { els: JSON.parse(JSON.stringify(els)), n: 0 };
+      toast(els.length + ' élément' + (els.length > 1 ? 's' : '') + ' copié' + (els.length > 1 ? 's' : '') + '.');
+      return;
+    }
+    if (ctrl && (e.key === 'v' || e.key === 'V')) {
+      if (!pressePapier || !pressePapier.els.length) return;
+      e.preventDefault();
+      pressePapier.n++;
+      const dec = (cell() || 20) * pressePapier.n;
+      const crees = pressePapier.els.map(src => {
+        const p = JSON.parse(JSON.stringify(src));
+        delete p.id;   // nouvelElement fournit un id neuf
+        const copie = M.ajouter(carte, M.nouvelElement(p.type, p));
+        M.deplacer(copie, dec, dec);
+        return copie;
+      });
+      if (crees.length === 1) { sel = crees[0].id; selMulti = []; }
+      else { selMulti = crees.map(x => x.id); sel = null; }
+      majPanneau(); apresModif(); dessiner();
+      toast('Collé (décalé d’une case — Ctrl+V encore pour multiplier).');
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selMulti.length) {
       e.preventDefault();
       if (!confirm('Supprimer les ' + selMulti.length + ' éléments sélectionnés ?')) return;
