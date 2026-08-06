@@ -30,9 +30,19 @@
     <button id="b-scene" title="Copier le bloc de scène (pour une page de table externe)">⧉ Scène</button>
     <span class="sep"></span>
   </span>
+  <button id="b-mj-editeur" title="Compte MJ : nécessaire pour enregistrer en ligne et importer des images">🛡 Espace MJ</button>
   <a class="btn" id="b-jouer" href="table.html" title="Ouvrir cette carte en mode Jeu (brouillard, jetons)">▶ Jouer</a>
   <a class="btn" href="index.html" title="Bibliothèque de cartes">☰ Cartes</a>
 </header>
+
+<!-- connexion au compte MJ sans quitter l'éditeur : il fallait faire l'aller-retour
+     par la bibliothèque pour importer une image ou lever le « lecture seule » -->
+<div id="modale" hidden>
+  <div class="boite">
+    <h3 id="modale-titre"></h3>
+    <div id="modale-corps"></div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <div id="app">

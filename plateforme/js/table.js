@@ -9,7 +9,8 @@
   const M = KJ.modele, R = KJ.rendu, S = KJ.stockage;
   const $ = (id) => document.getElementById(id);
   const scene = $('scene'), monde = $('monde'), plan = $('plan'), fog = $('fog'),
-        pinsEl = $('pins'), imagesEl = $('images'), jetonsEl = $('jetons'), regle = $('regle'), sur = $('sur');
+        pinsEl = $('pins'), imagesEl = $('images'), jetonsEl = $('jetons'), regle = $('regle'), sur = $('sur'),
+        notesEl = $('notes');
 
   const QUAL = 2, CLE_PARTIE = 'kj-partie', CLE_MJ_PARTIE = 'kj-mj-partie';
   const params = new URLSearchParams(location.search);
@@ -96,6 +97,7 @@
   try { const s = localStorage.getItem(CLE_PARTIE); if (s) partie = JSON.parse(s); } catch (e) {}
   if (!partie.reveles) partie.reveles = {};   // sessions sauvegardées avant l'ajout de ce champ
   if (!partie.masques) partie.masques = {};   // idem : re-cachés à la main, prioritaires sur l'auto
+  if (!partie.notes) partie.notes = [];       // notes écrites (Firebase ampute les tableaux vides)
   // un état reçu du réseau a pu être sauvegardé amputé de ses champs vides
   // (Firebase les supprime — voir appliquerEtatDistant) : mêmes gardes ici
   if (!partie.fog) partie.fog = {};
@@ -385,7 +387,7 @@
       if (e.t === 'fog') { const ops = opsFog(); ops.length = Math.max(0, Math.min(e.nb, ops.length)); }
       else if (e.t === 'fog-tout') { partie.fog[carte.id] = e.ops.slice(); }
       else if (e.t === 'jetons') { partie.jetons = JSON.parse(e.snap); quoi = 'jetons'; }
-      dessinerFog(); dessinerJetons(); sauverPartie();
+      dessinerFog(); dessinerJetons(); dessinerNotes(); sauverPartie();
       toast(quoi === 'jetons' ? 'Jetons : dernière action annulée.' : 'Brouillard : dernier geste annulé.');
       return;
     }
@@ -504,7 +506,11 @@
       }
       for (const im of images) {
         const b = document.createElement('button');
-        b.innerHTML = `<img src="${im.data || 'images/' + im.fichier}" alt="">` + `<span>${R.esc(im.nom || im.fichier)}</span>`;
+        // vignette 160 px si elle existe (voir generer-vignettes.ps1) + lazy :
+        // afficher les originaux ici faisait télécharger des dizaines de Mo
+        b.innerHTML = `<img src="${im.data || 'images/' + (im.vignette || im.fichier)}" alt="" `
+          + `loading="lazy" decoding="async" width="26" height="26">`
+          + `<span>${R.esc(im.nom || im.fichier)}</span>`;
         b.addEventListener('click', () => onChoisir(im));
         gEl.appendChild(b);
       }
@@ -551,6 +557,65 @@
     if (jetEl.dataset.pj !== 'true') return false;   // un joueur ne bouge jamais un PNJ
     if (!aMonJeton()) return true;                   // repli : aucun jeton attitré
     return jetEl.dataset.id === monJeton;
+  }
+
+  /* ---------------- notes écrites ----------------
+     Une note appartient à la SESSION (comme le brouillard et les jetons), pas à la
+     carte : { id, carte, x, y, texte, auteur }. Les joueurs peuvent en écrire —
+     c'est leur seul moyen de laisser une trace sur le plan — et passent par la
+     boîte aux lettres du MJ, qui reste seul maître de l'état. */
+  const opsNotes = () => (partie.notes = partie.notes || []);
+  function dessinerNotes() {
+    if (!notesEl) return;
+    notesEl.innerHTML = '';
+    if (!carte) return;
+    for (const n of opsNotes()) {
+      if (n.carte !== carte.id) continue;
+      const d = document.createElement('div');
+      d.className = 'note'; d.dataset.id = n.id;
+      d.style.left = n.x + 'px'; d.style.top = n.y + 'px';
+      const t = document.createElement('span');
+      t.className = 'txt'; t.textContent = n.texte;
+      if (n.auteur) {
+        const a = document.createElement('span');
+        a.className = 'aut'; a.textContent = n.auteur;
+        t.appendChild(a);
+      }
+      d.innerHTML = '<span class="pointe"></span>';
+      d.appendChild(t);
+      d.title = 'Note' + (n.auteur ? ' de ' + n.auteur : '') + ' — clic droit (ou appui long) pour l’effacer';
+      notesEl.appendChild(d);
+    }
+  }
+  function ajouterNote(x, y) {
+    const texte = (prompt('Note à écrire sur la carte :', '') || '').trim().slice(0, 240);
+    if (!texte) return;
+    const n = { id: 'n' + Date.now(), carte: carte.id, x: Math.round(x), y: Math.round(y), texte: texte };
+    if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
+      const moi = partie.jetons.find(j => j.id === monJeton);
+      n.auteur = (moi && moi.nom) || 'un joueur';
+      KJ.session.envoyerMouvement(Object.assign({ note: true }, n));
+      toast('Note envoyée — elle apparaît dans un instant.');
+      choisirOutil('deplacer');   // le joueur retrouve son geste normal
+      return;
+    }
+    opsNotes().push(n);
+    dessinerNotes(); sauverPartie(true);
+    toast('Note écrite (clic droit dessus pour l’effacer).');
+  }
+  function effacerNote(id) {
+    const l = opsNotes();
+    const i = l.findIndex(n => n.id === id);
+    if (i < 0) return false;
+    if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
+      KJ.session.envoyerMouvement({ note: true, effacer: true, id: id });
+      toast('Effacement envoyé au MJ.');
+      return true;
+    }
+    l.splice(i, 1);
+    dessinerNotes(); sauverPartie(true);
+    toast('Note effacée.');
+    return true;
   }
 
   function dessinerJetons() {
@@ -696,7 +761,7 @@
       if (vueJoueurs) toast('Lieu : ' + (c.nom || 'nouvelle carte') + '.');
       $('choix-carte').value = c.id;
       $('b-editer').href = 'editeur.html?id=' + encodeURIComponent(c.id);
-      dessinerPlan(); dessinerFog(); dessinerJetons(); dessinerPins(); dessinerImages();
+      dessinerPlan(); dessinerFog(); dessinerJetons(); dessinerPins(); dessinerImages(); dessinerNotes();
       // pas dans la vraie fenêtre séparée : elle reste un pur miroir, jamais productrice
       // d'état — un PJ déjà présent dans une pièce au chargement doit être détecté, mais
       // uniquement par la fenêtre du MJ (voir le point 12 du skill sur les trois publics).
@@ -844,6 +909,8 @@
       mode = 'fog'; dep = { mx: w.x, my: w.y, nbAvant: opsFog().length };
       debutGesteFog(); pinceau(outil, w.x, w.y); return;
     }
+    // note écrite : un clic pose l'étiquette là où on a cliqué
+    if (outil === 'note') { mode = 'note'; dep = { mx: w.x, my: w.y }; return; }
     if (!vueJoueurs && outil === 'mesure') {
       mode = 'mesure'; mesure = { x: w.x, y: w.y };
       regle.setAttribute('width', carte.taille.w); regle.setAttribute('height', carte.taille.h);
@@ -969,6 +1036,12 @@
       if (bouge <= 2 && dep) pinceauPiece(outil, dep.mx, dep.my, dep.nbAvant || 0);
       flushSauver();   // le geste est fini : la sauvegarde lissée part maintenant
     }
+    if (mode === 'note' && dep) {
+      const d = dep;
+      mode = null; dep = null;
+      setTimeout(() => ajouterNote(d.mx, d.my), 0);   // prompt hors du flux d'événement
+      return;
+    }
     if (mode === 'mesure') {
       setTimeout(() => { regle.innerHTML = ''; const l = $('etiquette'); if (l) l.remove(); }, 1200);
       mesure = null;
@@ -1001,6 +1074,14 @@
 
   scene.addEventListener('contextmenu', (e) => {
     e.preventDefault();
+    // les notes s'effacent au clic droit / appui long, y compris côté joueur
+    const noteEl = e.target.closest('.note');
+    if (noteEl && noteEl.dataset.id) {
+      const n = opsNotes().find(x => x.id === noteEl.dataset.id);
+      if (!confirm('Effacer la note « ' + ((n && n.texte) || '').slice(0, 40) + ' » ?')) return;
+      effacerNote(noteEl.dataset.id);
+      return;
+    }
     if (vueJoueurs) return;
     // sur mobile, l'appui long déclenche ce menu contextuel — y compris pendant
     // qu'on maintient un jeton pour le glisser : ignorer tant qu'un glissé est en cours
@@ -1105,7 +1186,7 @@
         // toujours — la révélation automatique ne marchait plus pour le groupe suivant
         if ($('r-reveles').checked) { partie.reveles[carte.id] = []; partie.masques[carte.id] = []; touche.push('révélations'); }
         if ($('r-jetons').checked) { partie.jetons = partie.jetons.filter(j => j.carte !== carte.id); touche.push('jetons'); }
-        dessinerFog(); dessinerJetons(); dessinerPlan(); dessinerImages(); dessinerPins(); sauverPartie(true);
+        dessinerFog(); dessinerJetons(); dessinerPlan(); dessinerImages(); dessinerPins(); dessinerNotes(); sauverPartie(true);
         fermerModale();
         toast(touche.length ? 'Réinitialisé : ' + touche.join(', ') + '.' : 'Rien à réinitialiser.');
       });
@@ -1427,7 +1508,7 @@
     requestAnimationFrame(() => {
       redessinPrevu = false;
       if (!carte) return;
-      dessinerFog(); dessinerJetons();
+      dessinerFog(); dessinerJetons(); dessinerNotes();
       const sig = carte.id + '|' + JSON.stringify(partie.reveles[carte.id] || [])
         + '|' + JSON.stringify(partie.masques[carte.id] || []);
       if (sig !== planifierRedessin._sig) {
@@ -1447,6 +1528,7 @@
     if (!partie.jetons) partie.jetons = [];
     if (!partie.reveles) partie.reveles = {};
     if (!partie.masques) partie.masques = {};
+    if (!partie.notes) partie.notes = [];
     sauverPartieBientot(false);
     if (changeCarte) chargerCarte(partie.carte).catch(() => {});
     else if (carte) planifierRedessin();
@@ -1463,6 +1545,41 @@
       + (KJ.session.estMJ() ? ' · ' + (nb || 0) + ' joueur' + (nb > 1 ? 's' : '')
         : (mjPresent === false ? ' · MJ absent' : ''));
   }
+  /* Le badge devient cliquable : re-montrer le code et le lien d'invitation était
+     impossible sans passer par « ▶ Reprendre » (qui rebranche la partie). */
+  const badge = $('badge-session');
+  if (badge) badge.addEventListener('click', () => {
+    if (!KJ.session || !KJ.session.active()) return;
+    const code = KJ.session.code();
+    const lien = location.origin + location.pathname + '?session=' + code;
+    if (vueJoueurs) { toast('Tu es dans la partie ' + code + '.'); return; }
+    ouvrirModale('Partie ' + code, false, (corps) => {
+      corps.innerHTML = '<p class="aide">À dicter aux joueurs (ils entrent le code depuis '
+        + 'l’accueil, ou ouvrent directement le lien) :</p>'
+        + '<div class="code-partie">' + R.esc(code) + '</div>'
+        + '<input class="lien-partie" id="lien-partie" readonly value="' + R.esc(lien) + '">'
+        + '<div class="actions-modale">'
+        + '<button id="copier-lien">⧉ Copier le lien</button>'
+        + '<button id="fermer-code" class="primaire">Fermer</button></div>';
+      $('copier-lien').addEventListener('click', () => {
+        const inp = $('lien-partie');
+        if (navigator.clipboard && navigator.clipboard.writeText)
+          navigator.clipboard.writeText(lien).then(() => toast('Lien copié.')).catch(() => toast('Copie refusée — sélectionne le lien à la main.'));
+        else toast('Sélectionne le lien à la main pour le copier.');
+        if (inp && inp.select) inp.select();
+      });
+      $('fermer-code').addEventListener('click', fermerModale);
+    });
+  });
+  /* Fenêtre pour l'écran des joueurs (TV, vidéoprojecteur) : il fallait taper
+     « ?vue=joueurs » à la main dans l'adresse. */
+  const btnTV = $('b-fenetre-tv');
+  if (btnTV) btnTV.addEventListener('click', () => {
+    const w = window.open(location.pathname + '?vue=joueurs', 'kj-tv',
+      'width=1280,height=800,menubar=no,toolbar=no');
+    if (!w) { toast('Le navigateur a bloqué la fenêtre — autorise les pop-ups pour ce site.'); return; }
+    toast('Fenêtre joueurs ouverte : glisse-la sur l’écran des joueurs, puis plein écran (F11).');
+  });
 
   /* Branche la table sur la partie que le MJ vient d'ouvrir : présence des joueurs,
      boîte aux lettres des gestes, et état initial (celui CONSERVÉ par la base pour
@@ -1480,6 +1597,27 @@
       if (!m || !m.id) return;
       /* un joueur crée SON jeton : appliqué ici, chez le MJ — toujours PJ,
          portrait borné (vignette), jamais deux fois le même id (message rejoué) */
+      /* note écrite par un joueur (ou effacement d'une note) : appliqué ici, chez
+         le MJ, puis rediffusé à tous par l'état officiel */
+      if (m.note) {
+        const l = opsNotes();
+        if (m.effacer) {
+          const i = l.findIndex(n => n.id === m.id);
+          if (i < 0) return;
+          l.splice(i, 1);
+          dessinerNotes(); sauverPartie();
+          toast('Une note a été effacée par un joueur.');
+          return;
+        }
+        if (!carte || l.some(n => n.id === m.id)) return;
+        const txt = String(m.texte || '').slice(0, 240);
+        if (!txt) return;
+        l.push({ id: String(m.id), carte: carte.id, x: +m.x || 0, y: +m.y || 0,
+          texte: txt, auteur: String(m.auteur || 'un joueur').slice(0, 20) });
+        dessinerNotes(); sauverPartie();
+        toast('Note d’un joueur : ' + txt.slice(0, 40) + (txt.length > 40 ? '…' : ''));
+        return;
+      }
       /* un joueur renomme / change le portrait de SON jeton (même boîte aux lettres
          que la création : lui n'écrit jamais l'état officiel) */
       if (m.modifier) {
@@ -1676,7 +1814,7 @@
       const creation = document.createElement('div');
       creation.style.cssText = 'display:flex;gap:7px;margin-top:12px';
       const nom = document.createElement('input');
-      nom.type = 'text'; nom.placeholder = 'Nom de la nouvelle partie (ex. Forêt Noire)';
+      nom.type = 'text'; nom.placeholder = 'Nom de la nouvelle partie (ex. le nom de ta campagne)';
       nom.style.cssText = 'flex:1 1 auto;min-width:0;background:#241d14;border:1px solid '
         + 'var(--bord-clair);border-radius:5px;color:var(--encre);padding:6px 9px';
       creation.appendChild(nom);
@@ -1713,6 +1851,14 @@
       $('modale').classList.add('pour-joueur');   // seule modale autorisée côté joueur
       ouvrirDialogueJeton();
     });
+    /* Note écrite : le joueur peut laisser un message sur le plan (« piège ici »,
+       « on se retrouve là ») — sa seule façon d'écrire quelque chose. */
+    $('b-note-joueur').hidden = false;
+    $('b-note-joueur').addEventListener('click', () => {
+      if (!carte) { toast('La carte du MJ n’est pas encore arrivée.'); return; }
+      choisirOutil('note');
+      toast('Touche la carte à l’endroit où écrire ta note.');
+    });
     /* Aide JOUEUR : le bouton « ? » du MJ lui est masqué, donc le geste central
        (glisser son jeton sur un losange doré pour changer d'étage) n'était écrit
        nulle part pour lui. */
@@ -1730,6 +1876,8 @@
           + '(les escaliers) : tout le groupe passe avec toi.</p>'
           + '<p><b>Images</b> — quand le MJ révèle une illustration, une petite '
           + 'vignette 🖼 apparaît sur la carte : tape-la pour la voir en grand.</p>'
+          + '<p><b>Écrire</b> — « ✎ Note » puis touche la carte : ton message s’affiche '
+          + 'pour tout le monde, signé de ton nom. Appui long dessus pour l’effacer.</p>'
           + '<p><b>Le noir</b> — c’est le brouillard : le MJ dévoile le terrain au fur '
           + 'et à mesure. Les autres personnages restent visibles à travers.</p>'
           + '</div>';

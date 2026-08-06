@@ -10,9 +10,12 @@ const path = require('path');
 const DOSSIER = path.join(__dirname, 'images');
 const EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 
+const VIGNETTES = 'vignettes';   // sous-dossier généré par generer-vignettes.ps1
+
 function lister(dir) {
   let out = [];
   for (const nom of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (nom.name === VIGNETTES) continue;   // jamais cataloguer les vignettes elles-mêmes
     const p = path.join(dir, nom.name);
     if (nom.isDirectory()) out = out.concat(lister(p));
     else if (EXT.has(path.extname(nom.name).toLowerCase())) out.push(p);
@@ -31,7 +34,13 @@ const images = fichiers.map((abs) => {
   const dossier = path.dirname(rel);
   // dossier séparé (plutôt que mélangé au nom) : l'éditeur s'en sert pour proposer
   // un sélecteur de dossier dans le panneau, au lieu d'une seule liste à plat.
-  return { fichier: rel, nom: joli(path.basename(rel)), dossier: dossier === '.' ? '' : dossier };
+  /* vignette : version 160 px utilisée par les palettes (26 px à l'écran). On ne
+     l'inscrit que si le fichier existe vraiment — sans elle, les palettes
+     retombent sur l'original, donc le catalogue reste valable sans vignettes. */
+  const vig = VIGNETTES + '/' + rel.replace(/\.[^./]+$/, '.jpg');
+  const e = { fichier: rel, nom: joli(path.basename(rel)), dossier: dossier === '.' ? '' : dossier };
+  if (fs.existsSync(path.join(DOSSIER, vig))) e.vignette = vig;
+  return e;
 });
 
 const catalogue = {

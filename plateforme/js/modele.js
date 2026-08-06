@@ -77,7 +77,9 @@ KJ.modele = (function () {
       format: FORMAT,
       id: o.id || uid('carte'),
       nom: o.nom || 'Nouvelle carte',
-      campagne: o.campagne || 'Forêt Noire',
+      // sans campagne par défaut : une valeur en dur créait un dossier fantôme
+      // (vestige d'une campagne précise) dans la bibliothèque à chaque carte créée
+      campagne: o.campagne || '',
       taille: { w: o.w || 800, h: o.h || 600 },
       grille: { cell: o.cell === undefined ? 40 : o.cell, metres: o.metres || 1.5 },
       elements: [],

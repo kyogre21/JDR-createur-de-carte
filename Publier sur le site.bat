@@ -15,8 +15,12 @@ echo.
 
 rem ---- 0. catalogue des images (une image deposee sans etre cataloguee
 rem         n'apparait jamais dans l'app : on regenere avant chaque publication) ----
-echo   Mise a jour du catalogue des images...
+echo   Mise a jour des vignettes et du catalogue des images...
 pushd plateforme
+rem  vignettes 160 px : les palettes affichent des carres de 26 px, charger les
+rem  originaux (2-3 Mo piece) faisait telecharger des dizaines de Mo par dossier.
+powershell -NoProfile -ExecutionPolicy Bypass -File generer-vignettes.ps1
+if errorlevel 1 echo   [!] Vignettes non generees. La publication continue.
 node generer-catalogue-images.js
 if errorlevel 1 echo   [!] Catalogue non regenere (node absent ?). La publication continue.
 popd

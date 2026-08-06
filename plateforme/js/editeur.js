@@ -841,8 +841,11 @@
      une image de compte est référencée « img:<id> » — la carte reste légère, l'image
      n'existe qu'en un exemplaire dans le compte. (Les vieilles cartes qui embarquent
      encore un data: complet restent lues telles quelles.) */
-  const MES_IMAGES = '🖼 Mes images';
-  const srcAffichage = (im) => im.data || ('images/' + im.fichier);
+  const MES_IMAGES = '👤 Mes images';
+  /* Vignette d'abord : les palettes affichent des carrés de 26 px mais chargeaient
+     les fichiers d'origine — un dossier de PNG de 2-3 Mo faisait télécharger des
+     dizaines de Mo (et autant à décoder). Repli sur l'original si aucune vignette. */
+  const srcAffichage = (im) => im.data || ('images/' + (im.vignette || im.fichier));
   const srcPose = (im) => im.id ? 'img:' + im.id : 'images/' + im.fichier;
   function resoudreSrc(src) {
     if (!src || src.indexOf('img:') !== 0) return src;
@@ -874,7 +877,9 @@
 
     function tuile(im, g) {
       const b = document.createElement('button');
-      b.innerHTML = `<img src="${srcAffichage(im)}" alt="">` + `<span>${im.nom || im.fichier || 'Image'}</span>`;
+      // lazy + dimensions : ne décode que ce qui entre à l'écran
+      b.innerHTML = `<img src="${srcAffichage(im)}" alt="" loading="lazy" decoding="async" width="26" height="26">`
+        + `<span>${im.nom || im.fichier || 'Image'}</span>`;
       if (srcPose(im) === actifSrc) b.classList.add('actif');
       b.addEventListener('click', () => onPick(im));
       if (im.id) {   // image de compte : glissable vers un dossier
@@ -1497,6 +1502,65 @@
     $('b-vue').textContent = vueMJ ? 'Vue MJ' : 'Vue joueurs';
     dessiner();
   });
+  /* ---------------- compte MJ, depuis l'éditeur ----------------
+     Sans compte connecté, l'éditeur est en lecture seule et la palette d'images du
+     compte est vide : il fallait aller se connecter dans la bibliothèque puis
+     revenir. On le fait ici. */
+  function fermerModaleEd() { $('modale').hidden = true; }
+  function ouvrirModaleEd(titre, remplir) {
+    $('modale-titre').textContent = titre;
+    const corps = $('modale-corps'); corps.innerHTML = '';
+    remplir(corps);
+    $('modale').hidden = false;
+  }
+  function majBoutonMJ() {
+    const b = $('b-mj-editeur');
+    if (!b || !KJ.session || !KJ.session.configuree()) { if (b) b.hidden = true; return; }
+    KJ.session.quiEstConnecte().then(email => {
+      b.textContent = email ? '🛡 ' + email : '🛡 Espace MJ';
+      b.classList.toggle('actif', !!email);
+    }).catch(() => {});
+  }
+  $('b-mj-editeur').addEventListener('click', () => {
+    if (!KJ.session || !KJ.session.configuree()) { toast('Configuration Firebase absente.'); return; }
+    KJ.session.quiEstConnecte().then(email => {
+      if (email) {
+        if (!confirm('Connecté en tant que ' + email + '.\n\nSe déconnecter ?')) return;
+        KJ.session.deconnexion().then(() => location.reload());
+        return;
+      }
+      ouvrirModaleEd('Espace MJ', (corps) => {
+        corps.innerHTML = '<p class="aide">Ton compte garde tes cartes et tes images. '
+          + 'Sans lui, l’éditeur ne peut pas enregistrer en ligne.</p>'
+          + '<div class="champ"><label>E-mail</label><input id="mj-em" type="email"></div>'
+          + '<div class="champ"><label>Mot de passe</label><input id="mj-mp" type="password"></div>'
+          + '<p class="aide" id="mj-err" style="color:var(--sang)"></p>'
+          + '<div class="actions-modale"><button id="mj-annuler">Annuler</button>'
+          + '<button id="mj-creer">Créer un compte</button>'
+          + '<button id="mj-ok" class="primaire">Se connecter</button></div>';
+        const err = $('mj-err');
+        const tenter = (fn) => {
+          if ($('mj-ok').disabled) return;
+          if (!$('mj-em').value.trim() || !$('mj-mp').value) { err.style.color = 'var(--sang)'; err.textContent = 'E-mail et mot de passe requis.'; return; }
+          err.style.color = 'var(--encre)'; err.textContent = 'Connexion…';
+          $('mj-ok').disabled = true; $('mj-creer').disabled = true;
+          fn($('mj-em').value, $('mj-mp').value)
+            .then(() => { fermerModaleEd(); toast('Connecté — rechargement pour retrouver ta bibliothèque…'); setTimeout(() => location.reload(), 700); })
+            .catch(e => {
+              $('mj-ok').disabled = false; $('mj-creer').disabled = false;
+              err.style.color = 'var(--sang)'; err.textContent = (e && e.message) || 'Connexion impossible.';
+            });
+        };
+        $('mj-annuler').addEventListener('click', fermerModaleEd);
+        $('mj-creer').addEventListener('click', () => tenter(KJ.session.creerCompteMJ));
+        $('mj-ok').addEventListener('click', () => tenter(KJ.session.connexionMJ));
+        $('mj-mp').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('mj-ok').click(); });
+        $('mj-em').focus();
+      });
+    }).catch(() => toast('Connexion au compte indisponible.'));
+  });
+  majBoutonMJ();
+
   $('b-json').addEventListener('click', () => S.exporterJSON(carte));
   $('b-svg').addEventListener('click', () => S.exporterSVG(carte, { vueMJ: vueMJ, grille: calquesVis.grille, resoudreSrc: resoudreSrc }));
   $('b-scene').addEventListener('click', () => {
