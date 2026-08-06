@@ -25,10 +25,14 @@ $ep.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawi
 $faites = 0; $ignorees = 0; $echecs = 0
 
 Get-ChildItem $racine -Recurse -File | Where-Object {
-  $exts -contains $_.Extension.ToLower() -and $_.FullName -notlike "$sortie*"
+  # exclut le dossier de sortie LUI-MEME (pas ses homonymes preffixes) :
+  # "$sortie*" ecartait aussi un eventuel images\vignettes-hd\
+  $exts -contains $_.Extension.ToLower() -and -not $_.FullName.StartsWith($sortie + [IO.Path]::DirectorySeparatorChar)
 } | ForEach-Object {
   $rel = $_.FullName.Substring($racine.Length + 1)
-  $cible = Join-Path $sortie ($rel -replace '\.[^.\\]+$', '.jpg')
+  # l'extension d'origine reste dans le nom : a.png et a.jpg du meme dossier
+  # produisaient sinon la meme vignette (l'une affichait l'autre)
+  $cible = Join-Path $sortie ($rel -replace '\.([^.\\]+)$', '.$1.jpg')
   $dossierCible = Split-Path $cible -Parent
   if (-not (Test-Path $dossierCible)) { New-Item -ItemType Directory -Force $dossierCible | Out-Null }
 

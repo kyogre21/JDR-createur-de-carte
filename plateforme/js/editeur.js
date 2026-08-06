@@ -125,7 +125,16 @@
      mise en page par événement (60-240/s selon le périphérique). Invalidé quand
      la mise en page peut bouger (redimensionnement, panneau replié). */
   let rectCanevas = null;
-  window.addEventListener('resize', () => { rectCanevas = null; });
+  const oublierRect = () => { rectCanevas = null; };
+  window.addEventListener('resize', oublierRect);
+  window.addEventListener('scroll', oublierRect, true);
+  /* ResizeObserver : la mise en page peut bouger SANS « resize » de fenêtre —
+     l'en-tête passe à deux lignes quand le bouton MJ affiche le pseudo (chargé en
+     différé), le pied de page grandit avec le message d'enregistrement… Le rect
+     mis en cache devenait alors faux et TOUS les clics étaient décalés. */
+  if (window.ResizeObserver) {
+    try { new ResizeObserver(oublierRect).observe(canevas); } catch (e) {}
+  }
   function toMonde(cx, cy) {
     const r = rectCanevas || (rectCanevas = canevas.getBoundingClientRect());
     return { x: (cx - r.left - cam.tx) / cam.s, y: (cy - r.top - cam.ty) / cam.s };
@@ -316,7 +325,7 @@
       const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       const mid = { x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
       if (pinch) {
-        const r = canevas.getBoundingClientRect();
+        const r = rectCanevas || (rectCanevas = canevas.getBoundingClientRect());
         const w = toMonde(pinch.mid.x, pinch.mid.y);
         cam.s = Math.min(12, Math.max(.08, cam.s * (d / pinch.d)));
         cam.tx = mid.x - r.left - w.x * cam.s;
@@ -426,7 +435,7 @@
 
   canevas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const r = canevas.getBoundingClientRect();
+    const r = rectCanevas || (rectCanevas = canevas.getBoundingClientRect());
     const w = toMonde(e.clientX, e.clientY);
     cam.s = Math.min(12, Math.max(.08, cam.s * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
     cam.tx = e.clientX - r.left - w.x * cam.s;
@@ -517,9 +526,15 @@
     if (el.cache || el.type === 'secret' || el.type === 'image') return;
     const b = M.boite(el);
     const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-    const dans = carte.elements.some(p => p.type === 'piece' && p.cache && p.id !== el.id
+    const dans = carte.elements.find(p => p.type === 'piece' && p.cache && p.id !== el.id
       && cx >= p.x && cx <= p.x + p.w && cy >= p.y && cy <= p.y + p.h);
-    if (dans) { el.cache = true; toast('Posé dans une zone cachée : caché aux joueurs aussi.'); }
+    if (dans) {
+      el.cache = true;
+      // hériter AUSSI de la révélation auto : sans ça, la pièce se révélait en jeu
+      // mais son mobilier restait invisible (un clic droit par objet pour réparer)
+      if (dans.auto === true) el.auto = true;
+      toast('Posé dans une zone cachée : caché aux joueurs aussi.');
+    }
   }
 
   /* ---------------- panneaux ---------------- */
@@ -1048,11 +1063,15 @@
         .then(data => KJ.session.enregistrerImageMJ(fichier.name.replace(/\.[^.]+$/, ''), data, 'Fonds'))
         .then(id => {
           carte.fond = { src: 'img:' + id, opacite: 1 };
-          return KJ.session.listerImagesMJ().then(l => { imgCompte = l; });
-        })
-        .then(() => {
-          apresModif(); dessiner(); majCartePanneau();
-          toast('Fond posé — règle « Largeur/Hauteur (cases) » pour caler la grille sur le plan.');
+          // le fond est posé : on redessine TOUT DE SUITE, la mise à jour de la
+          // liste d'images ne doit pas pouvoir faire croire à un échec
+          return KJ.session.listerImagesMJ()
+            .then(l => { imgCompte = l; })
+            .catch(() => {})
+            .then(() => {
+              apresModif(); dessiner(); majCartePanneau();
+              toast('Fond posé — règle « Largeur/Hauteur (cases) » pour caler la grille sur le plan.');
+            });
         })
         .catch(e => toast('Import impossible — ' + (e && e.message || 'connecte-toi (🛡 Espace MJ).')));
     });
@@ -1361,7 +1380,8 @@
 
   /* ---------------- export scène (table de jeu) ---------------- */
   function blocScene() {
-    const svg = R.svgString(carte, { vueMJ: true, grille: true })
+    // resoudreSrc : sans lui, un fond d'image de compte partait en href mort
+    const svg = R.svgString(carte, { vueMJ: true, grille: true, resoudreSrc: resoudreSrc })
       .replace('<svg ', `<svg width="${carte.taille.w}" height="${carte.taille.h}" `);
     return `<div class="scene" data-id="${S.slug(carte.nom)}" data-nom="${R.esc(carte.nom)}" `
       + `data-w="${carte.taille.w}" data-h="${carte.taille.h}" data-cell="${carte.grille.cell}">\n`
@@ -1446,8 +1466,22 @@
       const crees = pressePapier.els.map(src => {
         const p = JSON.parse(JSON.stringify(src));
         delete p.id;   // nouvelElement fournit un id neuf
+        // un numéro collé reçoit le suivant libre : dupliquer le même chiffre
+        // dédoublait les lignes de la clé numérotée
+        if (p.type === 'numero') {
+          const pris = carte.elements.filter(e => e.type === 'numero').map(e => e.num);
+          let n = 1; while (pris.includes(n)) n++;
+          p.num = n;
+        }
         const copie = M.ajouter(carte, M.nouvelElement(p.type, p));
         M.deplacer(copie, dec, dec);
+        /* Borner au cadre : le décalage cumulé sortait les copies du plan au 8e
+           collage — invisibles dans l'éditeur (clippées) mais bien présentes dans
+           le fichier, et flottantes en mode Jeu. */
+        const b = M.boite(copie);
+        const dx = Math.min(0, carte.taille.w - (b.x + b.w)) - Math.min(0, b.x);
+        const dy = Math.min(0, carte.taille.h - (b.y + b.h)) - Math.min(0, b.y);
+        if (dx || dy) M.deplacer(copie, dx, dy);
         return copie;
       });
       if (crees.length === 1) { sel = crees[0].id; selMulti = []; }
@@ -1516,6 +1550,10 @@
   function majBoutonMJ() {
     const b = $('b-mj-editeur');
     if (!b || !KJ.session || !KJ.session.configuree()) { if (b) b.hidden = true; return; }
+    /* mjProbable() : sans ce garde, ouvrir l'éditeur chargeait le SDK Firebase
+       (~500 Ko) et créait un compte anonyme pour un visiteur qui n'en a pas besoin.
+       Sans marqueur local, on affiche simplement « Espace MJ ». */
+    if (!KJ.session.mjProbable()) return;
     KJ.session.quiEstConnecte().then(email => {
       b.textContent = email ? '🛡 ' + email : '🛡 Espace MJ';
       b.classList.toggle('actif', !!email);
@@ -1584,7 +1622,10 @@
   }
 
   const p = new URLSearchParams(location.search);
-  const neuve = () => M.nouvelleCarte({ nom: 'Nouvelle carte', w: 560, h: 466, cell: 40 });
+  /* ?campagne=… : la bibliothèque transmet la campagne affichée, pour qu'une carte
+     créée sous un filtre actif apparaisse bien au retour (voir index.html). */
+  const neuve = () => M.nouvelleCarte({ nom: 'Nouvelle carte', w: 560, h: 466, cell: 40,
+    campagne: (p.get('campagne') || '').trim() });
   // ?depot=xxx.json : ancienne forme des liens, gardée valide (les favoris existent)
   const idDepot = (p.get('depot') || '').replace(/\.json$/i, ''), id = p.get('id');
   if (id === 'nouveau') {

@@ -157,13 +157,26 @@
      zone se re-révélera au prochain mouvement — éloigner le jeton d'abord. */
   function basculerRevele(id) {
     const liste = opsReveles(), masques = opsMasques();
+    /* Révéler une PIÈCE cachée révèle aussi ce qu'elle contient (murs, mobilier,
+       portes marqués cachés) : sinon la salle secrète apparaissait vide et il
+       fallait un clic droit sur chaque objet — invisible côté joueurs. */
+    const el = M.trouver(carte, id);
+    const groupe = [id];
+    if (el && el.type === 'piece' && el.cache) {
+      for (const e of carte.elements) {
+        if (e.id === id || !e.cache) continue;
+        const b2 = M.boite(e);
+        const bx = b2.x + b2.w / 2, by = b2.y + b2.h / 2;
+        if (bx >= el.x && bx <= el.x + el.w && by >= el.y && by <= el.y + el.h) groupe.push(e.id);
+      }
+    }
     const i = liste.indexOf(id);
     if (i >= 0) {
-      liste.splice(i, 1);
-      toast('Caché de nouveau aux joueurs.');
+      for (const g of groupe) { const k = liste.indexOf(g); if (k >= 0) liste.splice(k, 1); }
+      toast(groupe.length > 1 ? 'Zone cachée de nouveau (' + groupe.length + ' éléments).' : 'Caché de nouveau aux joueurs.');
     } else {
-      liste.push(id);
-      toast('Révélé aux joueurs.');
+      for (const g of groupe) if (!liste.includes(g)) liste.push(g);
+      toast(groupe.length > 1 ? 'Zone révélée aux joueurs (' + groupe.length + ' éléments).' : 'Révélé aux joueurs.');
     }
     const m = masques.indexOf(id);
     if (m >= 0) masques.splice(m, 1);   // purge les verrous hérités des anciennes versions
@@ -208,7 +221,12 @@
            embuscade qui flanque un pont peut avoir besoin de 4 ou 5 cases. */
       const cel = (carte.grille && carte.grille.cell) || 40;
       const r = cible.cache ? cel : cel * (cible.portee > 0 ? cible.portee : 2);
-      const zone = salle || { x: cx - r, y: cy - r, w: r * 2, h: r * 2 };
+      /* Une PORTÉE explicitement réglée l'emporte sur la pièce englobante : sinon
+         le réglage était sans effet dès que l'élément se trouvait dans une salle
+         (l'embuscade au fond d'une grande salle se déclenchait dès l'entrée). */
+      const zone = (cible.portee > 0 || !salle)
+        ? { x: cx - r, y: cy - r, w: r * 2, h: r * 2 }
+        : salle;
       if (pjs.some(j => j.x >= zone.x && j.x <= zone.x + zone.w && j.y >= zone.y && j.y <= zone.y + zone.h)) {
         revelees.push(cible.id);
         changement = true;
@@ -248,6 +266,12 @@
   function rectScene() { return rectSceneCache || (rectSceneCache = scene.getBoundingClientRect()); }
   window.addEventListener('resize', () => { rectSceneCache = null; });
   window.addEventListener('orientationchange', () => { rectSceneCache = null; });
+  /* La mise en page bouge SANS « resize » : badge de partie qui apparaît, barre du
+     joueur qui passe à deux lignes… Le rect mis en cache devenait faux et tous les
+     appuis étaient décalés de la hauteur d'une ligne d'en-tête. */
+  if (window.ResizeObserver) {
+    try { new ResizeObserver(() => { rectSceneCache = null; }).observe(scene); } catch (e) {}
+  }
   function cadrer() {
     rectSceneCache = null;   // la mise en page a pu changer (barre repliée, rotation)
     const r = rectScene();
@@ -328,6 +352,7 @@
     // filtre de distance : à 60-120 événements/s, garder chaque point multipliait
     // par 5-10 la taille de l'état (réseau, stockage, redessin) sans gain visible
     if (prec && prec.m === m && !prec.w && Math.hypot(prec.x - x, prec.y - y) < taillePinceau / 3) return;
+    marquerGesteFog();
     ops.push({ m: m, x: x, y: y, r: taillePinceau });
     dessinerFog(); sauverPartieBientot();
   }
@@ -342,7 +367,9 @@
     const ep = (salle.ep || 2) + 2;   // déborde un peu pour couvrir l'épaisseur des murs
     const ops = opsFog();
     // la touche posée au pointerdown fait partie du même geste : on la retire
-    if (ops.length > nbAvant && !ops[ops.length - 1].w) ops.pop();
+    marquerGesteFog();
+    // retire les touches posées pendant ce geste-clic (il peut y en avoir plusieurs)
+    while (ops.length > nbAvant && !ops[ops.length - 1].w) ops.pop();
     ops.push({ m: m, x: Math.round(salle.x - ep), y: Math.round(salle.y - ep),
       w: Math.round(salle.w + ep * 2), h: Math.round(salle.h + ep * 2) });
     dessinerFog(); sauverPartie();
@@ -374,11 +401,33 @@
   function pousserAnnul(e) {
     e.carte = carte.id;
     pileAnnul.push(e);
-    if (pileAnnul.length > 60) pileAnnul.shift();
+    if (pileAnnul.length > 40) pileAnnul.shift();
   }
-  function debutGesteFog() { pousserAnnul({ t: 'fog', nb: opsFog().length }); }
-  function avantJetons() { pousserAnnul({ t: 'jetons', snap: JSON.stringify(partie.jetons) }); }
-  let snapJetons = null;   // instantané pris au début d'un glisser de jeton
+  /* L'état complet peut être REMPLACÉ (reprise d'une autre partie, état reçu du
+     réseau ou de la fenêtre joueurs) : les index d'ops et les instantanés de jetons
+     de la pile ne veulent alors plus rien dire — annuler réinjectait, et publiait,
+     les jetons d'un autre groupe. On repart de zéro. */
+  function viderAnnul() { pileAnnul = []; snapJetons = null; }
+  /* Marqueur posé au PREMIER trait réellement peint : l'empiler au pointerdown
+     créait des entrées vides (touche refusée par le filtre de distance, clic hors
+     pièce) et il fallait alors taper ↶ plusieurs fois pour rien. */
+  let gesteFogEnCours = null;
+  function debutGesteFog() { gesteFogEnCours = opsFog().length; }
+  function marquerGesteFog() {
+    if (gesteFogEnCours === null) return;
+    pousserAnnul({ t: 'fog', nb: gesteFogEnCours });
+    gesteFogEnCours = null;
+  }
+  /* Instantané limité aux jetons de la CARTE affichée : un instantané global
+     étiqueté d'une seule carte faisait qu'annuler sur la carte A effaçait tout le
+     travail fait entre-temps sur la carte B. */
+  const snapCarte = () => JSON.stringify(partie.jetons.filter(j => j.carte === carte.id));
+  function avantJetons() { pousserAnnul({ t: 'jetons', snap: snapCarte() }); }
+  let snapJetons = null;   // instantané pris au premier mouvement d'un glisser
+  function restaurerJetons(snap, idCarte) {
+    const autres = partie.jetons.filter(j => j.carte !== idCarte);
+    partie.jetons = autres.concat(JSON.parse(snap));
+  }
   function annulerTable() {
     for (let i = pileAnnul.length - 1; i >= 0; i--) {
       if (pileAnnul[i].carte !== carte.id) continue;   // jamais annuler sur une autre carte
@@ -386,7 +435,7 @@
       let quoi = 'brouillard';
       if (e.t === 'fog') { const ops = opsFog(); ops.length = Math.max(0, Math.min(e.nb, ops.length)); }
       else if (e.t === 'fog-tout') { partie.fog[carte.id] = e.ops.slice(); }
-      else if (e.t === 'jetons') { partie.jetons = JSON.parse(e.snap); quoi = 'jetons'; }
+      else if (e.t === 'jetons') { restaurerJetons(e.snap, e.carte); quoi = 'jetons'; }
       dessinerFog(); dessinerJetons(); dessinerNotes(); sauverPartie();
       toast(quoi === 'jetons' ? 'Jetons : dernière action annulée.' : 'Brouillard : dernier geste annulé.');
       return;
@@ -552,7 +601,11 @@
      il garde le droit de déplacer les PJ, sinon il ne pourrait plus rien bouger. */
   let monJeton = null;
   try { monJeton = localStorage.getItem('kj-mon-jeton') || null; } catch (e) {}
-  const aMonJeton = () => !!(monJeton && partie.jetons.some(j => j.id === monJeton));
+  /* La propriété ne s'applique que sur un appareil PERSONNEL (session) : sur un
+     écran partagé posé sur la table, plusieurs joueurs se succèdent et le dernier
+     à créer son jeton bloquerait tous les autres. */
+  const aMonJeton = () => !!(monJeton && enSession() && partie.jetons.some(j => j.id === monJeton));
+  const monIdAffiche = () => (enSession() ? monJeton : null);
   function peutDeplacer(jetEl) {
     if (jetEl.dataset.pj !== 'true') return false;   // un joueur ne bouge jamais un PNJ
     if (!aMonJeton()) return true;                   // repli : aucun jeton attitré
@@ -565,6 +618,16 @@
      c'est leur seul moyen de laisser une trace sur le plan — et passent par la
      boîte aux lettres du MJ, qui reste seul maître de l'état. */
   const opsNotes = () => (partie.notes = partie.notes || []);
+
+  /* Un joueur (fenêtre séparée en session, ou écran local) ne modifie JAMAIS l'état
+     lui-même : il envoie une demande. En session c'est la boîte aux lettres
+     Firebase, en local le canal entre fenêtres. Le MJ est seul à écrire. */
+  const enSession = () => !!(KJ.session && KJ.session.active() && !KJ.session.estMJ());
+  function envoyerDemande(d) {
+    if (enSession()) { KJ.session.envoyerMouvement(d); return true; }
+    if (canal) { canal.postMessage({ t: 'demande', d: d }); return true; }
+    return false;   // aucune fenêtre MJ joignable : l'appelant écrira localement
+  }
   function dessinerNotes() {
     if (!notesEl) return;
     notesEl.innerHTML = '';
@@ -622,6 +685,7 @@
     const valider = () => {
       const texte = ta.value.trim().slice(0, 240);
       fermerEditeurNote();
+      if (vueJoueurs) choisirOutil('deplacer');   // jamais coincé en mode « note »
       if (!texte) { if (note) toast('Note inchangée (texte vide).'); return; }
       if (note) modifierNote(note.id, texte);
       else creerNote(mondeXY.x, mondeXY.y, texte);
@@ -631,7 +695,7 @@
     if (note) $('note-sup').addEventListener('click', () => { fermerEditeurNote(); effacerNote(note.id); });
     // Ctrl/⌘+Entrée valide (Entrée seule sert à aller à la ligne), Échap annule
     ta.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.preventDefault(); fermerEditeurNote(); }
+      if (e.key === 'Escape') { e.preventDefault(); fermerEditeurNote(); if (vueJoueurs) choisirOutil('deplacer'); }
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); valider(); }
     });
   }
@@ -641,8 +705,7 @@
   function modifierNote(id, texte) {
     const n = opsNotes().find(x => x.id === id);
     if (!n) return;
-    if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
-      KJ.session.envoyerMouvement({ note: true, modifier: true, id: id, texte: texte });
+    if (vueJoueurs && envoyerDemande({ note: true, modifier: true, id: id, texte: texte })) {
       toast('Modification envoyée au MJ.');
       return;
     }
@@ -652,13 +715,14 @@
   }
   function creerNote(x, y, texte) {
     const n = { id: 'n' + Date.now(), carte: carte.id, x: Math.round(x), y: Math.round(y), texte: texte };
-    if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
+    if (vueJoueurs) {
       const moi = partie.jetons.find(j => j.id === monJeton);
       n.auteur = (moi && moi.nom) || 'un joueur';
-      KJ.session.envoyerMouvement(Object.assign({ note: true }, n));
-      toast('Note envoyée — elle apparaît dans un instant.');
       choisirOutil('deplacer');   // le joueur retrouve son geste normal
-      return;
+      if (envoyerDemande(Object.assign({ note: true }, n))) {
+        toast('Note envoyée — elle apparaît dans un instant.');
+        return;
+      }
     }
     if (vueJoueurs) {
       const moi = partie.jetons.find(j => j.id === monJeton);
@@ -673,8 +737,7 @@
     const l = opsNotes();
     const i = l.findIndex(n => n.id === id);
     if (i < 0) return false;
-    if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
-      KJ.session.envoyerMouvement({ note: true, effacer: true, id: id });
+    if (vueJoueurs && envoyerDemande({ note: true, effacer: true, id: id })) {
       toast('Effacement envoyé au MJ.');
       return true;
     }
@@ -694,9 +757,9 @@
       if (j.carte !== carte.id) continue;
       if (vueJ && !j.pj && sousBrouillard(j.x, j.y)) continue;
       const d = document.createElement('div');
-      d.className = 'jeton' + (j.id === monJeton ? ' mien' : '');
+      d.className = 'jeton' + (j.id === monIdAffiche() ? ' mien' : '');
       d.dataset.id = j.id; d.dataset.pj = j.pj ? 'true' : 'false';
-      d.title = (j.nom || 'Jeton') + (j.id === monJeton ? ' — ton personnage' : '');
+      d.title = (j.nom || 'Jeton') + (j.id === monIdAffiche() ? ' — ton personnage' : '');
       d.style.left = j.x + 'px'; d.style.top = j.y + 'px';
       if (j.img) d.style.backgroundImage = `url("${j.img}")`;
       // le rond porte l'initiale, le nom complet vit dans la pastille .lab dessous
@@ -770,11 +833,19 @@
   }
 
   /* ---------------- chargement des cartes ---------------- */
-  function chargerCatalogue() {
+  /* garderSiVide : lors d'un RAFRAÎCHISSEMENT (ouverture du sélecteur), un réseau
+     qui hoquette fait résoudre listerCartes avec une liste vide — ça vidait le
+     catalogue en pleine séance, cassant le sélecteur ET tous les portails. On
+     conserve alors l'ancien catalogue. */
+  function chargerCatalogue(garderSiVide) {
     // bibliothèque en ligne du MJ connecté, sinon dossier lié, sinon fichiers du
     // site (voir stockage.listerCartes) ; les joueurs invités n'ont pas de
     // catalogue, la carte affichée leur arrive par la partie elle-même
     return S.avecDelai(S.listerCartes(), 12000, []).then(cartes => {
+      if (garderSiVide && (!cartes || !cartes.length) && catalogue.length) {
+        toast('Liste des cartes indisponible — l’ancienne est conservée.');
+        return;
+      }
       catalogue = cartes;
       /* Sélecteur groupé par campagne : le MJ retrouve ses lieux par aventure. */
       const sel = $('choix-carte'); sel.innerHTML = '';
@@ -818,6 +889,7 @@
       // un geste en cours (pinceau de brouillard, jeton tenu) ne doit pas continuer
       // sur la nouvelle carte : il écrirait dans le brouillard de la mauvaise carte
       mode = null; jDrag = null; jPointer = null; snapJetons = null;
+      fermerEditeurNote();   // une note en cours de saisie viserait la mauvaise carte
       carte = c;
       majAttente();   // une carte s'affiche : l'écran d'attente s'efface
       partie.carte = c.id;
@@ -859,6 +931,14 @@
   /* ---------------- synchronisation entre fenêtres ---------------- */
   if (canal) canal.onmessage = (ev) => {
     const m = ev.data;
+    /* Demande venue d'une fenêtre joueurs LOCALE (écran/TV posé sur la table) :
+       elle n'écrit jamais l'état — elle demande, le MJ applique. Sans ça, la
+       fenêtre joueurs renvoyait tout l'état, vieux de quelques centaines de ms,
+       et écrasait les derniers coups de pinceau du MJ. */
+    if (m.t === 'demande' && !vueJoueurs && carte) {
+      appliquerDemande(m.d);
+      return;
+    }
     if (m.t === 'partie') {
       /* même chemin que le réseau : gardes anti-champs-vides, garde carte nulle,
          et redessin COMPLET — sans dessinerPlan/dessinerImages/dessinerPins, la
@@ -943,8 +1023,8 @@
     // un second doigt NE DOIT PAS abandonner un jeton en cours de déplacement :
     // la paume ou le pouce de la main qui tient le téléphone suffisaient à annuler
     // le geste en silence (le jeton revenait en arrière une seconde plus tard)
-    if (actifs.size === 2 && mode !== 'jeton') { mode = 'pince'; pincePrec = null; return; }
-    if (actifs.size === 2) return;
+    if (actifs.size >= 2 && mode !== 'jeton') { mode = 'pince'; pincePrec = null; return; }
+    if (actifs.size >= 2) return;   // 3e doigt : ne jamais réinitialiser le geste en cours
 
     const w = versMonde(e.clientX, e.clientY);
     const jet = e.target.closest('.jeton');
@@ -964,7 +1044,7 @@
     if (jet && (!vueJoueurs || peutDeplacer(jet))) {
       mode = 'jeton'; jDrag = partie.jetons.find(j => j.id === jet.dataset.id);
       jPointer = e.pointerId;                          // seul ce doigt pilote le jeton
-      snapJetons = JSON.stringify(partie.jetons);      // pour annuler le déplacement
+      snapJetons = null;   // pris au premier mouvement (un simple tap ne coûte rien)
       jDepart = jDrag ? { x: jDrag.x, y: jDrag.y } : null;   // d'où il part (voir portails)
       jet.classList.add('drag'); return;
     }
@@ -1010,6 +1090,7 @@
     const w = versMonde(e.clientX, e.clientY);
     if (mode === 'jeton' && jDrag) {
       if (e.pointerId !== jPointer) return;   // seul le doigt qui a saisi le jeton le pilote
+      if (!snapJetons) snapJetons = snapCarte();   // le déplacement commence : instantané
       bouge++; jDrag.x = w.x; jDrag.y = w.y;
       const el = jetonsEl.querySelector('[data-id="' + jDrag.id + '"]');
       if (el) { el.style.left = w.x + 'px'; el.style.top = w.y + 'px'; }
@@ -1039,6 +1120,7 @@
   function fin(e) {
     actifs.delete(e.pointerId);
     if (mode === 'pince') {
+      noteTouchee = null;   // un zoom à deux doigts ne doit pas ouvrir une note
       if (actifs.size < 2) { pincePrec = null; mode = actifs.size ? 'pan' : null;
         if (mode === 'pan') { const p = [...actifs.values()][0]; dep = { x: p.clientX - cam.tx, y: p.clientY - cam.ty }; } }
       return;
@@ -1203,7 +1285,7 @@
     if (t - (chargerCatalogue._t || 0) < 5000) return;
     chargerCatalogue._t = t;
     const garde = carte && carte.id;
-    chargerCatalogue().then(() => { if (garde) $('choix-carte').value = garde; }).catch(() => {});
+    chargerCatalogue(true).then(() => { if (garde) $('choix-carte').value = garde; }).catch(() => {});
   });
   /* Taille du pinceau : le diamètre fixe de 26 px (0,65 case) imposait des dizaines
      d'allers-retours pour une salle. Trois tailles, mémorisées. */
@@ -1252,6 +1334,7 @@
         <label class="coche"><input id="r-fog" type="checkbox"> Brouillard (tout redevient caché)</label>
         <label class="coche"><input id="r-reveles" type="checkbox" checked> Révélations (secrets, images redeviennent cachés)</label>
         <label class="coche"><input id="r-jetons" type="checkbox" checked> Jetons posés sur cette carte</label>
+        <label class="coche"><input id="r-notes" type="checkbox" checked> Notes écrites sur cette carte</label>
         <div class="actions-modale">
           <button id="r-annuler">Annuler</button>
           <button id="r-ok" class="danger">Réinitialiser</button>
@@ -1264,6 +1347,7 @@
         // toujours — la révélation automatique ne marchait plus pour le groupe suivant
         if ($('r-reveles').checked) { partie.reveles[carte.id] = []; partie.masques[carte.id] = []; touche.push('révélations'); }
         if ($('r-jetons').checked) { partie.jetons = partie.jetons.filter(j => j.carte !== carte.id); touche.push('jetons'); }
+        if ($('r-notes').checked) { partie.notes = opsNotes().filter(n => n.carte !== carte.id); touche.push('notes'); }
         dessinerFog(); dessinerJetons(); dessinerPlan(); dessinerImages(); dessinerPins(); dessinerNotes(); sauverPartie(true);
         fermerModale();
         toast(touche.length ? 'Réinitialisé : ' + touche.join(', ') + '.' : 'Rien à réinitialiser.');
@@ -1371,9 +1455,8 @@
         if (jetonExistant) {
           /* un joueur ne modifie que SON jeton : la demande passe par la boîte aux
              lettres, comme la création — le MJ reste seul maître de l'état */
-          if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
-            KJ.session.envoyerMouvement({ modifier: true, id: jetonExistant.id, nom: nom,
-              img: img || null, carte: carte.id });
+          if (vueJoueurs && envoyerDemande({ modifier: true, id: jetonExistant.id, nom: nom,
+              img: img || null, carte: carte.id })) {
             fermerModale();
             toast('Modification envoyée au MJ.');
             return;
@@ -1389,18 +1472,22 @@
         /* joueur invité : il n'écrit jamais l'état — la création part au MJ par la
            boîte aux lettres (comme les déplacements), le MJ l'applique et l'état
            officiel redescend vers tout le monde. */
-        if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
+        if (vueJoueurs) {
           const id = 'j' + Date.now();
-          // « mon jeton » : mémorisé pour le reconnaître (liseré) et pour être le
-          // seul que CET appareil pourra déplacer
-          monJeton = id;
-          try { localStorage.setItem('kj-mon-jeton', id); } catch (e) {}
-          KJ.session.envoyerMouvement({ creer: true, id: id, nom: nom,
-            img: img || null, x: Math.round(c.x), y: Math.round(c.y), carte: carte.id });
-          fermerModale();
-          majAttente();
-          toast('Jeton envoyé au MJ — il apparaît dans un instant.');
-          return;
+          /* « mon jeton » : mémorisé pour le reconnaître (liseré). Seulement sur un
+             appareil PERSONNEL (session) : sur un écran partagé, plusieurs joueurs
+             créent leur jeton tour à tour et le dernier bloquerait les autres. */
+          if (enSession()) {
+            monJeton = id;
+            try { localStorage.setItem('kj-mon-jeton', id); } catch (e) {}
+          }
+          if (envoyerDemande({ creer: true, id: id, nom: nom,
+              img: img || null, x: Math.round(c.x), y: Math.round(c.y), carte: carte.id })) {
+            fermerModale();
+            majAttente();
+            toast('Jeton envoyé au MJ — il apparaît dans un instant.');
+            return;
+          }
         }
         avantJetons();
         const idNouveau = 'j' + Date.now();
@@ -1546,8 +1633,12 @@
     let titre, detail, bouton = '';
     if (msgErreur) {
       titre = '⚠ ' + msgErreur;
-      detail = 'Vérifie le code avec ton MJ, ou réessaie.';
+      detail = codeSessionURL ? 'Vérifie le code avec ton MJ, ou réessaie.'
+        : 'Choisis une carte dans la liste, ou crée-en une dans l’éditeur.';
       bouton = '<button id="attente-reessayer">↻ Réessayer</button>';
+    } else if (repriseEnCours && !codeSessionURL) {
+      titre = '⏳ Reprise de ta partie…';
+      detail = 'On récupère l’état de la dernière séance.';
     } else if (!navigator.onLine) {
       titre = '📶 Pas de connexion';
       detail = 'La table reprendra dès que le réseau revient.';
@@ -1628,6 +1719,7 @@
     if (!partie.reveles) partie.reveles = {};
     if (!partie.masques) partie.masques = {};
     if (!partie.notes) partie.notes = [];
+    viderAnnul();   // les index/instantanés de l'ancien état ne valent plus rien
     sauverPartieBientot(false);
     if (changeCarte) chargerCarte(partie.carte).catch(() => {});
     else if (carte) planifierRedessin();
@@ -1680,19 +1772,10 @@
     toast('Fenêtre joueurs ouverte : glisse-la sur l’écran des joueurs, puis plein écran (F11).');
   });
 
-  /* Branche la table sur la partie que le MJ vient d'ouvrir : présence des joueurs,
-     boîte aux lettres des gestes, et état initial (celui CONSERVÉ par la base pour
-     une reprise, ou l'état local publié pour une partie neuve). */
-  function brancherPartie(etatConserve) {
-    /* Mémoriser la partie en cours : recharger la page ou aller dans l'éditeur
-       débranchait la table SANS RIEN DIRE — le MJ continuait à peindre et à
-       déplacer des jetons dans le vide, les joueurs restaient figés. Le code est
-       oublié seulement quand le MJ clique explicitement « Quitter la table ». */
-    try { localStorage.setItem(CLE_MJ_PARTIE, KJ.session.code() || ''); } catch (e) {}
-    btnSession.classList.add('actif');
-    majBadgeSession(0);
-    KJ.session.surJoueurs(majBadgeSession);
-    KJ.session.surMouvements((m) => {
+  /* Applique une DEMANDE d'un joueur — même code pour les deux canaux : la boîte
+     aux lettres Firebase (joueur distant) et le canal entre fenêtres (écran posé
+     sur la table). Le MJ est le seul à écrire l'état, ici. */
+  function appliquerDemande(m) {
       if (!m || !m.id) return;
       /* un joueur crée SON jeton : appliqué ici, chez le MJ — toujours PJ,
          portrait borné (vignette), jamais deux fois le même id (message rejoué) */
@@ -1706,6 +1789,18 @@
           l.splice(i, 1);
           dessinerNotes(); sauverPartie();
           toast('Une note a été effacée par un joueur.');
+          return;
+        }
+        /* modification : testée AVANT le garde anti-doublon — sinon la demande
+           mourait sur « la note existe déjà » et la correction n'arrivait jamais */
+        if (m.modifier) {
+          const n = l.find(x => x.id === m.id);
+          if (!n) return;
+          const t2 = String(m.texte || '').slice(0, 240);
+          if (!t2) return;
+          n.texte = t2;
+          dessinerNotes(); sauverPartie();
+          toast('Une note a été corrigée par un joueur.');
           return;
         }
         if (!carte || l.some(n => n.id === m.id)) return;
@@ -1762,12 +1857,39 @@
       dessinerJetons();
       verifierDeclencheurs();   // la révélation automatique se joue ici, chez le MJ
       sauverPartie();           // et l'état officiel redescend vers tous les joueurs
-    });
+  }
+
+  /* Branche la table sur la partie que le MJ vient d'ouvrir : présence des joueurs,
+     boîte aux lettres des gestes, et état initial (celui CONSERVÉ par la base pour
+     une reprise, ou l'état local publié pour une partie neuve). */
+  function brancherPartie(etatConserve) {
+    /* Mémoriser la partie en cours : recharger la page ou aller dans l'éditeur
+       débranchait la table SANS RIEN DIRE — le MJ continuait à peindre et à
+       déplacer des jetons dans le vide, les joueurs restaient figés. Le code est
+       oublié seulement quand le MJ clique explicitement « Quitter la table ». */
+    try { localStorage.setItem(CLE_MJ_PARTIE, KJ.session.code() || ''); } catch (e) {}
+    btnSession.classList.add('actif');
+    majBadgeSession(0);
+    KJ.session.surJoueurs(majBadgeSession);
+    KJ.session.surMouvements(appliquerDemande);
+    const carteAvant = carte;
     if (etatConserve) appliquerEtatDistant(etatConserve);   // reprise : la base fait foi
     else KJ.session.publier(partie);                        // partie neuve : l'état courant part
-    // la carte affichée part aussi : c'est elle que les joueurs recevront —
-    // après le chargement des images du compte, sinon elles partiraient « null »
-    chargerImagesCompte().then(() => {
+    /* La carte affichée part aussi : c'est elle que les joueurs recevront — après le
+       chargement des images du compte (sinon elles partiraient « null »). En reprise,
+       appliquerEtatDistant vient d'AMORCER le chargement de la carte de la partie :
+       publier tout de suite enverrait la carte locale d'avant, donc un lieu que les
+       joueurs n'ont peut-être jamais visité. On attend qu'elle ait changé. */
+    const attendreCarte = (etatConserve && etatConserve.carte && carteAvant
+      && etatConserve.carte !== carteAvant.id)
+      ? new Promise(res => {
+          let n = 0;
+          const t = setInterval(() => {
+            if ((carte && carte.id === etatConserve.carte) || ++n > 40) { clearInterval(t); res(); }
+          }, 100);
+        })
+      : Promise.resolve();
+    Promise.all([chargerImagesCompte(), attendreCarte]).then(() => {
       if (carte && KJ.session.active() && KJ.session.estMJ())
         KJ.session.publierCartePartie(carte.id, JSON.stringify(carte), imagesDeCarte(carte));   // compact
     });
@@ -2051,7 +2173,7 @@
     }).catch(e => {
       // plein écran avec bouton Réessayer : une bannière de 12 px sans action
       // laissait le joueur dans une impasse (code faux, réseau absent)
-      majAttente(e.message);
+      majAttente(String((e && e.message) || e || 'Connexion impossible'));
     });
     });   // fin de la vérification de propriété
   }
@@ -2063,18 +2185,24 @@
      l'éditeur ou un clic sur « Cartes » ne doivent plus débrancher la table en
      silence. Le code n'est oublié que par « Quitter la table ». */
   if (repriseEnCours) {
+    let carteLocaleAvant = null;
+    try { carteLocaleAvant = (JSON.parse(localStorage.getItem(CLE_PARTIE) || '{}') || {}).carte || null; } catch (e) {}
     KJ.session.reprendrePartie(codeReprise).then(etat => {
       brancherPartie(etat);
       toast(codePartieURL ? 'Partie ' + codeReprise + ' reprise — tu es à la table en MJ.'
         : 'Partie ' + codeReprise + ' reprise automatiquement — tes joueurs te suivent.');
       // l'état conservé n'imposait aucune carte : on affiche la dernière carte locale
-      if (!carte) chargerCarte(params.get('carte') || partie.carte).catch(() => majAttente('Aucune carte à afficher'));
+      // l'état conservé n'imposait aucune carte : on affiche celle qu'on avait en
+      // mémoire locale AVANT que l'état ne remplace tout
+      if (!carte) chargerCarte(params.get('carte') || partie.carte || carteLocaleAvant)
+        .catch(() => majAttente('Aucune carte à afficher'));
     }).catch(e => {
       // partie supprimée, ou plus les droits : on oublie, sans alarmer — et on
       // retombe sur l'affichage local normal
       if (!codePartieURL) { try { localStorage.removeItem(CLE_MJ_PARTIE); } catch (er) {} }
       else toast(e.message);
-      chargerCarte(params.get('carte') || partie.carte).catch(() => majAttente('Aucune carte dans la bibliothèque'));
+      chargerCarte(params.get('carte') || partie.carte || carteLocaleAvant)
+        .catch(() => majAttente('Aucune carte dans la bibliothèque'));
     });
   }
 

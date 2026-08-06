@@ -37,7 +37,9 @@ const images = fichiers.map((abs) => {
   /* vignette : version 160 px utilisée par les palettes (26 px à l'écran). On ne
      l'inscrit que si le fichier existe vraiment — sans elle, les palettes
      retombent sur l'original, donc le catalogue reste valable sans vignettes. */
-  const vig = VIGNETTES + '/' + rel.replace(/\.[^./]+$/, '.jpg');
+  // l'extension d'origine reste dans le nom : « a.png » et « a.jpg » du même
+  // dossier produisaient sinon la même vignette (l'une affichait l'autre)
+  const vig = VIGNETTES + '/' + rel.replace(/\.([^./]+)$/, '.$1.jpg');
   const e = { fichier: rel, nom: joli(path.basename(rel)), dossier: dossier === '.' ? '' : dossier };
   if (fs.existsSync(path.join(DOSSIER, vig))) e.vignette = vig;
   return e;

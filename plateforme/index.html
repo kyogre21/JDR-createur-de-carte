@@ -87,7 +87,15 @@
     svg.textContent = '↓ SVG';
     // vue joueurs : l'export de la bibliothèque livrait la vue MJ — secrets,
     // zones cachées et natures compris. Pour un export MJ, passer par l'éditeur.
-    svg.addEventListener('click', () => S.exporterSVG(carte, { vueMJ: false, grille: true }));
+    svg.addEventListener('click', () => {
+      // la bibliothèque ne résout pas les images de compte : prévenir plutôt que
+      // livrer un SVG sans son fond sans le dire
+      if (carte.fond && String(carte.fond.src || '').indexOf('img:') === 0)
+        alert('Cette carte a un fond d’image de ton compte.\n\n'
+          + 'L’export depuis la bibliothèque ne peut pas l’inclure : ouvre la carte '
+          + 'dans l’éditeur et utilise « ↓ SVG » là-bas.');
+      S.exporterSVG(carte, { vueMJ: false, grille: true });
+    });
     act.appendChild(svg);
     if (modifiable) {
       const ren = document.createElement('button');
@@ -161,6 +169,12 @@
     sel.innerHTML = '<option value="*">Toutes les campagnes</option>'
       + noms.map(n => '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>').join('');
     sel.value = filtre;
+    /* Une carte neuve hérite de la campagne AFFICHÉE : sans ça, créée « sans
+       campagne » alors qu'un filtre est actif, elle n'apparaissait nulle part au
+       retour dans la bibliothèque — impression de travail perdu. */
+    const bn = $('b-nouveau');
+    if (bn) bn.href = 'editeur.html?id=nouveau'
+      + (filtre !== '*' && filtre !== M.SANS_CAMPAGNE ? '&campagne=' + encodeURIComponent(filtre) : '');
   }
   $('filtre-campagne').addEventListener('change', (e) => {
     filtre = e.target.value;
@@ -174,6 +188,8 @@
     const m = $('modale'), corps = $('modale-corps');
     $('modale-titre').textContent = titre;
     $('modale-ok').textContent = 'Enregistrer';   // libellé par défaut, un dialogue peut le changer
+    // réactiver : une tentative de connexion précédente a pu le laisser désactivé
+    $('modale-ok').disabled = false;
     corps.innerHTML = '';
     const ctx = construire(corps);
     m.hidden = false;

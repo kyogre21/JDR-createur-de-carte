@@ -330,7 +330,11 @@ KJ.rendu = (function () {
   function srcFond(carte, opts) {
     const f = carte.fond;
     if (!f || !f.src) return '';
-    return opts.resoudreSrc ? (opts.resoudreSrc(f.src) || '') : f.src;
+    if (opts.resoudreSrc) return opts.resoudreSrc(f.src) || '';
+    /* Sans résolveur, une référence de compte « img:<id> » ne veut rien dire :
+       l'écrire telle quelle produisait un href mort dans les exports et les blocs
+       de scène. Mieux vaut pas de fond qu'un lien cassé. */
+    return String(f.src).indexOf('img:') === 0 ? '' : f.src;
   }
   function socle(carte, opts) {
     const vis = (idc) => !opts.calques || opts.calques[idc] !== false;
@@ -338,8 +342,10 @@ KJ.rendu = (function () {
     const fond = srcFond(carte, opts);
     if (fond) {
       const op = (carte.fond.opacite != null && carte.fond.opacite < 1) ? ` opacity="${carte.fond.opacite}"` : '';
-      s += `<image href="${esc(fond)}" x="0" y="0" width="${carte.taille.w}" height="${carte.taille.h}" `
-         + `preserveAspectRatio="none"${op}/>`;
+      // xlink:href en plus de href : les lecteurs SVG 1.1 (Inkscape ancien,
+      // convertisseurs PDF) ignorent l'attribut moderne
+      s += `<image href="${esc(fond)}" xlink:href="${esc(fond)}" x="0" y="0" `
+         + `width="${carte.taille.w}" height="${carte.taille.h}" preserveAspectRatio="none"${op}/>`;
     }
     if (opts.grain) s += `<rect x="0" y="0" width="${carte.taille.w}" height="${carte.taille.h}" filter="url(#kjGrain)"/>`;
     if (opts.grille && vis('grille')) s += grilleSVG(carte);
@@ -441,7 +447,10 @@ KJ.rendu = (function () {
     const fond = srcFond(carte, opts);
     const sigSocle = [carte.taille.w, carte.taille.h, carte.grille.cell,
       !!opts.grain, !!(opts.grille && vis('grille')),
-      fond.length, carte.fond ? carte.fond.opacite : '',
+      // empreinte courte du fond (pas seulement sa longueur : deux data URL de
+      // même taille auraient laissé le socle périmé)
+      fond.length + ':' + fond.slice(0, 24) + fond.slice(-16),
+      carte.fond ? carte.fond.opacite : '',
       opts.theme ? JSON.stringify(opts.theme) : ''].join('|');
     if (svgEl._kjSigSocle !== sigSocle) {
       svgEl._kjSigSocle = sigSocle;
