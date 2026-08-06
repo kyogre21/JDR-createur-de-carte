@@ -300,42 +300,14 @@
     // filtre de distance : à 60-120 événements/s, garder chaque point multipliait
     // par 5-10 la taille de l'état (réseau, stockage, redessin) sans gain visible
     if (prec && prec.m === m && Math.hypot(prec.x - x, prec.y - y) < PINCEAU / 3) return;
-    const op = { m: m, x: x, y: y, r: PINCEAU };
-    ops.push(op);
-    dessinerFog(); revelerParPinceau(op); sauverPartieBientot();
+    ops.push({ m: m, x: x, y: y, r: PINCEAU });
+    dessinerFog(); sauverPartieBientot();
   }
-  /* Le pinceau est LE geste qui « montre » — et il est SYMÉTRIQUE : découvrir le
-     brouillard sur un secret ou une image le révèle, le recouvrir le re-cache.
-     Test d'intersection avec la BOÎTE de l'élément (pas seulement son centre :
-     une grande zone balayée au pinceau se déclenchait au petit bonheur).
-     « Tout révéler », lui, ne déclenche volontairement rien — dévoiler le plan
-     d'un bâtiment (salles connues par des recherches) n'est pas voir ce qui se
-     cache derrière ses portes ; là, c'est l'entrée d'un PJ dans la pièce qui
-     révèle (verifierDeclencheurs). Le clic droit du MJ reste le maître-geste. */
-  function revelerParPinceau(op) {
-    const revelees = opsReveles();
-    let change = false;
-    for (const e of carte.elements) {
-      if (e.type !== 'secret' && e.type !== 'image') continue;
-      if (e.auto === false) continue;
-      const b = M.boite(e);
-      // point de la boîte le plus proche du centre du coup de pinceau
-      const dx = Math.max(b.x, Math.min(op.x, b.x + b.w)) - op.x;
-      const dy = Math.max(b.y, Math.min(op.y, b.y + b.h)) - op.y;
-      if (Math.hypot(dx, dy) > op.r) continue;
-      const i = revelees.indexOf(e.id);
-      if (op.m === 'reveal' && i < 0) {
-        revelees.push(e.id); change = true;
-        toast((e.type === 'image' ? '🖼 ' : '⌗ ') + (e.nom || e.nature || 'Élément')
-          + ' révélé : la zone est découverte.');
-      } else if (op.m === 'hide' && i >= 0) {
-        revelees.splice(i, 1); change = true;
-        toast((e.type === 'image' ? '🖼 ' : '⌗ ') + (e.nom || e.nature || 'Élément')
-          + ' re-caché avec la zone.');
-      }
-    }
-    if (change) { dessinerPlan(); dessinerImages(); dessinerPins(); }
-  }
+  /* Le pinceau ne touche QUE le décor (choix de design après essai à table) : les
+     révélations automatiques appartiennent aux mouvements des JOUEURS — entrée
+     dans une pièce ou proximité (verifierDeclencheurs) — jamais au brouillard,
+     sinon éclairer une salle éventait toute embuscade. Le clic droit du MJ reste
+     le maître-geste pour forcer dans les deux sens. */
   /* Un coup de pinceau malheureux dévoile une pièce entière : il faut pouvoir
      revenir en arrière. On retire le dernier geste (une traînée = plusieurs
      touches, on remonte donc jusqu'au marqueur de début de geste). */
