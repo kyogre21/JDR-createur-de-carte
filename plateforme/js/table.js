@@ -304,24 +304,34 @@
     ops.push(op);
     dessinerFog(); revelerParPinceau(op); sauverPartieBientot();
   }
-  /* Le pinceau est LE geste qui « montre » : découvrir le brouillard sur un secret
-     ou une image le révèle en même temps que la zone. « Tout révéler », lui, ne
-     déclenche volontairement rien — dévoiler le plan d'un bâtiment (salles connues
-     par des recherches) n'est pas voir ce qui se cache derrière ses portes ; là,
-     c'est l'entrée d'un PJ dans la pièce qui révèle (verifierDeclencheurs). */
+  /* Le pinceau est LE geste qui « montre » — et il est SYMÉTRIQUE : découvrir le
+     brouillard sur un secret ou une image le révèle, le recouvrir le re-cache.
+     Test d'intersection avec la BOÎTE de l'élément (pas seulement son centre :
+     une grande zone balayée au pinceau se déclenchait au petit bonheur).
+     « Tout révéler », lui, ne déclenche volontairement rien — dévoiler le plan
+     d'un bâtiment (salles connues par des recherches) n'est pas voir ce qui se
+     cache derrière ses portes ; là, c'est l'entrée d'un PJ dans la pièce qui
+     révèle (verifierDeclencheurs). Le clic droit du MJ reste le maître-geste. */
   function revelerParPinceau(op) {
-    if (op.m !== 'reveal') return;
     const revelees = opsReveles();
     let change = false;
     for (const e of carte.elements) {
       if (e.type !== 'secret' && e.type !== 'image') continue;
-      if (e.auto === false || revelees.includes(e.id)) continue;
+      if (e.auto === false) continue;
       const b = M.boite(e);
-      const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
-      if (Math.hypot(cx - op.x, cy - op.y) <= op.r) {
+      // point de la boîte le plus proche du centre du coup de pinceau
+      const dx = Math.max(b.x, Math.min(op.x, b.x + b.w)) - op.x;
+      const dy = Math.max(b.y, Math.min(op.y, b.y + b.h)) - op.y;
+      if (Math.hypot(dx, dy) > op.r) continue;
+      const i = revelees.indexOf(e.id);
+      if (op.m === 'reveal' && i < 0) {
         revelees.push(e.id); change = true;
         toast((e.type === 'image' ? '🖼 ' : '⌗ ') + (e.nom || e.nature || 'Élément')
           + ' révélé : la zone est découverte.');
+      } else if (op.m === 'hide' && i >= 0) {
+        revelees.splice(i, 1); change = true;
+        toast((e.type === 'image' ? '🖼 ' : '⌗ ') + (e.nom || e.nature || 'Élément')
+          + ' re-caché avec la zone.');
       }
     }
     if (change) { dessinerPlan(); dessinerImages(); dessinerPins(); }
