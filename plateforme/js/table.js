@@ -93,7 +93,7 @@
     if (c.fond) ref(c.fond.src);   // le fond d'image de la carte voyage aussi
     return Object.keys(map).length ? map : null;
   }
-  let partie = { carte: null, fog: {}, jetons: [], reveles: {}, masques: {} };
+  let partie = { carte: null, fog: {}, jetons: [], reveles: {}, masques: {}, notes: [] };
   try { const s = localStorage.getItem(CLE_PARTIE); if (s) partie = JSON.parse(s); } catch (e) {}
   if (!partie.reveles) partie.reveles = {};   // sessions sauvegardées avant l'ajout de ce champ
   if (!partie.masques) partie.masques = {};   // idem : re-cachés à la main, prioritaires sur l'auto

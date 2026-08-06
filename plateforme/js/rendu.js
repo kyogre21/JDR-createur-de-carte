@@ -427,6 +427,14 @@ KJ.rendu = (function () {
       gCalques = svgEl._kjCalques = svgEl.querySelector('g[data-kj="calques"]');
       svgEl._kjSigSocle = null;
     }
+    /* Repli : si les deux groupes n'ont pas pu être retrouvés, on retombe sur le
+       rendu en un seul bloc. Sans ce garde, l'échec tuait TOUT le rendu de la
+       carte (exception à chaque redessin) au lieu de coûter un peu de vitesse. */
+    if (!gSocle || !gCalques) {
+      svgEl._kjSocle = svgEl._kjCalques = null;
+      svgEl.innerHTML = defs(opts.theme) + socle(carte, opts) + calquesSVG(carte, opts);
+      return;
+    }
     const vis = (idc) => !opts.calques || opts.calques[idc] !== false;
     // la longueur du fond RÉSOLU entre dans la signature : le socle se régénère
     // quand la donnée arrive (compte chargé après le premier rendu)
