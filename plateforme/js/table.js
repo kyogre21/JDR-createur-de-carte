@@ -188,10 +188,10 @@
          rayon autour de l'élément, en CASES de la carte.
          - zone cachée (mur, pièce… marqué cache) : 1 case — le PJ doit passer
            dessus, pas à côté (demande explicite : ne rien révéler aux alentours) ;
-         - secret ou image : 2 cases — ils se révèlent « à l'approche », c'est
-           leur raison d'être. */
+         - secret ou image : « Portée » de l'élément (2 cases par défaut) — une
+           embuscade qui flanque un pont peut avoir besoin de 4 ou 5 cases. */
       const cel = (carte.grille && carte.grille.cell) || 40;
-      const r = cible.cache ? cel : cel * 2;
+      const r = cible.cache ? cel : cel * (cible.portee > 0 ? cible.portee : 2);
       const zone = salle || { x: cx - r, y: cy - r, w: r * 2, h: r * 2 };
       if (pjs.some(j => j.x >= zone.x && j.x <= zone.x + zone.w && j.y >= zone.y && j.y <= zone.y + zone.h)) {
         revelees.push(cible.id);

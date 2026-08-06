@@ -720,7 +720,10 @@
       p.appendChild(champCases('Largeur', el.w, v => el.w = v, 6));
       p.appendChild(champCases('Hauteur', el.h, v => el.h = v, 6));
       p.appendChild(caseACocher('Révélation automatique (un PJ entre dans la pièce)',
-        el.auto !== false, v => el.auto = v));
+        el.auto !== false, v => { el.auto = v; majPanneau(); }));
+      if (el.auto !== false)
+        p.appendChild(champ('Portée (cases)', inputNum(el.portee || 2,
+          v => el.portee = v > 0 && v !== 2 ? v : undefined)));
       p.appendChild(document.createRange().createContextualFragment(
         '<p class="aide">Les secrets ne sont visibles qu’en vue MJ : ils disparaissent de la vue joueurs et '
         + 'des exports en vue joueurs. Décoche la révélation automatique pour un secret qui ne doit jamais '
@@ -742,7 +745,12 @@
       }
       p.appendChild(champ('Légende', inputTxt(el.nom, v => el.nom = v)));
       p.appendChild(caseACocher('Révélation automatique (un PJ entre dans la pièce)',
-        el.auto !== false, v => el.auto = v));
+        el.auto !== false, v => { el.auto = v; majPanneau(); }));
+      // hors pièce, la révélation se déclenche à N cases du PJ (défaut 2) —
+      // une embuscade qui flanque un passage peut demander plus large
+      if (el.auto !== false)
+        p.appendChild(champ('Portée (cases)', inputNum(el.portee || 2,
+          v => el.portee = v > 0 && v !== 2 ? v : undefined)));
       p.appendChild(document.createRange().createContextualFragment(
         '<p class="aide">Cette icône n’apparaît qu’en vue MJ (éditeur et table de jeu), jamais en vue '
         + 'joueurs. En mode Jeu, un clic dessus affiche l’image en grand par-dessus le plan.</p>'));
