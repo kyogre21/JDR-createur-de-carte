@@ -71,11 +71,13 @@
   // les images du compte que cette carte référence : partent avec elle vers les joueurs
   function imagesDeCarte(c) {
     const map = {};
-    for (const el of c.elements) {
-      if (el.type !== 'image' || !el.src || el.src.indexOf('img:') !== 0) continue;
-      const data = resoudreImage(el.src);
-      if (data) map[el.src.slice(4)] = data;
-    }
+    const ref = (src) => {
+      if (!src || src.indexOf('img:') !== 0) return;
+      const data = resoudreImage(src);
+      if (data) map[src.slice(4)] = data;
+    };
+    for (const el of c.elements) if (el.type === 'image') ref(el.src);
+    if (c.fond) ref(c.fond.src);   // le fond d'image de la carte voyage aussi
     return Object.keys(map).length ? map : null;
   }
   let partie = { carte: null, fog: {}, jetons: [], reveles: {}, masques: {} };
@@ -336,7 +338,8 @@
     // grain:false — le bruit de parchemin (feTurbulence) se recalcule pixel par
     // pixel à chaque rendu et à chaque palier de zoom : joli à l'export, ruineux à table
     R.dansSVG(plan, carte, { ids: true, vueMJ: document.body.dataset.vue === 'mj', grille: true,
-      portails: false, images: false, grain: false, reveles: opsReveles() });
+      portails: false, images: false, grain: false, reveles: opsReveles(),
+      resoudreSrc: resoudreImage });
   }
   /* Icônes d'illustration (créatures, lieux) : comme les portails, dessinées en HTML
      pour être cliquables — un clic ouvre l'image en grand par-dessus le plan (lightbox),
@@ -1196,7 +1199,7 @@
   // Aussi dans la fenêtre ?vue=joueurs du même navigateur (préview/TV du MJ) : elle
   // doit pouvoir résoudre les images que le MJ révèle.
   if (KJ.session && KJ.session.configuree() && KJ.session.mjProbable())
-    chargerImagesCompte();
+    chargerImagesCompte().then(() => { if (carte && carte.fond) dessinerPlan(); });
 
   /* ---------------- sessions multi-appareils ----------------
      L'état reçu du réseau suit le même chemin qu'un message BroadcastChannel :

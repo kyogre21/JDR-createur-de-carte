@@ -375,8 +375,9 @@ KJ.session = (function () {
   async function enregistrerImageMJ(nom, data, dossier) {
     await init();
     if (!estMJconnecte()) throw new Error('Connecte-toi (compte MJ) pour importer des images.');
-    await db.ref('mj/' + uid() + '/images').push({ nom: nom || '', data: data,
+    const r = await db.ref('mj/' + uid() + '/images').push({ nom: nom || '', data: data,
       dossier: dossier || '', maj: TS() });
+    return r.key;   // l'appelant peut référencer l'image (img:<id>) aussitôt
   }
   async function supprimerImageMJ(id) {
     await init();

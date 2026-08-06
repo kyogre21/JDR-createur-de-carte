@@ -143,7 +143,8 @@
   function dessiner() {
     plan.setAttribute('width', carte.taille.w);
     plan.setAttribute('height', carte.taille.h);
-    R.dansSVG(plan, carte, { ids: true, vueMJ: vueMJ, grille: calquesVis.grille, calques: calquesVis });
+    R.dansSVG(plan, carte, { ids: true, vueMJ: vueMJ, grille: calquesVis.grille, calques: calquesVis,
+      resoudreSrc: resoudreSrc });
     dessinerEdition();
   }
   /* Coalescé sur une frame : appelé à chaque pointermove (pan, tracés, aperçu
@@ -1007,19 +1008,19 @@
   /* Import d'images dans le compte MJ : réduction ~512 px + JPEG compressé AVANT
      l'envoi — le but est un visuel d'ambiance, pas une affiche ; la place de la
      base est réservée en priorité aux cartes. */
-  function comprimerImage(fichier) {
+  function comprimerImage(fichier, maxCote, qualite) {
     return new Promise((res, rej) => {
       const lecteur = new FileReader();
       lecteur.onload = () => {
         const img = new Image();
         img.onload = () => {
-          const MAX = 512;
+          const MAX = maxCote || 512;
           const s = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
           const c = document.createElement('canvas');
           c.width = Math.max(1, Math.round(img.naturalWidth * s));
           c.height = Math.max(1, Math.round(img.naturalHeight * s));
           c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-          res(c.toDataURL('image/jpeg', .62));
+          res(c.toDataURL('image/jpeg', qualite || .62));
         };
         img.onerror = () => rej(new Error('image illisible : ' + fichier.name));
         img.src = lecteur.result;
@@ -1028,6 +1029,31 @@
       lecteur.readAsDataURL(fichier);
     });
   }
+  /* Fond de carte : importé dans le COMPTE en qualité « fond » (~2048 px, contre
+     512 pour les illustrations) et rangé dans le dossier « Fonds » — la carte n'en
+     garde qu'une référence img:<id>, transportée aux joueurs par la partie. */
+  function importerFond() {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.addEventListener('change', () => {
+      const fichier = inp.files && inp.files[0];
+      if (!fichier) return;
+      toast('Import du fond…');
+      comprimerImage(fichier, 2048, .72)
+        .then(data => KJ.session.enregistrerImageMJ(fichier.name.replace(/\.[^.]+$/, ''), data, 'Fonds'))
+        .then(id => {
+          carte.fond = { src: 'img:' + id, opacite: 1 };
+          return KJ.session.listerImagesMJ().then(l => { imgCompte = l; });
+        })
+        .then(() => {
+          apresModif(); dessiner(); majCartePanneau();
+          toast('Fond posé — règle « Largeur/Hauteur (cases) » pour caler la grille sur le plan.');
+        })
+        .catch(e => toast('Import impossible — ' + (e && e.message || 'connecte-toi (🛡 Espace MJ).')));
+    });
+    inp.click();
+  }
+
   function deplacerImageCompte(id, dossier) {
     if (!id) return;
     KJ.session.modifierImageMJ(id, { dossier: dossier || '' })
@@ -1183,6 +1209,17 @@
     if (carte.grille.cell)
       c.appendChild(bouton('⌗ Réaligner tout sur la grille', realignerGrille));
     c.appendChild(bouton('🖱 Tout sélectionner (Ctrl+A)', toutSelectionner));
+    /* Fond d'image : un plan scanné/généré (vue du dessus) joué tel quel sous la
+       grille — brouillard, jetons et secrets fonctionnent par-dessus. */
+    if (carte.fond && carte.fond.src) {
+      c.appendChild(champ('Fond (opacité)', inputNum(carte.fond.opacite == null ? 1 : carte.fond.opacite,
+        v => carte.fond.opacite = Math.max(.1, Math.min(1, v)), .1)));
+      c.appendChild(bouton('✕ Retirer le fond d’image', () => {
+        delete carte.fond; apresModif(); dessiner(); majCartePanneau();
+      }, 'danger'));
+    } else {
+      c.appendChild(bouton('🖼 Fond d’image (plan scanné…)', importerFond));
+    }
     const info = document.createElement('p'); info.className = 'aide';
     info.textContent = carte.grille.cell
       ? `Plan tactique : ${(carte.taille.w / carte.grille.cell * carte.grille.metres).toFixed(0)} × `
@@ -1461,7 +1498,7 @@
     dessiner();
   });
   $('b-json').addEventListener('click', () => S.exporterJSON(carte));
-  $('b-svg').addEventListener('click', () => S.exporterSVG(carte, { vueMJ: vueMJ, grille: calquesVis.grille }));
+  $('b-svg').addEventListener('click', () => S.exporterSVG(carte, { vueMJ: vueMJ, grille: calquesVis.grille, resoudreSrc: resoudreSrc }));
   $('b-scene').addEventListener('click', () => {
     const txt = blocScene();
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1476,7 +1513,10 @@
     carte = c; sel = null; histo = []; hpos = -1; pousser();
     tout(); cadrer();
     chargerDestinations().then(() => { if (sel) majPanneau(); }).catch(() => {});
-    chargerImages().then(() => { if (outil === 'image') majPanneau(); }).catch(() => {});
+    chargerImages().then(() => {
+      if (outil === 'image') majPanneau();
+      if (carte && carte.fond) dessiner();   // le fond vient d'être résolu (compte chargé)
+    }).catch(() => {});
   }
 
   const p = new URLSearchParams(location.search);

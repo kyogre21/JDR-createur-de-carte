@@ -325,9 +325,22 @@ KJ.rendu = (function () {
   /* Le SOCLE (fond, grain, grille) ne dépend que de la taille, de la grille et des
      options — pas des éléments. Séparé des calques pour que dansSVG puisse le
      garder en place pendant l'édition (voir plus bas). */
+  // fond d'image de la carte (carte.fond = { src, opacite }) : src peut être une
+  // référence de compte « img:<id> », résolue par l'appelant via opts.resoudreSrc
+  function srcFond(carte, opts) {
+    const f = carte.fond;
+    if (!f || !f.src) return '';
+    return opts.resoudreSrc ? (opts.resoudreSrc(f.src) || '') : f.src;
+  }
   function socle(carte, opts) {
     const vis = (idc) => !opts.calques || opts.calques[idc] !== false;
     let s = `<rect class="kj-fond" x="0" y="0" width="${carte.taille.w}" height="${carte.taille.h}"/>`;
+    const fond = srcFond(carte, opts);
+    if (fond) {
+      const op = (carte.fond.opacite != null && carte.fond.opacite < 1) ? ` opacity="${carte.fond.opacite}"` : '';
+      s += `<image href="${esc(fond)}" x="0" y="0" width="${carte.taille.w}" height="${carte.taille.h}" `
+         + `preserveAspectRatio="none"${op}/>`;
+    }
     if (opts.grain) s += `<rect x="0" y="0" width="${carte.taille.w}" height="${carte.taille.h}" filter="url(#kjGrain)"/>`;
     if (opts.grille && vis('grille')) s += grilleSVG(carte);
     return s;
@@ -415,8 +428,13 @@ KJ.rendu = (function () {
       svgEl._kjSigSocle = null;
     }
     const vis = (idc) => !opts.calques || opts.calques[idc] !== false;
+    // la longueur du fond RÉSOLU entre dans la signature : le socle se régénère
+    // quand la donnée arrive (compte chargé après le premier rendu)
+    const fond = srcFond(carte, opts);
     const sigSocle = [carte.taille.w, carte.taille.h, carte.grille.cell,
-      !!opts.grain, !!(opts.grille && vis('grille')), opts.theme ? JSON.stringify(opts.theme) : ''].join('|');
+      !!opts.grain, !!(opts.grille && vis('grille')),
+      fond.length, carte.fond ? carte.fond.opacite : '',
+      opts.theme ? JSON.stringify(opts.theme) : ''].join('|');
     if (svgEl._kjSigSocle !== sigSocle) {
       svgEl._kjSigSocle = sigSocle;
       gSocle.innerHTML = socle(carte, opts);
