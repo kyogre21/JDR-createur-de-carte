@@ -594,7 +594,11 @@
      jeton semblait visuellement posé dessus. */
   function trouverPortailProche(pt) {
     if (!carte) return null;
-    const seuil = cellule() || 40;
+    /* Rayon d'une DEMI-case : il faut poser le jeton SUR l'escalier. À une case
+       entière (l'ancienne valeur), la case voisine du losange déclenchait déjà la
+       traversée — on ne pouvait plus placer un PJ juste à côté d'un escalier.
+       Plancher de 16 px pour rester atteignable sur les cartes à cases fines. */
+    const seuil = Math.max((cellule() || 40) * 0.5, 16);
     // un joueur en partie n'a pas de catalogue pour résoudre la destination : c'est
     // le MJ qui la résoudra — on ne filtre les portails inertes que hors partie
     const enPartie = KJ.session && KJ.session.active() && !KJ.session.estMJ();
@@ -795,6 +799,7 @@
   /* ---------------- pointeurs ---------------- */
   const actifs = new Map();
   let jPointer = null;   // identifiant du doigt/souris qui tient le jeton en cours
+  let jDepart = null;    // position du jeton au début du geste (anti-retraversée)
   let mode = null, dep = null, jDrag = null, bouge = 0, mesure = null, pincePrec = null, pinEnCours = null,
       imgEnCours = null, dernierPointeur = '';
 
@@ -828,6 +833,7 @@
       mode = 'jeton'; jDrag = partie.jetons.find(j => j.id === jet.dataset.id);
       jPointer = e.pointerId;                          // seul ce doigt pilote le jeton
       snapJetons = JSON.stringify(partie.jetons);      // pour annuler le déplacement
+      jDepart = jDrag ? { x: jDrag.x, y: jDrag.y } : null;   // d'où il part (voir portails)
       jet.classList.add('drag'); return;
     }
     if (!vueJoueurs && (outil === 'reveal' || outil === 'hide')) {
@@ -909,7 +915,11 @@
       snapJetons = null; jPointer = null;
       // avant le repositionnement sur la grille ci-dessous : la position brute où le jeton a
       // été lâché est plus fidèle à l'intention que sa case la plus proche (voir trouverPortailProche)
-      const portail = jDrag.pj ? trouverPortailProche(jDrag) : null;
+      let portail = jDrag.pj ? trouverPortailProche(jDrag) : null;
+      /* Le jeton était DÉJÀ sur ce portail avant le geste (il en vient, ou on le
+         recale sur place) : ne pas retraverser — sinon un simple ajustement
+         renvoyait tout le groupe dans l'escalier. */
+      if (portail && jDepart && trouverPortailProche(jDepart) === portail) portail = null;
       const c = cellule();
       if (bouge > 2 && c) {
         jDrag.x = Math.round((jDrag.x - c / 2) / c) * c + c / 2;
@@ -974,7 +984,7 @@
         if (Date.now() - (actionDoubleTap._t || 0) >= 700) actionDoubleTap(sous, e.clientX, e.clientY);
       } else fin._tap = { t: t, x: e.clientX, y: e.clientY };
     }
-    mode = null; dep = null; jPointer = null; snapJetons = null;
+    mode = null; dep = null; jPointer = null; snapJetons = null; jDepart = null;
   }
   scene.addEventListener('pointerup', fin);
   scene.addEventListener('pointercancel', fin);
