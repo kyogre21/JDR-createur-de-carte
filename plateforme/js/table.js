@@ -1242,7 +1242,12 @@
       $('j-nom').value = jetonExistant ? jetonExistant.nom : '';
       $('j-pj').checked = jetonExistant ? !!jetonExistant.pj : true;
       // un invité ne crée QUE des jetons PJ : la case n'a pas à se discuter
-      if (vueJoueurs) { $('j-pj').checked = true; $('j-pj').closest('label').style.display = 'none'; }
+      if (vueJoueurs) {
+        $('j-pj').checked = true;
+        // défensif : le dialogue ne doit pas casser si le balisage de la case bouge
+        const lbl = $('j-pj').closest('label');
+        if (lbl) lbl.style.display = 'none';
+      }
       $('j-nom').focus();
       let img = jetonExistant ? (jetonExistant.img || null) : null;
       const preview = $('j-preview');
@@ -1320,13 +1325,20 @@
           return;
         }
         avantJetons();
+        const idNouveau = 'j' + Date.now();
         partie.jetons.push({
-          id: 'j' + Date.now(), nom: nom, pj: pj,
+          id: idNouveau, nom: nom, pj: pj,
           couleur: COULEURS[partie.jetons.length % COULEURS.length],
           img: img || undefined,
           x: Math.round(c.x), y: Math.round(c.y), carte: carte.id,
         });
-        dessinerJetons(); sauverPartie(); fermerModale();
+        /* créé depuis une fenêtre joueurs sans session (l'écran posé sur la table) :
+           c'est SON jeton, et il faut diffuser pour que la fenêtre du MJ l'applique */
+        if (vueJoueurs) {
+          monJeton = idNouveau;
+          try { localStorage.setItem('kj-mon-jeton', idNouveau); } catch (e) {}
+        }
+        dessinerJetons(); sauverPartie(true); fermerModale();
         toast('Jeton créé' + (pj ? ' (PJ).' : '.'));
       });
     });
@@ -1842,9 +1854,11 @@
     ouvrirModale('Partie', false, rendreEcranPartie);
   });
 
-  if (codeSessionURL && KJ.session) {
-    /* Boutons réservés à la fenêtre d'invité : créer SON jeton PJ, et quitter la
-       partie (pour, par exemple, se reconnecter ensuite en MJ depuis l'accueil). */
+  /* Outils du JOUEUR : disponibles dans TOUTE fenêtre joueurs — celle d'un invité
+     qui a rejoint par code, mais aussi « ?vue=joueurs » (l'écran/TV posé sur la
+     table, où un joueur crée son jeton ou écrit une note). Ils étaient réservés au
+     seul cas du code de partie, donc invisibles et inertes dans la fenêtre TV. */
+  if (vueJoueurs) {
     $('b-jeton-joueur').hidden = false;
     $('b-jeton-joueur').addEventListener('click', () => {
       if (!carte) { toast('La carte du MJ n’est pas encore arrivée — réessaie dans un instant.'); return; }
@@ -1883,6 +1897,10 @@
           + '</div>';
       });
     });
+  }
+
+  if (codeSessionURL && KJ.session) {
+    /* Quitter la partie n'a de sens que pour un invité venu par un code. */
     $('b-quitter-partie').hidden = false;
     $('b-quitter-partie').addEventListener('click', () => {
       if (!confirm('Quitter cette partie ?\n\nLe lien de la partie continue de marcher si tu veux revenir.')) return;
