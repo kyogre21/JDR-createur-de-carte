@@ -587,9 +587,70 @@
       notesEl.appendChild(d);
     }
   }
-  function ajouterNote(x, y) {
-    const texte = (prompt('Note à écrire sur la carte :', '') || '').trim().slice(0, 240);
-    if (!texte) return;
+  /* Éditeur de note INTÉGRÉ — remplace prompt(), inutilisable sur mobile (et
+     bloqué dans une application empaquetée). Ancré à l'écran près du point touché,
+     jamais mis à l'échelle par le zoom, avec de vraies cibles tactiles.
+     ecran : { x, y } en coordonnées d'écran ; note : note existante à modifier. */
+  function fermerEditeurNote() {
+    const e = $('editeur-note');
+    if (e && e.parentNode) e.parentNode.removeChild(e);
+  }
+  function ouvrirEditeurNote(ecran, note, mondeXY) {
+    fermerEditeurNote();
+    const boite = document.createElement('div');
+    boite.id = 'editeur-note';
+    boite.innerHTML = '<textarea id="note-txt" maxlength="240" placeholder="Ton message…"></textarea>'
+      + '<div class="compte" id="note-compte"></div>'
+      + '<div class="barre">'
+      + (note ? '<button class="danger sup" id="note-sup" title="Effacer cette note">🗑</button>' : '')
+      + '<button id="note-annuler">Annuler</button>'
+      + '<button id="note-ok" class="primaire">' + (note ? 'Enregistrer' : 'Écrire') + '</button>'
+      + '</div>';
+    document.body.appendChild(boite);
+    // placement à l'écran, borné pour rester entièrement visible (petits écrans)
+    const l = boite.getBoundingClientRect();
+    const mx = Math.max(8, Math.min((ecran.x || 0) + 12, window.innerWidth - l.width - 8));
+    const my = Math.max(8, Math.min((ecran.y || 0) + 12, window.innerHeight - l.height - 8));
+    boite.style.left = mx + 'px'; boite.style.top = my + 'px';
+
+    const ta = $('note-txt'), cpt = $('note-compte');
+    ta.value = note ? note.texte : '';
+    const majCompte = () => { cpt.textContent = ta.value.length + ' / 240'; };
+    majCompte();
+    ta.addEventListener('input', majCompte);
+    ta.focus();
+    const valider = () => {
+      const texte = ta.value.trim().slice(0, 240);
+      fermerEditeurNote();
+      if (!texte) { if (note) toast('Note inchangée (texte vide).'); return; }
+      if (note) modifierNote(note.id, texte);
+      else creerNote(mondeXY.x, mondeXY.y, texte);
+    };
+    $('note-ok').addEventListener('click', valider);
+    $('note-annuler').addEventListener('click', () => { fermerEditeurNote(); if (vueJoueurs) choisirOutil('deplacer'); });
+    if (note) $('note-sup').addEventListener('click', () => { fermerEditeurNote(); effacerNote(note.id); });
+    // Ctrl/⌘+Entrée valide (Entrée seule sert à aller à la ligne), Échap annule
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); fermerEditeurNote(); }
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); valider(); }
+    });
+  }
+  function ajouterNote(x, y, ecran) {
+    ouvrirEditeurNote(ecran || { x: 0, y: 0 }, null, { x: x, y: y });
+  }
+  function modifierNote(id, texte) {
+    const n = opsNotes().find(x => x.id === id);
+    if (!n) return;
+    if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
+      KJ.session.envoyerMouvement({ note: true, modifier: true, id: id, texte: texte });
+      toast('Modification envoyée au MJ.');
+      return;
+    }
+    n.texte = texte;
+    dessinerNotes(); sauverPartie(true);
+    toast('Note modifiée.');
+  }
+  function creerNote(x, y, texte) {
     const n = { id: 'n' + Date.now(), carte: carte.id, x: Math.round(x), y: Math.round(y), texte: texte };
     if (vueJoueurs && KJ.session && KJ.session.active() && !KJ.session.estMJ()) {
       const moi = partie.jetons.find(j => j.id === monJeton);
@@ -599,9 +660,14 @@
       choisirOutil('deplacer');   // le joueur retrouve son geste normal
       return;
     }
+    if (vueJoueurs) {
+      const moi = partie.jetons.find(j => j.id === monJeton);
+      n.auteur = (moi && moi.nom) || 'un joueur';
+      choisirOutil('deplacer');
+    }
     opsNotes().push(n);
     dessinerNotes(); sauverPartie(true);
-    toast('Note écrite (clic droit dessus pour l’effacer).');
+    toast('Note écrite (touche-la pour la modifier).');
   }
   function effacerNote(id) {
     const l = opsNotes();
@@ -865,6 +931,7 @@
   const actifs = new Map();
   let jPointer = null;   // identifiant du doigt/souris qui tient le jeton en cours
   let jDepart = null;    // position du jeton au début du geste (anti-retraversée)
+  let noteTouchee = null;   // note sous le doigt au pointerdown (ouverte au tap)
   let mode = null, dep = null, jDrag = null, bouge = 0, mesure = null, pincePrec = null, pinEnCours = null,
       imgEnCours = null, dernierPointeur = '';
 
@@ -911,6 +978,9 @@
     }
     // note écrite : un clic pose l'étiquette là où on a cliqué
     if (outil === 'note') { mode = 'note'; dep = { mx: w.x, my: w.y }; return; }
+    // note existante touchée : retenue ici, ouverte au relâchement si c'est un tap
+    const nEl = e.target.closest('.note');
+    noteTouchee = nEl && nEl.dataset.id ? nEl.dataset.id : null;
     if (!vueJoueurs && outil === 'mesure') {
       mode = 'mesure'; mesure = { x: w.x, y: w.y };
       regle.setAttribute('width', carte.taille.w); regle.setAttribute('height', carte.taille.h);
@@ -1039,9 +1109,16 @@
     if (mode === 'note' && dep) {
       const d = dep;
       mode = null; dep = null;
-      setTimeout(() => ajouterNote(d.mx, d.my), 0);   // prompt hors du flux d'événement
+      ajouterNote(d.mx, d.my, { x: e.clientX, y: e.clientY });
       return;
     }
+    // toucher une note l'ouvre en modification (texte + suppression), sans popup
+    if (noteTouchee && bouge <= 2) {
+      const n = opsNotes().find(x => x.id === noteTouchee);
+      noteTouchee = null;
+      if (n) { ouvrirEditeurNote({ x: e.clientX, y: e.clientY }, n, null); mode = null; dep = null; return; }
+    }
+    noteTouchee = null;
     if (mode === 'mesure') {
       setTimeout(() => { regle.innerHTML = ''; const l = $('etiquette'); if (l) l.remove(); }, 1200);
       mesure = null;
@@ -1074,12 +1151,13 @@
 
   scene.addEventListener('contextmenu', (e) => {
     e.preventDefault();
-    // les notes s'effacent au clic droit / appui long, y compris côté joueur
+    /* Appui long / clic droit sur une note : ouvre l'éditeur (qui porte le bouton
+       « 🗑 »), plutôt qu'un confirm() natif — même raison que prompt(). */
     const noteEl = e.target.closest('.note');
     if (noteEl && noteEl.dataset.id) {
       const n = opsNotes().find(x => x.id === noteEl.dataset.id);
-      if (!confirm('Effacer la note « ' + ((n && n.texte) || '').slice(0, 40) + ' » ?')) return;
-      effacerNote(noteEl.dataset.id);
+      noteTouchee = null;
+      if (n) ouvrirEditeurNote({ x: e.clientX || 0, y: e.clientY || 0 }, n, null);
       return;
     }
     if (vueJoueurs) return;
@@ -1429,7 +1507,16 @@
     if (e.key === 'g' || e.key === 'G') $('b-vue').click();
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); annulerTable(); }
   });
-  window.addEventListener('resize', () => { if (carte) cadrer(); });
+  window.addEventListener('resize', () => {
+    if (!carte) return;
+    /* Le clavier virtuel d'un téléphone déclenche un « resize » : recadrer ferait
+       perdre le zoom du joueur au moment précis où il écrit. On s'abstient dès
+       qu'un champ est en saisie ou qu'un éditeur est ouvert. */
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
+    if ($('editeur-note')) return;
+    cadrer();
+  });
 
   /* ---------------- démarrage ----------------
      Ouvert en « file:// » (double-clic sur le fichier), le navigateur interdit
@@ -1891,7 +1978,8 @@
           + '<p><b>Images</b> — quand le MJ révèle une illustration, une petite '
           + 'vignette 🖼 apparaît sur la carte : tape-la pour la voir en grand.</p>'
           + '<p><b>Écrire</b> — « ✎ Note » puis touche la carte : ton message s’affiche '
-          + 'pour tout le monde, signé de ton nom. Appui long dessus pour l’effacer.</p>'
+          + 'pour tout le monde, signé de ton nom. Touche une note pour la corriger '
+          + 'ou l’effacer.</p>'
           + '<p><b>Le noir</b> — c’est le brouillard : le MJ dévoile le terrain au fur '
           + 'et à mesure. Les autres personnages restent visibles à travers.</p>'
           + '</div>';
