@@ -1179,6 +1179,11 @@
      par la partie, qui arrive quelques instants PLUS TARD chez un joueur,
      serait dessinée dans des nœuds morts : écran définitivement vide. */
   chargerCatalogue().then(() => {
+    /* On rejoint une partie : la carte vient de la partie elle-même. Charger
+       d'abord une carte locale (première du site, ou dernière vue d'une autre
+       partie) faisait apparaître un AUTRE lieu pendant une seconde ou deux
+       avant l'arrivée de la vraie carte. On attend, message à l'appui. */
+    if (codeSessionURL) return Promise.reject();
     const voulue = params.get('carte') || partie.carte;
     return chargerCarte(voulue);
   }).catch(() => {
