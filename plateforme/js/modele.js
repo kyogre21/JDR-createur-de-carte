@@ -38,6 +38,7 @@ KJ.modele = (function () {
     { id: 'miroir',     nom: 'Miroir',         w: 26, h: 14 },
     { id: 'statue',     nom: 'Statue',         w: 26, h: 34 },
     { id: 'tombe',      nom: 'Tombe',          w: 24, h: 30 },
+    { id: 'pont',       nom: 'Pont / passerelle', w: 40, h: 80 },
     // formes libres : marquer une case sans nommer l'objet (repères abstraits)
     { id: 'frond',       nom: 'Rond',           w: 20, h: 20 },
     { id: 'frondplein',  nom: 'Rond plein',     w: 16, h: 16 },

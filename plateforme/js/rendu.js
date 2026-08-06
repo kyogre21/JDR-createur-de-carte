@@ -45,6 +45,13 @@ KJ.rendu = (function () {
     miroir: `<rect x="2" y="2" width="96" height="96" rx="6"/><ellipse cx="50" cy="50" rx="38" ry="44"/>`,
     statue: `<rect x="30" y="70" width="40" height="26"/><circle cx="50" cy="40" r="20"/><path d="M30 70 Q50 44 70 70" fill="none"/>`,
     tombe: `<path d="M20 96 L20 40 A30 30 0 0 1 80 40 L80 96 Z"/><line x1="50" y1="50" x2="50" y2="76"/><line x1="38" y1="60" x2="62" y2="60"/>`,
+    /* pont / passerelle vu de dessus : deux garde-corps + planches — un OBJET,
+       pas de la structure : aucun mur, aucune logique de pièce, les révélations
+       au passage des PJ (proximité) fonctionnent normalement dessus */
+    pont: `<line x1="10" y1="2" x2="10" y2="98"/><line x1="90" y1="2" x2="90" y2="98"/>
+      <line x1="10" y1="14" x2="90" y2="14"/><line x1="10" y1="30" x2="90" y2="30"/>
+      <line x1="10" y1="46" x2="90" y2="46"/><line x1="10" y1="62" x2="90" y2="62"/>
+      <line x1="10" y1="78" x2="90" y2="78"/><line x1="10" y1="92" x2="90" y2="92"/>`,
     /* colline : silhouette en courbes de niveau imbriquées (décor de carte extérieure) */
     colline: `<path d="M2 94 Q30 84 50 84 Q70 84 98 94" fill="none"/>
       <path d="M8 78 Q30 62 50 62 Q70 62 92 78" fill="none"/>
