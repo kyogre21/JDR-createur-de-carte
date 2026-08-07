@@ -372,6 +372,16 @@ KJ.session = (function () {
       .filter(x => x.data)
       .sort((a, b) => a.nom.localeCompare(b.nom, 'fr', { sensitivity: 'base' }));
   }
+  /* Une SEULE image du compte, par son id. La bibliothèque en a besoin pour les
+     miniatures (le fond d'une carte est une référence img:<id>) : passer par
+     listerImagesMJ() y téléchargerait toute la galerie — plusieurs Mo — pour
+     n'afficher que deux ou trois fonds. */
+  async function donneeImageMJ(id) {
+    await init();
+    if (!estMJconnecte() || !id) return null;
+    const cle = String(id).replace(/[.#$\[\]\/]/g, '_');
+    return (await db.ref('mj/' + uid() + '/images/' + cle + '/data').get()).val() || null;
+  }
   async function enregistrerImageMJ(nom, data, dossier) {
     await init();
     if (!estMJconnecte()) throw new Error('Connecte-toi (compte MJ) pour importer des images.');
@@ -475,7 +485,7 @@ KJ.session = (function () {
     // bibliothèque en ligne
     listerCartesMJ, enregistrerCarteMJ, supprimerCarteMJ,
     // images du compte
-    listerImagesMJ, enregistrerImageMJ, supprimerImageMJ, modifierImageMJ,
+    listerImagesMJ, donneeImageMJ, enregistrerImageMJ, supprimerImageMJ, modifierImageMJ,
     dossiersImagesMJ, declarerDossierImagesMJ, oublierDossierImagesMJ,
   };
 })();

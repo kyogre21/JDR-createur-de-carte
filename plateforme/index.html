@@ -56,16 +56,44 @@
   const M = KJ.modele, R = KJ.rendu, S = KJ.stockage;
   const $ = (id) => document.getElementById(id);
 
+  /* Fonds de carte du compte, résolus à la demande : le fond est stocké comme une
+     référence « img:<id> » et non comme une image, sinon chaque carte pèserait des
+     Mo. Sans cette table, la miniature s'affichait sans son fond — la carte semblait
+     vide alors qu'elle ne l'est pas. */
+  const fonds = {};
+  const refFond = (carte) => (carte.fond && /^img:/.test(carte.fond.src || '') ? carte.fond.src : '');
+
   function apercu(carte) {
     // miniature : rendu sans grain (plus léger) et sans les secrets
-    return R.svgString(carte, { grain: false, vueMJ: false, grille: true })
+    return R.svgString(carte, { grain: false, vueMJ: false, grille: true,
+        resoudreSrc: (s) => fonds[s] || '' })
       .replace('<svg ', '<svg preserveAspectRatio="xMidYMid meet" ');
+  }
+
+  /* Après coup : on télécharge les seuls fonds réellement utilisés, puis on redessine
+     les miniatures concernées. La liste s'affiche donc tout de suite, les fonds
+     arrivent ensuite — plutôt que de faire attendre toute la bibliothèque. */
+  function chargerFonds(cartes) {
+    if (!KJ.session || !KJ.session.donneeImageMJ) return;
+    const refs = [...new Set(cartes.map(refFond).filter(Boolean))].filter(r => !(r in fonds));
+    if (!refs.length) return;
+    refs.forEach(function (ref) {
+      KJ.session.donneeImageMJ(ref.slice(4)).then(function (data) {
+        if (!data) return;
+        fonds[ref] = data;
+        cartes.filter(c => refFond(c) === ref).forEach(function (c) {
+          const img = document.querySelector('.fiche[data-carte="' + c.id + '"] .apercu-img');
+          if (img) img.innerHTML = apercu(c);
+        });
+      }).catch(function () {});
+    });
   }
 
   /* Une carte = un fichier cartes/<id>.json. Pas de copie, pas de version « fournie »
      à côté d'une version « à moi » : ce qui est listé ici est ce qui sera commité. */
   function fiche(carte) {
     const d = document.createElement('div'); d.className = 'fiche';
+    d.dataset.carte = carte.id;          // permet de redessiner sa miniature quand le fond arrive
     const nb = carte.elements.length;
     const dim = carte.grille.cell
       ? `${(carte.taille.w / carte.grille.cell * carte.grille.metres).toFixed(0)} × ${(carte.taille.h / carte.grille.cell * carte.grille.metres).toFixed(0)} m`
@@ -88,14 +116,20 @@
     svg.textContent = '↓ SVG';
     // vue joueurs : l'export de la bibliothèque livrait la vue MJ — secrets,
     // zones cachées et natures compris. Pour un export MJ, passer par l'éditeur.
-    svg.addEventListener('click', () => {
-      // la bibliothèque ne résout pas les images de compte : prévenir plutôt que
-      // livrer un SVG sans son fond sans le dire
-      if (carte.fond && String(carte.fond.src || '').indexOf('img:') === 0)
-        KJ.dlg.info('L’export depuis la bibliothèque ne peut pas inclure le fond d’image : '
-          + 'ouvre la carte dans l’éditeur et utilise « ↓ SVG » là-bas.',
-          { titre: 'Fond d’image non exporté' });
-      S.exporterSVG(carte, { vueMJ: false, grille: true });
+    svg.addEventListener('click', async () => {
+      // le fond est une référence de compte : on va le chercher pour ne pas livrer
+      // un SVG amputé de son décor
+      const ref = refFond(carte);
+      if (ref && !fonds[ref] && KJ.session && KJ.session.donneeImageMJ) {
+        svg.disabled = true;
+        try { const d = await KJ.session.donneeImageMJ(ref.slice(4)); if (d) fonds[ref] = d; }
+        catch (e) { /* hors ligne : on exporte sans le fond, en le disant */ }
+        svg.disabled = false;
+      }
+      if (ref && !fonds[ref])
+        await KJ.dlg.info('Le fond d’image n’a pas pu être récupéré (compte non connecté ou '
+          + 'hors ligne) : le SVG sera exporté sans son décor.', { titre: 'Fond d’image absent' });
+      S.exporterSVG(carte, { vueMJ: false, grille: true, resoudreSrc: (s) => fonds[s] || '' });
     });
     act.appendChild(svg);
     if (modifiable) {
@@ -477,7 +511,7 @@
           + 'Ta bibliothèque est vide. Crée une carte (＋ Nouvelle carte), ou importe tes '
           + 'fichiers .json d’un coup (↑ Importer — plusieurs fichiers à la fois) : ils '
           + 'seront enregistrés dans ton compte et disponibles sur tous tes appareils.</p>';
-      } else afficherGroupe(c, cartes);
+      } else { afficherGroupe(c, cartes); chargerFonds(cartes); }
       rendu = true;                    // succès constaté, pas seulement espéré
     }).catch(function (err) {
       ecranPanne('Le chargement a échoué.',
