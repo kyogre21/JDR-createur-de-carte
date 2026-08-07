@@ -188,10 +188,58 @@
       "vignette": "vignettes/Legendary lands (JDR)/Campagne oiseau/soda poisson.png.jpg"
     },
     {
-      "fichier": "Legendary lands (JDR)/Mandalf le gris.png",
+      "fichier": "Legendary lands (JDR)/Mandalf/Dark knight.jpg",
+      "nom": "Dark knight",
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/Dark knight.jpg.jpg"
+    },
+    {
+      "fichier": "Legendary lands (JDR)/Mandalf/Gobelin DK.jpg",
+      "nom": "Gobelin DK",
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/Gobelin DK.jpg.jpg"
+    },
+    {
+      "fichier": "Legendary lands (JDR)/Mandalf/Magnus cygnus.jpg",
+      "nom": "Magnus cygnus",
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/Magnus cygnus.jpg.jpg"
+    },
+    {
+      "fichier": "Legendary lands (JDR)/Mandalf/Maitresse noire DK.jpg",
+      "nom": "Maitresse noire DK",
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/Maitresse noire DK.jpg.jpg"
+    },
+    {
+      "fichier": "Legendary lands (JDR)/Mandalf/Mandalf le gris.png",
       "nom": "Mandalf le gris",
-      "dossier": "Legendary lands (JDR)",
-      "vignette": "vignettes/Legendary lands (JDR)/Mandalf le gris.png.jpg"
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/Mandalf le gris.png.jpg"
+    },
+    {
+      "fichier": "Legendary lands (JDR)/Mandalf/Pont détruit.png",
+      "nom": "Pont détruit",
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/Pont détruit.png.jpg"
+    },
+    {
+      "fichier": "Legendary lands (JDR)/Mandalf/Salamandre DK.jpg",
+      "nom": "Salamandre DK",
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/Salamandre DK.jpg.jpg"
+    },
+    {
+      "fichier": "Legendary lands (JDR)/Mandalf/Troll glace DK.jpg",
+      "nom": "Troll glace DK",
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/Troll glace DK.jpg.jpg"
+    },
+    {
+      "fichier": "Legendary lands (JDR)/Mandalf/troll feu DK.jpg",
+      "nom": "Troll feu DK",
+      "dossier": "Legendary lands (JDR)/Mandalf",
+      "vignette": "vignettes/Legendary lands (JDR)/Mandalf/troll feu DK.jpg.jpg"
     }
   ]
 }
