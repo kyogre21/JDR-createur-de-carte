@@ -51,8 +51,16 @@
   .pin .los{position:absolute;left:-9px;top:-9px;width:18px;height:18px;background:var(--or);
     transform:rotate(45deg);border:2px solid #0d0a07;box-shadow:0 0 10px rgba(201,162,39,.5)}
   .pin.inerte .los{background:#5a5348;box-shadow:none}
-  .pin .lab{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(13,10,7,.85);
-    color:var(--or);padding:1px 7px;border-radius:3px;font:600 11px var(--ui);white-space:nowrap}
+  /* Étiquette de portail à TAILLE CONSTANTE À L'ÉCRAN (scale(--inv), comme les
+     zones tactiles) : dessinée dans le monde, elle rétrécissait avec le zoom et
+     devenait illisible — surtout posée sur un fond de carte chargé. Fond opaque et
+     liseré doré pour ressortir sur un plan de ville détaillé. */
+  .pin .lab{position:absolute;left:50%;top:13px;
+    transform:translateX(-50%) scale(var(--inv,1));transform-origin:top center;
+    background:rgba(10,8,5,.94);border:1px solid rgba(201,162,39,.55);
+    color:var(--or);padding:3px 9px;border-radius:4px;
+    font:700 13px var(--ui);letter-spacing:.02em;white-space:nowrap;
+    box-shadow:0 2px 8px rgba(0,0,0,.6)}
   .pin.inerte .lab{color:#8d8474}
   body[data-vue="joueurs"] .pin{cursor:default}
   /* portail marqué « caché aux joueurs » : estompé côté MJ, absent côté joueurs
@@ -135,8 +143,9 @@
   #notes{width:100%;height:100%}
   .note{position:absolute;width:0;height:0;pointer-events:auto}
   .note .txt{position:absolute;left:8px;top:-10px;max-width:26ch;white-space:pre-wrap;
-    background:rgba(20,15,9,.92);border:1px solid var(--or);border-left-width:3px;border-radius:4px;
-    color:var(--encre);font:12px/1.35 var(--ui);padding:4px 7px;cursor:pointer}
+    transform:scale(var(--inv,1));transform-origin:top left;
+    background:rgba(20,15,9,.94);border:1px solid var(--or);border-left-width:3px;border-radius:4px;
+    color:var(--encre);font:12.5px/1.35 var(--ui);padding:4px 8px;cursor:pointer}
   .note .pointe{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;
     background:var(--or);box-shadow:0 0 0 2px rgba(20,15,9,.9)}
   .note .aut{display:block;font-size:10px;opacity:.6;font-style:italic}
@@ -183,9 +192,12 @@
   /* le nom du jeton vit dans une pastille sous le rond : en toutes lettres dans le rond,
      il débordait en texte sombre sur fond sombre — illisible dès qu'on quittait une zone
      éclairée. Le rond ne porte plus que l'initiale (ou le portrait). */
-  .jeton .lab{position:absolute;top:18px;left:50%;transform:translateX(-50%);
-    background:rgba(13,10,7,.85);color:var(--encre);padding:1px 6px;border-radius:3px;
-    font:600 10.5px var(--ui);white-space:nowrap;pointer-events:none}
+  /* même principe que les étiquettes de portail : lisible quel que soit le zoom */
+  .jeton .lab{position:absolute;top:18px;left:50%;
+    transform:translateX(-50%) scale(var(--inv,1));transform-origin:top center;
+    background:rgba(10,8,5,.92);color:var(--encre);padding:2px 7px;border-radius:3px;
+    font:700 12px var(--ui);white-space:nowrap;pointer-events:none;
+    box-shadow:0 1px 6px rgba(0,0,0,.5)}
   #b-aide{min-width:32px;justify-content:center;font-family:var(--serif);font-style:italic}
   #modale .aide-jeu p{margin:4px 0;font-size:12.5px;line-height:1.5}
   #modale .aide-jeu b{color:var(--or)}
