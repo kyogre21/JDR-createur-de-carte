@@ -1023,7 +1023,9 @@
     // un second doigt NE DOIT PAS abandonner un jeton en cours de déplacement :
     // la paume ou le pouce de la main qui tient le téléphone suffisaient à annuler
     // le geste en silence (le jeton revenait en arrière une seconde plus tard)
-    if (actifs.size >= 2 && mode !== 'jeton') { mode = 'pince'; pincePrec = null; return; }
+    // pincer = vouloir regarder ailleurs : on libère la vue (sinon le zoom au doigt
+    // était annulé par le prochain message de caméra du MJ)
+    if (actifs.size >= 2 && mode !== 'jeton') { mode = 'pince'; pincePrec = null; if (vueJoueurs) libererVue(); return; }
     if (actifs.size >= 2) return;   // 3e doigt : ne jamais réinitialiser le geste en cours
 
     const w = versMonde(e.clientX, e.clientY);
@@ -1223,8 +1225,14 @@
 
   scene.addEventListener('wheel', (e) => {
     e.preventDefault();
-    if (!carte || (vueJoueurs && suivre)) return;
-    const r = scene.getBoundingClientRect();
+    if (!carte) return;
+    /* Le zoom molette ne doit JAMAIS être bloqué en silence : tant que « Suivre le
+       MJ » était actif, la molette ne faisait rien — et en session réseau le bouton
+       qui permet de le désactiver est masqué (la caméra du MJ ne voyage pas sur le
+       réseau), donc un joueur sur PC ne pouvait tout simplement pas zoomer.
+       Molette = « je regarde où je veux » : on passe en vue libre et on zoome. */
+    if (vueJoueurs && suivre) libererVue();
+    const r = rectScene();
     const w = versMonde(e.clientX, e.clientY);
     cam.s = Math.min(10, Math.max(.1, cam.s * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
     cam.tx = e.clientX - r.left - w.x * cam.s; cam.ty = e.clientY - r.top - w.y * cam.s;
@@ -1604,6 +1612,14 @@
       corps.appendChild(d);
     });
   });
+  /* Passe en vue libre (et met le bouton à jour s'il est là). Appelé dès qu'un
+     joueur manifeste l'intention de regarder ailleurs : molette, pincement. */
+  function libererVue() {
+    if (!suivre) return;
+    suivre = false;
+    const b = $('b-suivre');
+    if (b) { b.classList.remove('actif'); b.textContent = 'Vue libre'; }
+  }
   const bs = $('b-suivre');
   if (bs) {
     // n'a de sens que dans une vraie fenêtre joueurs séparée (?vue=joueurs) : elle seule
@@ -2206,6 +2222,11 @@
       majBadgeSession(0);
       toast('Partie rejointe : le MJ contrôle ce que tu vois.');
       // en réseau, cette fenêtre reflète le MJ : le suivi de caméra locale n'a pas de sens
+      /* En session réseau, la caméra du MJ ne voyage pas (les messages « cam » ne
+         passent qu'entre fenêtres d'un même navigateur) : « Suivre le MJ » n'a rien
+         à suivre. On masque le bouton ET on libère la vue, sinon le joueur restait
+         avec un zoom verrouillé sans aucun moyen de le débloquer. */
+      libererVue();
       if ($('b-suivre')) $('b-suivre').style.display = 'none';
     }).catch(e => {
       // plein écran avec bouton Réessayer : une bannière de 12 px sans action
