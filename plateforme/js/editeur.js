@@ -494,9 +494,18 @@
       el = M.nouvelElement('numero', { x: acc(pt.x, true), y: acc(pt.y, true), num: max + 1 });
       carte.cle.push({ num: max + 1, titre: '', desc: '' });
     } else if (outil === 'texte') {
-      const t = prompt('Texte :', '');
-      if (!t) return;
-      el = M.nouvelElement('texte', { x: Math.round(pt.x), y: Math.round(pt.y), texte: t });
+      // saisie dans un dialogue interne (voir js/dialogue.js) : asynchrone, donc on
+      // pose l'élément dans la promesse au lieu de continuer ici
+      const px = Math.round(pt.x), py = Math.round(pt.y);
+      KJ.dlg.saisir('Il s’affichera sur le plan à l’endroit choisi.', '',
+        { titre: 'Texte à écrire', max: 80, placeholder: 'Salle du trône' }).then(t => {
+        if (!t || !t.trim()) return;
+        const nel = M.ajouter(carte, M.nouvelElement('texte', { x: px, y: py, texte: t.trim() }));
+        heriterCache(nel);
+        sel = nel.id;
+        majPanneau(); apresModif(); dessiner();
+      });
+      return;
     } else if (outil === 'lumiere') {
       el = M.nouvelElement('lumiere', { x: acc(pt.x, true), y: acc(pt.y, true) });
     } else if (outil === 'portail') {
@@ -646,9 +655,13 @@
           v => caches.forEach(e => e.auto = v ? true : undefined)));
 
       p.appendChild(bouton('✕ Supprimer la sélection (Suppr)', () => {
-        if (!confirm('Supprimer les ' + els.length + ' éléments sélectionnés ?')) return;
-        for (const e of els) M.supprimer(carte, e.id);
-        selMulti = []; sel = null; majPanneau(); apresModif(); dessiner();
+        KJ.dlg.confirmer('Les ' + els.length + ' éléments sélectionnés seront retirés du plan '
+          + '(Ctrl+Z les rétablit).', { titre: 'Supprimer la sélection ?', ok: 'Supprimer', danger: true })
+          .then(oui => {
+            if (!oui) return;
+            for (const e of els) M.supprimer(carte, e.id);
+            selMulti = []; sel = null; majPanneau(); apresModif(); dessiner();
+          });
       }, 'danger'));
       return;
     }
@@ -906,8 +919,13 @@
       }
       if (im.id) b.addEventListener('contextmenu', (e) => {   // image de compte : clic droit = supprimer
         e.preventDefault();
-        if (!confirm('Supprimer « ' + (im.nom || 'cette image') + ' » de ton compte ?\n\n'
-          + 'Les icônes déjà posées sur des cartes ne pourront plus l’afficher.')) return;
+        KJ.dlg.confirmer('Les icônes déjà posées sur des cartes ne pourront plus l’afficher.',
+          { titre: 'Supprimer « ' + (im.nom || 'cette image') + ' » ?', ok: 'Supprimer', danger: true })
+          .then(oui => { if (oui) supprimerImageCompte(im); });
+      });
+      g.appendChild(b);
+    }
+    function supprimerImageCompte(im) {
         KJ.session.supprimerImageMJ(im.id)
           .then(() => {
             imgCompte = (imgCompte || []).filter(x => x.id !== im.id);
@@ -917,8 +935,6 @@
             majPanneau();
           })
           .catch(() => toast('Suppression impossible — vérifie ta connexion.'));
-      });
-      g.appendChild(b);
     }
 
     function grille() {
@@ -955,12 +971,15 @@
           const nd = document.createElement('button'); nd.className = 'dossier';
           nd.innerHTML = '<span class="ic-dossier">🗀＋</span><span>Nouveau dossier</span>';
           nd.addEventListener('click', () => {
-            const nom = (prompt('Nom du dossier :') || '').trim().replace(/\//g, '-');
-            if (!nom) return;
-            KJ.session.declarerDossierImagesMJ(nom).then(() => {
-              if (!imgDossiersCompte.includes(nom)) imgDossiersCompte.push(nom);
-              imgChemin = [MES_IMAGES, nom]; majPanneau();
-            }).catch(() => toast('Création impossible — connecte-toi (🛡 Espace MJ).'));
+            KJ.dlg.saisir('Il apparaîtra dans « Mes images », sur tous tes appareils.', '',
+              { titre: 'Nouveau dossier', max: 40, placeholder: 'Monstres' }).then(saisi => {
+              const nom = String(saisi || '').trim().replace(/\//g, '-');
+              if (!nom) return;
+              KJ.session.declarerDossierImagesMJ(nom).then(() => {
+                if (!imgDossiersCompte.includes(nom)) imgDossiersCompte.push(nom);
+                imgChemin = [MES_IMAGES, nom]; majPanneau();
+              }).catch(() => toast('Création impossible — connecte-toi (🛡 Espace MJ).'));
+            });
           });
           g.appendChild(nd);
         } else {
@@ -987,10 +1006,14 @@
             const plein = (imgCompte || []).some(x => x.dossier === chemin || (x.dossier || '').indexOf(chemin + '/') === 0);
             if (plein) { toast('Dossier non vide : déplace ou supprime ses images d’abord.'); return; }
             if (sousChemin.length || !imgDossiersCompte.includes(d)) return;
-            if (!confirm('Supprimer le dossier vide « ' + d + ' » ?')) return;
-            KJ.session.oublierDossierImagesMJ(d).then(() => {
-              imgDossiersCompte = imgDossiersCompte.filter(x => x !== d); majPanneau();
-            }).catch(() => toast('Suppression impossible.'));
+            KJ.dlg.confirmer('Il est vide, aucune image ne sera perdue.',
+              { titre: 'Supprimer le dossier « ' + d + ' » ?', ok: 'Supprimer', danger: true })
+              .then(oui => {
+                if (!oui) return;
+                KJ.session.oublierDossierImagesMJ(d).then(() => {
+                  imgDossiersCompte = imgDossiersCompte.filter(x => x !== d); majPanneau();
+                }).catch(() => toast('Suppression impossible.'));
+              });
           });
           g.appendChild(b);
         }
@@ -1149,10 +1172,7 @@
   function changerCase(nouv) {
     const ancien = carte.grille.cell;
     carte.grille.cell = nouv;
-    if (ancien && nouv && nouv !== ancien && carte.elements.length
-      && confirm('Adapter toute la carte à la nouvelle taille de case ?\n\n'
-        + 'OUI (conseillé) : tout est converti, chaque salle garde son nombre de cases.\n'
-        + 'NON : rien ne bouge en pixels — les éléments ne tomberont plus sur la grille.')) {
+    const convertir = () => {
       const k = nouv / ancien, n = (v) => Math.round(v * k);
       carte.taille.w = n(carte.taille.w); carte.taille.h = n(carte.taille.h);
       for (const e of carte.elements) {
@@ -1162,6 +1182,14 @@
         if (e.l) e.l = Math.max(4, n(e.l));
         if (e.ep) e.ep = Math.max(1, Math.round(e.ep * k));
       }
+      apresModif(); dessiner(); majCartePanneau();
+    };
+    if (ancien && nouv && nouv !== ancien && carte.elements.length) {
+      KJ.dlg.confirmer('« Adapter » (conseillé) : tout est converti, chaque salle garde son nombre de cases.\n'
+        + '« Ne rien toucher » : les pixels ne bougent pas, les éléments ne tomberont plus sur la grille.',
+        { titre: 'Adapter la carte à la nouvelle taille de case ?', ok: 'Adapter', annuler: 'Ne rien toucher' })
+        .then(oui => { if (oui) convertir(); else majCartePanneau(); });
+      return;
     }
     majCartePanneau();
   }
@@ -1173,8 +1201,11 @@
   function realignerGrille() {
     const cel = cell();
     if (!cel) { toast('Pas de grille sur cette carte (case = 0).'); return; }
-    if (!confirm('Réaligner tous les éléments sur la grille de ' + cel + ' px ?\n\n'
-      + 'Chaque bord rejoint la ligne de grille la plus proche (au pire une demi-case).')) return;
+    KJ.dlg.confirmer('Chaque bord rejoint la ligne de grille la plus proche (au pire une demi-case). '
+      + 'Ctrl+Z rétablit.', { titre: 'Réaligner tout sur la grille de ' + cel + ' px ?', ok: 'Réaligner' })
+      .then(oui => { if (oui) realignerMaintenant(cel); });
+  }
+  function realignerMaintenant(cel) {
     const s = (v, pas) => Math.round(v / (pas || cel)) * (pas || cel);
     for (const e of carte.elements) {
       if (e.type === 'piece' || e.type === 'secret') {
@@ -1492,9 +1523,14 @@
     }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selMulti.length) {
       e.preventDefault();
-      if (!confirm('Supprimer les ' + selMulti.length + ' éléments sélectionnés ?')) return;
-      for (const id of selMulti) M.supprimer(carte, id);
-      selMulti = []; sel = null; majPanneau(); apresModif(); dessiner();
+      const ids = selMulti.slice();
+      KJ.dlg.confirmer('Les ' + ids.length + ' éléments sélectionnés seront retirés du plan '
+        + '(Ctrl+Z les rétablit).', { titre: 'Supprimer la sélection ?', ok: 'Supprimer', danger: true })
+        .then(oui => {
+          if (!oui) return;
+          for (const id of ids) M.supprimer(carte, id);
+          selMulti = []; sel = null; majPanneau(); apresModif(); dessiner();
+        });
       return;
     }
     const el = sel && M.trouver(carte, sel);
@@ -1563,8 +1599,9 @@
     if (!KJ.session || !KJ.session.configuree()) { toast('Configuration Firebase absente.'); return; }
     KJ.session.quiEstConnecte().then(email => {
       if (email) {
-        if (!confirm('Connecté en tant que ' + email + '.\n\nSe déconnecter ?')) return;
-        KJ.session.deconnexion().then(() => location.reload());
+        KJ.dlg.confirmer('Connecté en tant que ' + email + '.',
+          { titre: 'Se déconnecter ?', ok: 'Se déconnecter', danger: true })
+          .then(oui => { if (oui) KJ.session.deconnexion().then(() => location.reload()); });
         return;
       }
       ouvrirModaleEd('Espace MJ', (corps) => {

@@ -1251,16 +1251,21 @@
       // au doigt, l'appui long part trop facilement tout seul : on confirme avant
       // de supprimer (à la souris, le clic droit reste immédiat comme avant)
       const jNom = (partie.jetons.find(j => j.id === jet.dataset.id) || {}).nom;
+      const idSup = jet.dataset.id;
       // confirmation à la souris AUSSI : la suppression était immédiate et, avant
       // l'historique des jetons, définitive
-      if (!confirm('Supprimer le jeton « ' + (jNom || '?') + ' » ?')) return;
-      avantJetons();
-      partie.jetons = partie.jetons.filter(j => j.id !== jet.dataset.id);
-      // le geste en cours tenait ce jeton : sans ça, le relâchement du doigt
-      // rejouait un « lâcher sur portail » avec un jeton supprimé → changement
-      // de carte fantôme pour toute la table
+      KJ.dlg.confirmer('Supprimer le jeton « ' + (jNom || '?') + ' » ?',
+        { titre: 'Supprimer un jeton', ok: 'Supprimer', danger: true }).then(oui => {
+        if (!oui) return;
+        avantJetons();
+        partie.jetons = partie.jetons.filter(j => j.id !== idSup);
+        mode = null; jDrag = null; jPointer = null; snapJetons = null;
+        dessinerJetons(); sauverPartie();
+      });
+      /* le geste en cours tenait ce jeton : couper tout de suite, sinon le
+         relâchement du doigt rejouait un « lâcher sur portail » avec un jeton en
+         cours de suppression → changement de carte fantôme pour toute la table */
       mode = null; jDrag = null; jPointer = null; snapJetons = null;
-      dessinerJetons(); sauverPartie();
       return;
     }
     const imgPin = e.target.closest('.img-pin');
@@ -1304,19 +1309,26 @@
      vraiment à l'état d'avant au lieu de tout recouvrir de noir. */
   $('b-couvrir').addEventListener('click', () => {
     const ops = opsFog();
-    if (ops.length && !confirm('Recouvrir TOUTE la carte de brouillard ?\n\n'
-      + 'Tout ce qui a été révélé sur « ' + carte.nom + ' » redevient caché (annulable avec ↶).')) return;
-    pousserAnnul({ t: 'fog-tout', ops: ops.slice() });
-    partie.fog[carte.id] = [];
-    dessinerFog(); sauverPartie(); toast('Carte entièrement recouverte.');
+    const faire = () => {
+      pousserAnnul({ t: 'fog-tout', ops: ops.slice() });
+      partie.fog[carte.id] = [];
+      dessinerFog(); sauverPartie(); toast('Carte entièrement recouverte.');
+    };
+    if (!ops.length) { faire(); return; }
+    KJ.dlg.confirmer('Tout ce qui a été révélé sur « ' + carte.nom + ' » redevient caché. '
+      + 'Annulable avec ↶.', { titre: 'Recouvrir toute la carte ?', ok: 'Recouvrir', danger: true })
+      .then(oui => { if (oui) faire(); });
   });
   $('b-decouvrir').addEventListener('click', () => {
-    if (!confirm('Révéler TOUT le terrain aux joueurs ?\n\n'
-      + 'Le plan entier de « ' + carte.nom + ' » leur devient visible (annulable avec ↶).')) return;
-    pousserAnnul({ t: 'fog-tout', ops: opsFog().slice() });
-    partie.fog[carte.id] = [{ m: 'reveal', x: carte.taille.w / 2, y: carte.taille.h / 2,
-      r: Math.max(carte.taille.w, carte.taille.h) }];
-    dessinerFog(); sauverPartie(); toast('Terrain entièrement révélé.');
+    KJ.dlg.confirmer('Le plan entier de « ' + carte.nom + ' » devient visible pour les joueurs. '
+      + 'Annulable avec ↶.', { titre: 'Révéler tout le terrain ?', ok: 'Révéler', danger: true })
+      .then(oui => {
+        if (!oui) return;
+        pousserAnnul({ t: 'fog-tout', ops: opsFog().slice() });
+        partie.fog[carte.id] = [{ m: 'reveal', x: carte.taille.w / 2, y: carte.taille.h / 2,
+          r: Math.max(carte.taille.w, carte.taille.h) }];
+        dessinerFog(); sauverPartie(); toast('Terrain entièrement révélé.');
+      });
   });
   /* Repartir à neuf sur cette carte pour une nouvelle table (d'autres joueurs) : brouillard,
      révélations et jetons sont une session, pas une donnée de la carte (voir README) — mais
@@ -1442,11 +1454,14 @@
         input.click();
       });
       if (jetonExistant) $('j-supprimer').addEventListener('click', () => {
-        if (!confirm('Supprimer le jeton « ' + (jetonExistant.nom || '?') + ' » ?')) return;
-        avantJetons();
-        partie.jetons = partie.jetons.filter(j => j.id !== jetonExistant.id);
-        dessinerJetons(); sauverPartie(true); fermerModale();
-        toast('Jeton supprimé (↶ pour le récupérer).');
+        KJ.dlg.confirmer('Supprimer le jeton « ' + (jetonExistant.nom || '?') + ' » ?',
+          { titre: 'Supprimer un jeton', ok: 'Supprimer', danger: true }).then(oui => {
+          if (!oui) return;
+          avantJetons();
+          partie.jetons = partie.jetons.filter(j => j.id !== jetonExistant.id);
+          dessinerJetons(); sauverPartie(true); fermerModale();
+          toast('Jeton supprimé (↶ pour le récupérer).');
+        });
       });
       $('j-annuler').addEventListener('click', fermerModale);
       $('j-creer').addEventListener('click', () => {
@@ -1898,9 +1913,10 @@
     const lien = location.origin + location.pathname + '?session=' + code;
     if (navigator.clipboard && navigator.clipboard.writeText)
       navigator.clipboard.writeText(lien).catch(() => {});
-    alert((reprise ? 'Partie reprise : ' : 'Partie créée : ') + code + '\n\n'
-      + 'Le code ne changera plus : les joueurs peuvent garder ce lien (copié)\n'
-      + 'en favori pour toute la campagne :\n' + lien);
+    KJ.dlg.info('Code : ' + code + '\n'
+      + 'Il ne changera plus. Le lien vient d’être copié — tes joueurs peuvent le garder '
+      + 'en favori pour toute la campagne :\n' + lien,
+      { titre: reprise ? 'Partie reprise' : 'Partie créée' });
   }
 
   /* ---------------- écran « Partie » (MJ) ---------------- */
@@ -1964,9 +1980,12 @@
     qui.style.margin = '0'; qui.textContent = email;   // le pseudo, jamais l'adresse complète
     entete.appendChild(qui);
     const bp = bouton('✎', () => {
-      const nom = prompt('Ton pseudo (affiché à la place de l’adresse e-mail) :', email);
-      if (nom === null || !nom.trim()) return;
-      KJ.session.definirPseudo(nom).then(() => rendreEcranPartie(corps)).catch(e => alert(e.message));
+      KJ.dlg.saisir('Il s’affiche dans l’application à la place de ton adresse e-mail.', email,
+        { titre: 'Ton pseudo', max: 24 }).then(nom => {
+        if (nom === null || !nom.trim()) return;
+        KJ.session.definirPseudo(nom).then(() => rendreEcranPartie(corps))
+          .catch(e => KJ.dlg.info(String((e && e.message) || e), { titre: 'Impossible' }));
+      });
     });
     bp.title = 'Changer de pseudo';
     entete.appendChild(bp);
@@ -2016,17 +2035,20 @@
           rep.disabled = true;
           KJ.session.reprendrePartie(p.code).then(etat => {
             fermerModale(); brancherPartie(etat); annoncerCode(p.code, true);
-          }).catch(e => { rep.disabled = false; alert(e.message); });
+          }).catch(e => { rep.disabled = false; KJ.dlg.info(String((e && e.message) || e), { titre: 'Reprise impossible' }); });
         });
         ligne.appendChild(rep);
         const sup = bouton('✕', () => {
-          if (!confirm('Supprimer la partie « ' + (p.nom || p.code) + ' » ?\n\n'
-            + 'Son brouillard, ses révélations et son code seront définitivement perdus.')) return;
-          KJ.session.supprimerPartie(p.code).then(() => {
-            majBadgeSession(0);
-            if (!KJ.session.active()) btnSession.classList.remove('actif');
-            rendreEcranPartie(corps);
-          });
+          KJ.dlg.confirmer('Son brouillard, ses révélations et son code seront définitivement perdus.',
+            { titre: 'Supprimer « ' + (p.nom || p.code) + ' » ?', ok: 'Supprimer', danger: true })
+            .then(oui => {
+              if (!oui) return;
+              KJ.session.supprimerPartie(p.code).then(() => {
+                majBadgeSession(0);
+                if (!KJ.session.active()) btnSession.classList.remove('actif');
+                rendreEcranPartie(corps);
+              });
+            });
         });
         sup.className = 'danger';
         ligne.appendChild(sup);
@@ -2043,7 +2065,7 @@
         cr.disabled = true;
         KJ.session.creerPartie(nom.value.trim() || 'Partie').then(code => {
           fermerModale(); brancherPartie(null); annoncerCode(code, false);
-        }).catch(e => { cr.disabled = false; alert(e.message); });
+        }).catch(e => { cr.disabled = false; KJ.dlg.info(String((e && e.message) || e), { titre: 'Création impossible' }); });
       });
       creation.appendChild(cr);
       listeEl.appendChild(creation);
@@ -2056,8 +2078,8 @@
   if (btnSession) btnSession.addEventListener('click', () => {
     if (!KJ.session) return;
     if (!KJ.session.configuree()) {
-      alert('Les parties multi-appareils ne sont pas encore configurées.\n\n'
-        + 'Il manque la configuration Firebase dans js/firebase-config.js — voir ARCHITECTURE.md.');
+      KJ.dlg.info('Il manque la configuration Firebase dans js/firebase-config.js — voir ARCHITECTURE.md.',
+        { titre: 'Parties non configurées' });
       return;
     }
     ouvrirModale('Partie', false, rendreEcranPartie);
@@ -2113,10 +2135,13 @@
     /* Quitter la partie n'a de sens que pour un invité venu par un code. */
     $('b-quitter-partie').hidden = false;
     $('b-quitter-partie').addEventListener('click', () => {
-      if (!confirm('Quitter cette partie ?\n\nLe lien de la partie continue de marcher si tu veux revenir.')) return;
-      Promise.resolve(KJ.session.fermer()).catch(() => {}).then(() => {
-        try { localStorage.removeItem(CLE_PARTIE); } catch (e) {}
-        location.replace('index.html');
+      KJ.dlg.confirmer('Le lien de la partie continue de marcher si tu veux revenir.',
+        { titre: 'Quitter cette partie ?', ok: 'Quitter' }).then(oui => {
+        if (!oui) return;
+        Promise.resolve(KJ.session.fermer()).catch(() => {}).then(() => {
+          try { localStorage.removeItem(CLE_PARTIE); } catch (e) {}
+          location.replace('index.html');
+        });
       });
     });
 

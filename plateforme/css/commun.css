@@ -197,3 +197,26 @@ footer{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:4px 10px;b
 .titre-campagne.survol{background:rgba(201,162,39,.14);border-bottom-color:var(--or)}
 .titre-campagne.survol span:first-child{color:#f0dfc8}
 .depot-vide{grid-column:1/-1;padding:0 18px;margin:4px 0 6px}
+
+/* ---------- dialogues internes (KJ.dlg : confirmer / info / saisir) ----------
+   Remplacent confirm/alert/prompt du navigateur : lisibles sur téléphone,
+   utilisables dans une application empaquetée, et impossibles à museler par le
+   réglage « ne plus autoriser ce site à vous solliciter ». */
+.kj-dlg-fond{position:fixed;inset:0;z-index:900;background:rgba(6,4,2,.72);
+  display:flex;align-items:center;justify-content:center;padding:20px}
+.kj-dlg{background:var(--panneau);border:1px solid var(--bord-clair);border-radius:10px;
+  padding:18px 20px;width:min(440px,92vw);max-height:86vh;overflow-y:auto;
+  box-shadow:0 16px 44px rgba(0,0,0,.6)}
+.kj-dlg h3{font-family:var(--serif);font-variant:small-caps;letter-spacing:.07em;
+  font-size:17px;color:var(--or);margin:0 0 10px}
+.kj-dlg p{margin:0 0 9px;font-size:13.5px;line-height:1.5;color:var(--encre)}
+.kj-dlg p:last-of-type{margin-bottom:14px}
+.kj-dlg-champ{width:100%;box-sizing:border-box;background:#241d14;color:var(--encre);
+  border:1px solid var(--bord-clair);border-radius:5px;font:13px var(--ui);padding:9px;
+  margin-bottom:12px}
+textarea.kj-dlg-champ{min-height:84px;resize:vertical;line-height:1.4}
+.kj-dlg-barre{display:flex;gap:8px;justify-content:flex-end}
+.kj-dlg-barre button{min-height:44px;padding:8px 18px;font-size:13px}
+@media (max-width:820px){
+  .kj-dlg-barre button{flex:1 1 auto}
+}

@@ -45,6 +45,7 @@
   </div>
 </div>
 
+<script src="js/dialogue.js"></script>
 <script src="js/modele.js"></script>
 <script src="js/rendu.js"></script>
 <script src="js/stockage.js"></script>
@@ -91,9 +92,9 @@
       // la bibliothèque ne résout pas les images de compte : prévenir plutôt que
       // livrer un SVG sans son fond sans le dire
       if (carte.fond && String(carte.fond.src || '').indexOf('img:') === 0)
-        alert('Cette carte a un fond d’image de ton compte.\n\n'
-          + 'L’export depuis la bibliothèque ne peut pas l’inclure : ouvre la carte '
-          + 'dans l’éditeur et utilise « ↓ SVG » là-bas.');
+        KJ.dlg.info('L’export depuis la bibliothèque ne peut pas inclure le fond d’image : '
+          + 'ouvre la carte dans l’éditeur et utilise « ↓ SVG » là-bas.',
+          { titre: 'Fond d’image non exporté' });
       S.exporterSVG(carte, { vueMJ: false, grille: true });
     });
     act.appendChild(svg);
@@ -107,10 +108,14 @@
       sup.textContent = '✕'; sup.className = 'danger';
       sup.title = 'Supprimer le fichier de cette carte';
       sup.addEventListener('click', () => {
-        if (!confirm('Supprimer « ' + carte.nom + ' » ?\n\nElle sera retirée de ta bibliothèque '
-          + '(et du dossier lié s’il y en a un — tant que ce n’est pas commité, « git checkout » rétablit le fichier).')) return;
-        S.supprimerCarte(carte.id).then(charger)
-          .catch(e => alert('Suppression impossible : ' + (e && e.message || e)));
+        KJ.dlg.confirmer('Elle sera retirée de ta bibliothèque (et du dossier lié s’il y en a un — '
+          + 'tant que ce n’est pas commité, « git checkout » rétablit le fichier).',
+          { titre: 'Supprimer « ' + carte.nom + ' » ?', ok: 'Supprimer', danger: true })
+          .then(oui => {
+            if (!oui) return;
+            S.supprimerCarte(carte.id).then(charger)
+              .catch(e => KJ.dlg.info('Suppression impossible : ' + (e && e.message || e), { titre: 'Impossible' }));
+          });
       });
       act.appendChild(sup);
     }
@@ -242,13 +247,13 @@
       return { nom, camp };
     }, (ctx) => {
       const nom = ctx.nom.value.trim();
-      if (!nom) { alert('Le nom ne peut pas être vide.'); return false; }
+      if (!nom) { KJ.dlg.info('Le nom ne peut pas être vide.'); return false; }
       S.chargerCarte(carte.id).then(c => {
         if (!c) return;
         c.nom = nom;
         c.campagne = ctx.camp.value.trim();
         return S.enregistrerCarte(c).then(charger);
-      }).catch(e => alert('Enregistrement impossible : ' + (e && e.message || e)));
+      }).catch(e => KJ.dlg.info('Enregistrement impossible : ' + (e && e.message || e), { titre: 'Impossible' }));
     });
   }
 
@@ -288,7 +293,7 @@
       if (!c) return;
       c.campagne = (campagne === M.SANS_CAMPAGNE) ? "" : campagne;
       return S.enregistrerCarte(c).then(charger);
-    }).catch(e => alert('Déplacement impossible : ' + (e && e.message || e)));
+    }).catch(e => KJ.dlg.info('Déplacement impossible : ' + (e && e.message || e), { titre: 'Impossible' }));
   }
 
   /* Rendu groupé par campagne : chaque campagne est un « dossier ». */
@@ -454,8 +459,9 @@
             S.lierDossierDepot().then(function () { rendu = false; charger(); })
               .catch(function (e) {
                 if (e && e.name === 'AbortError') return;   // choix annulé
-                alert('Liaison impossible : ' + (e && e.message || e)
-                  + '\n\nChoisis le dossier « plateforme » (celui qui contient cartes/ et images/).');
+                KJ.dlg.info('Liaison impossible : ' + (e && e.message || e)
+                  + '\nChoisis le dossier « plateforme » (celui qui contient cartes/ et images/).',
+                  { titre: 'Dossier non lié' });
               });
           });
           note.appendChild(lier);
@@ -492,8 +498,8 @@
       return { nom: nom, connues: connues };
     }, function (ctx) {
       const nom = ctx.nom.value.trim();
-      if (!nom) { alert('Donne un nom à la campagne.'); return false; }
-      if (ctx.connues.indexOf(nom) >= 0) { alert('Cette campagne existe déjà.'); return false; }
+      if (!nom) { KJ.dlg.info('Donne un nom à la campagne.'); return false; }
+      if (ctx.connues.indexOf(nom) >= 0) { KJ.dlg.info('Cette campagne existe déjà.'); return false; }
       S.declarerCampagne(nom);
       filtre = '*';
       try { localStorage.setItem('kj-filtre-campagne', filtre); } catch (e) {}
@@ -533,8 +539,14 @@
     c.appendChild(d);
   }
   function demanderCode() {
-    const code = (prompt('Code de la partie donné par le MJ (ex. 4827) :', '') || '').trim();
-    if (code) location.href = 'table.html?session=' + encodeURIComponent(code.toUpperCase());
+    // saisie interne (voir js/dialogue.js) : prompt() est illisible sur téléphone
+    // et supprimable par le navigateur
+    KJ.dlg.saisir('Ton MJ te l’a donné — quatre chiffres.', '',
+      { titre: 'Rejoindre une partie', max: 8, placeholder: '4827' }).then(saisi => {
+      const code = String(saisi || '').replace(/\D+/g, '');
+      if (code) location.href = 'table.html?session=' + encodeURIComponent(code);
+      else if (saisi !== null) KJ.dlg.info('Un code de partie ne contient que des chiffres.');
+    });
   }
   function majBoutonMJ(email) {
     const b = $('b-mj');
@@ -542,13 +554,14 @@
     b.classList.toggle('actif', !!email);
     b.onclick = email
       ? function () {
-          if (confirm('Connecté en tant que ' + email + '.\n\nSe déconnecter ?'))
-            KJ.session.deconnexion().then(function () { location.reload(); });
+          KJ.dlg.confirmer('Connecté en tant que ' + email + '.',
+            { titre: 'Se déconnecter ?', ok: 'Se déconnecter', danger: true })
+            .then(function (oui) { if (oui) KJ.session.deconnexion().then(function () { location.reload(); }); });
         }
       : dialogueConnexion;
   }
   function dialogueConnexion() {
-    if (!KJ.session || !KJ.session.configuree()) { alert('Configuration Firebase absente.'); return; }
+    if (!KJ.session || !KJ.session.configuree()) { KJ.dlg.info('Configuration Firebase absente.', { titre: 'Espace MJ indisponible' }); return; }
     ouvrirModale('Espace MJ', function (corps) {
       noteModale(corps, 'Ton compte garde tes cartes et tes parties privées. '
         + 'Les joueurs n’en ont pas besoin : un code de partie leur suffit.');
@@ -610,10 +623,12 @@
     let p = Promise.resolve(0);
     for (const f of fichiers)
       p = p.then(n => S.importerFichier(f).then(c => S.enregistrerCarte(c)).then(() => n + 1)
-        .catch(err => { alert('« ' + f.name + '» : import impossible — ' + err.message); return n; }));
+        .catch(err => { KJ.dlg.info('« ' + f.name + ' » : import impossible — ' + err.message,
+          { titre: 'Import' }); return n; }));
     p.then(n => {
       if (fichiers.length === 1 && n === 1) return charger();
-      alert(n + ' carte' + (n > 1 ? 's' : '') + ' importée' + (n > 1 ? 's' : '') + ' sur ' + fichiers.length + '.');
+      KJ.dlg.info(n + ' carte' + (n > 1 ? 's' : '') + ' importée' + (n > 1 ? 's' : '')
+        + ' sur ' + fichiers.length + '.', { titre: 'Import terminé' });
       charger();
     });
   });
