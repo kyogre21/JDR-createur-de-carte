@@ -184,11 +184,18 @@
       s += `<rect class="cadre" x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" `
          + `style="stroke-width:${1.5 * k}"/>`;
       if (M.redimensionnable(el)) {
-        const r = 5 * k;
+        const r = 6 * k;
         const coins = [['nw', b.x, b.y], ['ne', b.x + b.w, b.y], ['sw', b.x, b.y + b.h], ['se', b.x + b.w, b.y + b.h]];
-        for (const [c, x, y] of coins)
+        for (const [c, x, y] of coins) {
+          /* zone de prise INVISIBLE bien plus large que la poignée dessinée : à
+             12 px de diamètre à l'écran, attraper un coin relevait de l'adresse
+             (au doigt, c'était pire). La cible fait maintenant 32 px, sans
+             alourdir le dessin. */
+          s += `<circle class="poignee" data-coin="${c}" cx="${x}" cy="${y}" r="${16 * k}" `
+             + `fill="transparent" stroke="none"/>`;
           s += `<circle class="poignee" data-coin="${c}" cx="${x}" cy="${y}" r="${r}" `
              + `style="stroke-width:${1.5 * k}"/>`;
+        }
       }
       s += `</g>`;
     }
@@ -259,7 +266,12 @@
 
     if (poi && sel) {
       mode = 'resize'; coin = poi.dataset.coin; elDrag = M.trouver(carte, sel);
-      depart = { b: Object.assign({}, M.boite(elDrag)) };
+      /* pivot et rotation figés au début du geste : les recalculer à chaque frame
+         les faisait dériver (le centre d'un objet bouge quand il grandit), donc la
+         poignée « fuyait » le curseur — surtout sur un objet tourné, comme un
+         escalier posé de biais. */
+      depart = { b: Object.assign({}, M.boite(elDrag)),
+        pivot: { x: elDrag.x, y: elDrag.y }, rot: elDrag.rot || 0 };
       return;
     }
 
@@ -463,15 +475,30 @@
 
   function redimensionner(el, coin, pt) {
     const b = depart.b;
+    const pivot = depart.pivot || { x: el.x, y: el.y };
+    const rot = depart.rot || 0;
+    /* Un OBJET est dessiné centré sur x/y : on garde son centre FIXE et la taille
+       suit la distance du curseur au centre (×2). C'est stable même tourné, et la
+       poignée reste exactement sous le doigt — l'ancienne version déplaçait le
+       centre à chaque frame, ce qui rendait les escaliers pénibles à redimensionner.
+       Pas de résolution : demi-case (une case entière faisait sauter la taille de
+       40 px d'un coup) ; Maj pendant le geste = libre, au pixel. */
+    if (el.type === 'objet') {
+      const p = rot ? versLocal(pt, rot, pivot) : pt;
+      el.x = pivot.x; el.y = pivot.y;
+      el.w = Math.max(6, acc(Math.abs(p.x - pivot.x) * 2, true));
+      el.h = Math.max(6, acc(Math.abs(p.y - pivot.y) * 2, true));
+      return;
+    }
+    // pièces et secrets : le coin opposé reste en place (comportement attendu)
     let x1 = b.x, y1 = b.y, x2 = b.x + b.w, y2 = b.y + b.h;
-    const p = (el.type === 'objet' && el.rot) ? versLocal(pt, el.rot, { x: el.x, y: el.y }) : pt;
-    const px = acc(p.x), py = acc(p.y);
+    const px = acc(pt.x), py = acc(pt.y);
     if (coin.includes('w')) x1 = px; else x2 = px;
     if (coin.includes('n')) y1 = py; else y2 = py;
     const x = Math.min(x1, x2), y = Math.min(y1, y2);
-    const w = Math.max(Math.abs(x2 - x1), 6), h = Math.max(Math.abs(y2 - y1), 6);
-    if (el.type === 'objet') { el.x = x + w / 2; el.y = y + h / 2; el.w = w; el.h = h; }
-    else { el.x = x; el.y = y; el.w = w; el.h = h; }
+    el.x = x; el.y = y;
+    el.w = Math.max(Math.abs(x2 - x1), 6);
+    el.h = Math.max(Math.abs(y2 - y1), 6);
   }
 
   function poser(pt) {
