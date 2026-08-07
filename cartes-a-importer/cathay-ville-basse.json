@@ -1,0 +1,1303 @@
+{
+ "format": 1,
+ "id": "cathay-ville-basse",
+ "nom": "Cathay — Ville basse",
+ "campagne": "Roland",
+ "taille": {
+  "w": 1520,
+  "h": 1200
+ },
+ "grille": {
+  "cell": 20,
+  "metres": 1.5
+ },
+ "elements": [
+  {
+   "type": "voie",
+   "x1": 0,
+   "y1": 520,
+   "x2": 1520,
+   "y2": 520,
+   "l": 60,
+   "sol": "pave",
+   "id": "voie_b0"
+  },
+  {
+   "type": "voie",
+   "x1": 0,
+   "y1": 880,
+   "x2": 1520,
+   "y2": 880,
+   "l": 70,
+   "sol": "eau",
+   "id": "voie_b1"
+  },
+  {
+   "type": "voie",
+   "x1": 280,
+   "y1": 520,
+   "x2": 220,
+   "y2": 0,
+   "l": 50,
+   "sol": "pave",
+   "id": "voie_b2"
+  },
+  {
+   "type": "voie",
+   "x1": 1160,
+   "y1": 520,
+   "x2": 1160,
+   "y2": 1200,
+   "l": 50,
+   "sol": "pave",
+   "id": "voie_b3"
+  },
+  {
+   "type": "voie",
+   "x1": 400,
+   "y1": 520,
+   "x2": 400,
+   "y2": 1120,
+   "l": 40,
+   "sol": "pave",
+   "id": "voie_b4"
+  },
+  {
+   "type": "voie",
+   "x1": 120,
+   "y1": 80,
+   "x2": 120,
+   "y2": 520,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_b5"
+  },
+  {
+   "type": "voie",
+   "x1": 480,
+   "y1": 140,
+   "x2": 480,
+   "y2": 520,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_b6"
+  },
+  {
+   "type": "voie",
+   "x1": 880,
+   "y1": 180,
+   "x2": 880,
+   "y2": 520,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_b7"
+  },
+  {
+   "type": "voie",
+   "x1": 1360,
+   "y1": 80,
+   "x2": 1360,
+   "y2": 520,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_b8"
+  },
+  {
+   "type": "voie",
+   "x1": 120,
+   "y1": 280,
+   "x2": 480,
+   "y2": 280,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_b9"
+  },
+  {
+   "type": "voie",
+   "x1": 880,
+   "y1": 240,
+   "x2": 1360,
+   "y2": 240,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_ba"
+  },
+  {
+   "type": "voie",
+   "x1": 480,
+   "y1": 380,
+   "x2": 880,
+   "y2": 380,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bb"
+  },
+  {
+   "type": "voie",
+   "x1": 640,
+   "y1": 520,
+   "x2": 640,
+   "y2": 340,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bc"
+  },
+  {
+   "type": "voie",
+   "x1": 1040,
+   "y1": 520,
+   "x2": 1040,
+   "y2": 260,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bd"
+  },
+  {
+   "type": "voie",
+   "x1": 200,
+   "y1": 520,
+   "x2": 200,
+   "y2": 880,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_be"
+  },
+  {
+   "type": "voie",
+   "x1": 600,
+   "y1": 520,
+   "x2": 600,
+   "y2": 780,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bf"
+  },
+  {
+   "type": "voie",
+   "x1": 960,
+   "y1": 520,
+   "x2": 960,
+   "y2": 880,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bg"
+  },
+  {
+   "type": "voie",
+   "x1": 1400,
+   "y1": 520,
+   "x2": 1400,
+   "y2": 880,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bh"
+  },
+  {
+   "type": "voie",
+   "x1": 200,
+   "y1": 680,
+   "x2": 600,
+   "y2": 680,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bi"
+  },
+  {
+   "type": "voie",
+   "x1": 960,
+   "y1": 720,
+   "x2": 1400,
+   "y2": 720,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bj"
+  },
+  {
+   "type": "voie",
+   "x1": 600,
+   "y1": 620,
+   "x2": 840,
+   "y2": 620,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bk"
+  },
+  {
+   "type": "voie",
+   "x1": 800,
+   "y1": 520,
+   "x2": 800,
+   "y2": 660,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bl"
+  },
+  {
+   "type": "voie",
+   "x1": 1280,
+   "y1": 880,
+   "x2": 1280,
+   "y2": 600,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bm"
+  },
+  {
+   "type": "voie",
+   "x1": 600,
+   "y1": 960,
+   "x2": 600,
+   "y2": 1140,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bn"
+  },
+  {
+   "type": "voie",
+   "x1": 600,
+   "y1": 1040,
+   "x2": 1040,
+   "y2": 1040,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bo"
+  },
+  {
+   "type": "voie",
+   "x1": 920,
+   "y1": 1040,
+   "x2": 920,
+   "y2": 960,
+   "l": 20,
+   "sol": "terre",
+   "id": "voie_bp"
+  },
+  {
+   "type": "objet",
+   "sym": "pont",
+   "x": 400,
+   "y": 880,
+   "w": 52,
+   "h": 92,
+   "rot": 0,
+   "id": "objet_bq"
+  },
+  {
+   "type": "objet",
+   "sym": "pont",
+   "x": 1160,
+   "y": 880,
+   "w": 52,
+   "h": 92,
+   "rot": 0,
+   "id": "objet_br"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 320,
+   "y": 340,
+   "w": 260,
+   "h": 150,
+   "nom": "Taverne « Le Magne »",
+   "sol": "bois",
+   "id": "piece_bs"
+  },
+  {
+   "type": "porte",
+   "x": 450,
+   "y": 490,
+   "o": "h",
+   "l": 28,
+   "style": "simple",
+   "sens": 1,
+   "id": "porte_bt"
+  },
+  {
+   "type": "objet",
+   "sym": "enseigne",
+   "x": 556,
+   "y": 468,
+   "w": 30,
+   "h": 24,
+   "rot": 0,
+   "id": "objet_bu"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 680,
+   "y": 340,
+   "w": 170,
+   "h": 150,
+   "nom": "Boucherie Tarnec",
+   "sol": "bois",
+   "id": "piece_bv"
+  },
+  {
+   "type": "porte",
+   "x": 765,
+   "y": 490,
+   "o": "h",
+   "l": 28,
+   "style": "simple",
+   "sens": 1,
+   "id": "porte_bw"
+  },
+  {
+   "type": "objet",
+   "sym": "enseigne",
+   "x": 826,
+   "y": 468,
+   "w": 30,
+   "h": 24,
+   "rot": 0,
+   "id": "objet_bx"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 1080,
+   "y": 360,
+   "w": 160,
+   "h": 130,
+   "nom": "Herboristerie",
+   "sol": "bois",
+   "id": "piece_by"
+  },
+  {
+   "type": "porte",
+   "x": 1160,
+   "y": 490,
+   "o": "h",
+   "l": 28,
+   "style": "simple",
+   "sens": 1,
+   "id": "porte_bz"
+  },
+  {
+   "type": "objet",
+   "sym": "enseigne",
+   "x": 1216,
+   "y": 468,
+   "w": 30,
+   "h": 24,
+   "rot": 0,
+   "id": "objet_b10"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 1200,
+   "y": 560,
+   "w": 150,
+   "h": 120,
+   "nom": "Fripier Vasco",
+   "id": "piece_b11"
+  },
+  {
+   "type": "porte",
+   "x": 1275,
+   "y": 560,
+   "o": "h",
+   "l": 28,
+   "style": "simple",
+   "sens": 1,
+   "id": "porte_b12"
+  },
+  {
+   "type": "objet",
+   "sym": "enseigne",
+   "x": 1326,
+   "y": 582,
+   "w": 30,
+   "h": 24,
+   "rot": 180,
+   "id": "objet_b13"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 240,
+   "y": 560,
+   "w": 140,
+   "h": 120,
+   "nom": "Poissonnier",
+   "id": "piece_b14"
+  },
+  {
+   "type": "porte",
+   "x": 310,
+   "y": 560,
+   "o": "h",
+   "l": 28,
+   "style": "simple",
+   "sens": 1,
+   "id": "porte_b15"
+  },
+  {
+   "type": "objet",
+   "sym": "enseigne",
+   "x": 356,
+   "y": 582,
+   "w": 30,
+   "h": 24,
+   "rot": 180,
+   "id": "objet_b16"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 670,
+   "y": 570,
+   "w": 180,
+   "h": 110,
+   "nom": "La Tonne Percée",
+   "sol": "bois",
+   "id": "piece_b17"
+  },
+  {
+   "type": "porte",
+   "x": 760,
+   "y": 624,
+   "o": "v",
+   "l": 28,
+   "style": "simple",
+   "sens": 1,
+   "id": "porte_b18"
+  },
+  {
+   "type": "objet",
+   "sym": "enseigne",
+   "x": 780,
+   "y": 592,
+   "w": 30,
+   "h": 24,
+   "rot": 90,
+   "id": "objet_b19"
+  },
+  {
+   "type": "objet",
+   "sym": "tonneau",
+   "x": 784,
+   "y": 660,
+   "w": 24,
+   "h": 24,
+   "rot": 0,
+   "id": "objet_b1a"
+  },
+  {
+   "type": "objet",
+   "sym": "tonneau",
+   "x": 752,
+   "y": 664,
+   "w": 22,
+   "h": 22,
+   "rot": 0,
+   "id": "objet_b1b"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 1040,
+   "y": 1060,
+   "w": 180,
+   "h": 100,
+   "nom": "Poste de garde",
+   "id": "piece_b1c"
+  },
+  {
+   "type": "porte",
+   "x": 1130,
+   "y": 1060,
+   "o": "h",
+   "l": 28,
+   "style": "simple",
+   "sens": 1,
+   "id": "porte_b1d"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 430,
+   "y": 570,
+   "w": 140,
+   "h": 90,
+   "forme": "rond",
+   "sol": "pave",
+   "id": "piece_b1e"
+  },
+  {
+   "type": "objet",
+   "sym": "puits",
+   "x": 500,
+   "y": 615,
+   "w": 44,
+   "h": 44,
+   "rot": 0,
+   "id": "objet_b1f"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 20,
+   "y": 40,
+   "w": 130,
+   "h": 100,
+   "nom": "Prêteur sur gages",
+   "id": "piece_b1g"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 280,
+   "y": 40,
+   "w": 160,
+   "h": 120,
+   "nom": "",
+   "id": "piece_b1h"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 460,
+   "y": 40,
+   "w": 80,
+   "h": 70,
+   "nom": "Ferrailleur",
+   "id": "piece_b1i"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 560,
+   "y": 40,
+   "w": 160,
+   "h": 120,
+   "nom": "",
+   "id": "piece_b1j"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 740,
+   "y": 40,
+   "w": 160,
+   "h": 120,
+   "nom": "Boulanger Sourde",
+   "id": "piece_b1k"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 920,
+   "y": 40,
+   "w": 160,
+   "h": 120,
+   "nom": "",
+   "id": "piece_b1l"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 1100,
+   "y": 40,
+   "w": 160,
+   "h": 120,
+   "nom": "",
+   "id": "piece_b1m"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 1320,
+   "y": 40,
+   "w": 160,
+   "h": 120,
+   "nom": "Tanneur",
+   "id": "piece_b1n"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 300,
+   "y": 180,
+   "w": 80,
+   "h": 70,
+   "nom": "",
+   "id": "piece_b1o"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 520,
+   "y": 180,
+   "w": 160,
+   "h": 120,
+   "nom": "",
+   "id": "piece_b1p"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 700,
+   "y": 180,
+   "w": 130,
+   "h": 100,
+   "nom": "Écrivain public",
+   "id": "piece_b1q"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 1400,
+   "y": 180,
+   "w": 100,
+   "h": 90,
+   "nom": "",
+   "id": "piece_b1r"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 920,
+   "y": 280,
+   "w": 80,
+   "h": 70,
+   "nom": "",
+   "id": "piece_b1s"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 1260,
+   "y": 300,
+   "w": 130,
+   "h": 100,
+   "nom": "",
+   "id": "piece_b1t"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 1420,
+   "y": 300,
+   "w": 80,
+   "h": 70,
+   "nom": "",
+   "id": "piece_b1u"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 20,
+   "y": 320,
+   "w": 130,
+   "h": 100,
+   "nom": "",
+   "id": "piece_b1v"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 920,
+   "y": 380,
+   "w": 80,
+   "h": 70,
+   "nom": "",
+   "id": "piece_b1w"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 1420,
+   "y": 400,
+   "w": 80,
+   "h": 70,
+   "nom": "",
+   "id": "piece_b1x"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 20,
+   "y": 580,
+   "w": 130,
+   "h": 100,
+   "nom": "",
+   "id": "piece_b1y"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 920,
+   "y": 580,
+   "w": 130,
+   "h": 100,
+   "nom": "",
+   "id": "piece_b1z"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 20,
+   "y": 700,
+   "w": 130,
+   "h": 100,
+   "nom": "",
+   "id": "piece_b20"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 640,
+   "y": 700,
+   "w": 160,
+   "h": 120,
+   "nom": "",
+   "id": "piece_b21"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 820,
+   "y": 700,
+   "w": 100,
+   "h": 90,
+   "nom": "",
+   "id": "piece_b22"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 240,
+   "y": 720,
+   "w": 100,
+   "h": 90,
+   "nom": "",
+   "id": "piece_b23"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 440,
+   "y": 720,
+   "w": 130,
+   "h": 100,
+   "nom": "",
+   "id": "piece_b24"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 1000,
+   "y": 760,
+   "w": 80,
+   "h": 70,
+   "nom": "",
+   "id": "piece_b25"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 20,
+   "y": 940,
+   "w": 160,
+   "h": 120,
+   "nom": "",
+   "id": "piece_b26"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 200,
+   "y": 940,
+   "w": 160,
+   "h": 120,
+   "nom": "",
+   "id": "piece_b27"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 440,
+   "y": 940,
+   "w": 130,
+   "h": 100,
+   "nom": "",
+   "id": "piece_b28"
+  },
+  {
+   "type": "piece",
+   "ep": 2,
+   "x": 640,
+   "y": 940,
+   "w": 80,
+   "h": 70,
+   "nom": "",
+   "id": "piece_b29"
+  },
+  {
+   "type": "objet",
+   "sym": "charrette",
+   "x": 480,
+   "y": 520,
+   "w": 60,
+   "h": 36,
+   "rot": 12,
+   "id": "objet_b2a"
+  },
+  {
+   "type": "objet",
+   "sym": "charrette",
+   "x": 1000,
+   "y": 520,
+   "w": 60,
+   "h": 36,
+   "rot": 12,
+   "id": "objet_b2b"
+  },
+  {
+   "type": "objet",
+   "sym": "charrette",
+   "x": 1320,
+   "y": 536,
+   "w": 60,
+   "h": 36,
+   "rot": 12,
+   "id": "objet_b2c"
+  },
+  {
+   "type": "objet",
+   "sym": "charrette",
+   "x": 400,
+   "y": 720,
+   "w": 60,
+   "h": 36,
+   "rot": 12,
+   "id": "objet_b2d"
+  },
+  {
+   "type": "objet",
+   "sym": "caisses",
+   "x": 300,
+   "y": 500,
+   "w": 26,
+   "h": 26,
+   "rot": 0,
+   "id": "objet_b2e"
+  },
+  {
+   "type": "objet",
+   "sym": "caisses",
+   "x": 900,
+   "y": 544,
+   "w": 26,
+   "h": 26,
+   "rot": 0,
+   "id": "objet_b2f"
+  },
+  {
+   "type": "objet",
+   "sym": "caisses",
+   "x": 1260,
+   "y": 544,
+   "w": 26,
+   "h": 26,
+   "rot": 0,
+   "id": "objet_b2g"
+  },
+  {
+   "type": "objet",
+   "sym": "caisses",
+   "x": 200,
+   "y": 680,
+   "w": 26,
+   "h": 26,
+   "rot": 0,
+   "id": "objet_b2h"
+  },
+  {
+   "type": "objet",
+   "sym": "caisses",
+   "x": 960,
+   "y": 720,
+   "w": 26,
+   "h": 26,
+   "rot": 0,
+   "id": "objet_b2i"
+  },
+  {
+   "type": "objet",
+   "sym": "caisses",
+   "x": 600,
+   "y": 1000,
+   "w": 26,
+   "h": 26,
+   "rot": 0,
+   "id": "objet_b2j"
+  },
+  {
+   "type": "objet",
+   "sym": "caisses",
+   "x": 400,
+   "y": 840,
+   "w": 26,
+   "h": 26,
+   "rot": 0,
+   "id": "objet_b2k"
+  },
+  {
+   "type": "objet",
+   "sym": "caisses",
+   "x": 1400,
+   "y": 600,
+   "w": 26,
+   "h": 26,
+   "rot": 0,
+   "id": "objet_b2l"
+  },
+  {
+   "type": "objet",
+   "sym": "reverbere",
+   "x": 280,
+   "y": 492,
+   "w": 18,
+   "h": 18,
+   "rot": 0,
+   "id": "objet_b2m"
+  },
+  {
+   "type": "objet",
+   "sym": "arbre",
+   "x": 760,
+   "y": 932,
+   "w": 48,
+   "h": 48,
+   "rot": 0,
+   "id": "objet_b2n"
+  },
+  {
+   "type": "objet",
+   "sym": "arbre",
+   "x": 1360,
+   "y": 932,
+   "w": 48,
+   "h": 48,
+   "rot": 0,
+   "id": "objet_b2o"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 200,
+   "y": 500,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2p"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 380,
+   "y": 500,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2q"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 560,
+   "y": 504,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2r"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 740,
+   "y": 500,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2s"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 940,
+   "y": 504,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2t"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 1100,
+   "y": 500,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2u"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 1300,
+   "y": 500,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2v"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 480,
+   "y": 440,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2w"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 580,
+   "y": 430,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2x"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 520,
+   "y": 480,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2y"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 860,
+   "y": 540,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b2z"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 1040,
+   "y": 546,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b30"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 1400,
+   "y": 540,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b31"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 400,
+   "y": 600,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b32"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 1180,
+   "y": 960,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b33"
+  },
+  {
+   "type": "objet",
+   "sym": "passant",
+   "x": 420,
+   "y": 940,
+   "w": 16,
+   "h": 16,
+   "rot": 0,
+   "id": "objet_b34"
+  },
+  {
+   "type": "portail",
+   "x": 220,
+   "y": 28,
+   "label": "Place du Marché",
+   "vers": "cathay-marche",
+   "id": "portail_b35"
+  },
+  {
+   "type": "portail",
+   "x": 1160,
+   "y": 1172,
+   "label": "Caserne",
+   "vers": "cathay-caserne",
+   "id": "portail_b36"
+  },
+  {
+   "type": "texte",
+   "x": 940,
+   "y": 538,
+   "texte": "RUE BASSE",
+   "taille": 22,
+   "id": "texte_b37"
+  },
+  {
+   "type": "texte",
+   "x": 260,
+   "y": 1168,
+   "texte": "VILLE BASSE — Cathay",
+   "taille": 26,
+   "id": "texte_b38"
+  },
+  {
+   "type": "texte",
+   "x": 920,
+   "y": 848,
+   "texte": "le Canal noir",
+   "taille": 18,
+   "id": "texte_b39"
+  },
+  {
+   "type": "numero",
+   "x": 440,
+   "y": 420,
+   "num": 1,
+   "id": "numero_b3a"
+  },
+  {
+   "type": "numero",
+   "x": 760,
+   "y": 420,
+   "num": 2,
+   "id": "numero_b3b"
+  },
+  {
+   "type": "numero",
+   "x": 1160,
+   "y": 430,
+   "num": 3,
+   "id": "numero_b3c"
+  },
+  {
+   "type": "numero",
+   "x": 740,
+   "y": 600,
+   "num": 4,
+   "id": "numero_b3d"
+  },
+  {
+   "type": "numero",
+   "x": 450,
+   "y": 619,
+   "num": 5,
+   "id": "numero_b3e"
+  },
+  {
+   "type": "numero",
+   "x": 1040,
+   "y": 320,
+   "num": 6,
+   "id": "numero_b3f"
+  },
+  {
+   "type": "numero",
+   "x": 920,
+   "y": 912,
+   "num": 7,
+   "id": "numero_b3g"
+  },
+  {
+   "type": "numero",
+   "x": 1120,
+   "y": 1028,
+   "num": 8,
+   "id": "numero_b3h"
+  },
+  {
+   "type": "numero",
+   "x": 800,
+   "y": 632,
+   "num": 9,
+   "id": "numero_b3i"
+  }
+ ],
+ "cle": [
+  {
+   "num": 1,
+   "titre": "Taverne « Le Magne »",
+   "desc": "Le cœur du quartier : trente personnes le soir, deux salles, une arrière-cour qui donne sur la ruelle nord. Magne lui-même tient le comptoir — un ancien portefaix, énorme, qui sait qui dort où et le dit pour trois chopes. Il ne tolère aucune lame sortie chez lui et fait respecter ça lui-même. Refuge sûr : tant que les PJ sont chez Magne, personne ne vient les chercher."
+  },
+  {
+   "num": 2,
+   "titre": "Boucherie Tarnec",
+   "desc": "Crochets, billot, saumure. Tarnec découpe la nuit parce qu’il fait plus frais. Pour quinze sous il fait disparaître ce qu’on lui apporte et ne demande rien — mais il s’en souvient, et il parle si la garde insiste. Une trappe sous le billot descend à une cave qui rejoint le canal."
+  },
+  {
+   "num": 3,
+   "titre": "Herboristerie",
+   "desc": "Devanture honnête : tisanes, cataplasmes, onguents. Sous le comptoir, de quoi faire dormir, vomir ou taire. La vieille Sève vend à qui saigne déjà et pose peu de questions, mais note chaque visage. Elle connaît l’herboriste de la Ville haute et la déteste."
+  },
+  {
+   "num": 4,
+   "titre": "La Tonne Percée",
+   "desc": "La taverne miteuse, au fond de l’impasse — on n’y arrive pas par hasard. Douze places, du vin coupé, et la table du fond réservée au receleur du quartier (point 9). C’est ici qu’on achète une information, un passe-partout ou un couteau. Toute bagarre y tourne au général en deux rounds. NOM PROVISOIRE : à changer si tu en as un meilleur, c’est un simple libellé."
+  },
+  {
+   "num": 5,
+   "titre": "Le puits communal",
+   "desc": "Le seul dégagement du quartier, et donc le seul endroit où tout le monde se croise. Les rumeurs y circulent avant partout ailleurs : trois d’affilée pour qui aide à porter un seau. Le puits est profond de dix mètres et communique avec la nappe du canal — on y a déjà repêché plus qu’un seau."
+  },
+  {
+   "num": 6,
+   "titre": "Les impasses",
+   "desc": "Quatre ruelles ne débouchent pas : elles sont là pour ça. Une ruelle fait UNE case de large — deux personnes de front au maximum, pas de troisième, pas de contournement, aucune ligne de vue au-delà du premier angle. Pour tendre une embuscade : les guetteurs aux angles, la sortie bloquée derrière. Repérer le piège avant d’entrer demande un jet difficile ; une fois engagé, il faut passer sur quelqu’un."
+  },
+  {
+   "num": 7,
+   "titre": "Le Canal noir",
+   "desc": "Eau lente, un mètre cinquante de fond, et tout ce qu’on veut oublier. Deux ponts seulement (ouest et sud) : ce sont les goulets du quartier, et la garde le sait — bloquer les deux referme la Ville basse comme une nasse. Nager est possible mais on ressort couvert d’une odeur que tout le monde reconnaît."
+  },
+  {
+   "num": 8,
+   "titre": "Le poste de garde du sud",
+   "desc": "Six hommes en rotation, sur la route de la caserne. Ils se sont installés là exprès : de la caserne, on est en Ville basse en quatre minutes. Ils patrouillent la Rue Basse toutes les demi-heures mais n’entrent JAMAIS dans les ruelles à moins de quatre. Le sergent Bracque se laisse acheter, pas son caporal."
+  },
+  {
+   "num": 9,
+   "titre": "La bande du canal",
+   "desc": "Une quinzaine de gamins et trois adultes, menés par un receleur qui tient la table du fond de la Tonne Percée. Ils vivent du marché (les tire-laine du point 5 de la Place du Marché, ce sont eux) et connaissent chaque impasse. Hostiles si on les gêne, achetables toujours, loyaux jamais. Ils constituent la meilleure source d’information du quartier et le plus sûr moyen d’être suivi."
+  }
+ ],
+ "pins": [],
+ "maj": 1786107260023
+}

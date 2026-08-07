@@ -1,35 +1,61 @@
-# Cartes de Cathay à importer (campagne « Roland »)
+# Cathay — Ville basse (campagne « Roland »)
 
-Trois fichiers, à importer depuis la bibliothèque avec le bouton **↑ Importer**
-(il accepte plusieurs fichiers d'un coup). Ils partent dans ton compte, donc ils
-seront disponibles sur tous tes appareils et transmis à tes joueurs en séance.
+Deux fichiers à importer depuis la bibliothèque avec **↑ Importer** (il en accepte
+plusieurs d'un coup). Regarde `apercu-ville-basse.png` avant, pour ne pas importer
+à l'aveugle.
 
 | Fichier | Ce que c'est |
 |---|---|
-| `cathay-marche.json` | **Cathay — Place du Marché** : place ronde pavée, statue au centre, 11 étals, 12 îlots bâtis, porte de ville au nord, 5 routes. Clé de 5 points. |
-| `cathay-ville-haute.json` | **Cathay — Ville haute** : avenue dallée, place à fontaine, traiteur, herboriste, 3 boutiques de luxe, hôtel particulier, 4 maisons. Clé de 8 points. |
-| `cathay-portails-rebranches.json` | **Ta carte Cathay existante**, avec les 5 portails rebranchés. Même id, donc l'import la remplace. |
+| `cathay-ville-basse.json` | **La nouvelle carte.** 76 × 60 cases (114 × 90 m) à `cell=20`, comme dungeon K et la Ville haute. |
+| `marche-plus-portail-basse.json` | **Ton Marché**, avec un portail « Ville basse » ajouté au bout de la route du sud-est. Même id, donc l'import le remplace. |
 
-## À propos du fichier Cathay
+## À propos du fichier du Marché
 
-Les 5 portails pointaient tous vers `carte_mseakbnc1` — c'est-à-dire **dungeon K**,
-le donjon de la campagne Mandalf. C'était un reste de mise en place.
+Il part de **ta** version redimensionnée (600 × 600, `cell=15`), pas de la mienne.
+Un seul élément est ajouté : le portail en `536,536`, au bout de la route qui portait
+déjà le panneau « → Ville basse ». 83 éléments → 84, et **aucune** autre différence —
+vérifié élément par élément. Tes renommages de portails sont conservés.
 
-Seuls les 5 champs `vers` ont été changés. Position des portails, fond d'image,
-taille, grille, date de modification : tout est identique à l'octet.
+Copie de l'état actuel : `../sauvegardes/marche_avant-portail-ville-basse_2026-08-07.json`
 
-| Portail | Avant | Après |
-|---|---|---|
-| Marché | dungeon K | `cathay-marche` ✅ existe |
-| Ville haute | dungeon K | `cathay-ville-haute` ✅ existe |
-| Ville moyenne | dungeon K | `cathay-ville-moyenne` ⏳ à créer |
-| Ville basse | dungeon K | `cathay-ville-basse` ⏳ à créer |
-| Caserne | dungeon K | `cathay-caserne` ⏳ à créer |
+## Ce qu'il reste à brancher toi-même
 
-Un portail dont la carte n'existe pas encore est **inerte** : le losange s'affiche,
-mais marcher dessus ne fait rien (pas d'erreur). Le jour où tu crées la carte de la
-Ville moyenne, donne-lui l'id `cathay-ville-moyenne` et la liaison fonctionne sans
-que tu aies à toucher au plan de Cathay.
+Sur la vue d'ensemble `Cathay`, le portail **« ville basse »** pointe encore vers
+`dungeon K`. Passe-le sur `cathay-ville-basse`. Idem pour « ville moyenne » et
+« Caserne » quand tu créeras ces cartes — utilise les ids `cathay-ville-moyenne` et
+`cathay-caserne`, la Ville basse a déjà son portail vers la caserne qui les attend.
 
-Une copie de la carte Cathay **telle qu'elle était avant** est dans
-`../sauvegardes/cathay_avant-rebranchement-portails_2026-08-07.json`.
+## Ce qu'il y a sur la carte
+
+**La trame de ruelles** est le vrai contenu : 21 segments larges d'**une case**, dont
+**cinq impasses**. Une case, c'est deux personnes de front au maximum, pas de
+contournement, aucune ligne de vue au-delà du premier angle. C'est vérifié
+automatiquement, pas juste voulu.
+
+**Le Canal noir** coupe le quartier en deux avec **seulement deux ponts** : bloquer
+les deux referme la Ville basse comme une nasse, et la garde le sait.
+
+**Les lieux demandés :** Taverne « Le Magne » (refuge sûr, Magne sait qui dort où),
+Boucherie Tarnec (trappe sous le billot vers le canal), Herboristerie (la vieille
+Sève, et ce qu'il y a sous le comptoir), **« La Tonne Percée »** — la taverne miteuse,
+volontairement placée **au fond d'une impasse** et non sur la rue : on n'y arrive pas
+par hasard.
+
+**Le nom « La Tonne Percée » est provisoire**, tu n'en avais pas. Renomme-la quand tu
+veux, c'est un simple libellé.
+
+**Ajouté pour densifier :** le canal et ses ponts, la place du puits (le seul
+dégagement, donc le carrefour des rumeurs), le poste de garde du sud, et les
+commerces — prêteur sur gages, ferrailleur, boulanger, tanneur, écrivain public,
+fripier, poissonnier — plus une trentaine de masures anonymes.
+
+**La clé compte 9 points** avec du contenu jouable : le point 6 donne les règles
+d'embuscade dans les ruelles, le point 9 relie la bande du canal aux tire-laine de
+la Place du Marché.
+
+## Le générateur
+
+`generer-basse.js` est le script qui a produit la carte. Tout y est défini **en
+cases**, converti en pixels à la fin : changer `CELL` en tête de fichier régénère la
+même carte à une autre échelle sans toucher une coordonnée. Utile quand tu voudras la
+Ville moyenne ou la Caserne.
