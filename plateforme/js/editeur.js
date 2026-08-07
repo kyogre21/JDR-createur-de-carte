@@ -1253,6 +1253,11 @@
         if (e.type === 'piece' || e.type === 'secret' || e.type === 'objet') { e.w = n(e.w); e.h = n(e.h); }
         if (e.l) e.l = Math.max(4, n(e.l));
         if (e.ep) e.ep = Math.max(1, Math.round(e.ep * k));
+        /* Les TAILLES DE TEXTE sont en pixels comme le reste : sans les convertir,
+           réduire la case de moitié laissait les libellés à leur ancienne taille —
+           donc deux fois trop gros, et les titres débordaient de la carte. */
+        if (e.taille) e.taille = Math.max(6, Math.round(e.taille * k));
+        if (e.nomTaille) e.nomTaille = Math.max(6, Math.round(e.nomTaille * k));
       }
       apresModif(); dessiner(); majCartePanneau();
     };
