@@ -6,7 +6,11 @@
     "public": "plateforme",
     "ignore": [
       "**/.*",
-      "cartes/index.json"
+      "cartes/**",
+      "generer-*.js",
+      "generer-*.ps1",
+      "*.md",
+      "images/**"
     ],
     "headers": [
       {

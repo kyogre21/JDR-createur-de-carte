@@ -163,3 +163,21 @@ se fasse automatiquement, sinon c'est inutile ».
   démarrage à froid.
 - Import en lot (`↑ Importer`, multi-fichiers) = chemin de migration depuis n'importe
   quel navigateur.
+
+## Les images ne sont plus publiées sur le site
+
+`firebase.json` exclut `images/**` du déploiement, au même titre que
+`cartes/index.json`. Raison : le site est public, donc tout fichier publié est
+librement téléchargeable par n'importe qui — y compris les illustrations sous
+droits (Project Moon, Knight) et les visuels d'une campagne en cours. Un autre MJ
+qui crée un compte voyait la bibliothèque d'images personnelle du premier.
+
+Conséquences, à garder en tête :
+
+- **`plateforme/images/` reste utile en LOCAL** (serveur `Lancer la plateforme.bat`) :
+  aperçu pleine qualité, tri par dossiers, et c'est là que vivent les originaux.
+- **En ligne, seules les images de COMPTE existent** (`mj/<uid>/images`, dossier
+  « 👤 Mes images ») : privées par construction, et transportées aux joueurs avec
+  la carte qui les référence.
+- Donc **une image posée sur une carte doit venir du compte** (`src: "img:<id>"`).
+  Une carte qui référence `images/…` s'affichera en local mais pas en ligne.
