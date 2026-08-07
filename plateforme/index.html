@@ -562,6 +562,25 @@
   }
   function dialogueConnexion() {
     if (!KJ.session || !KJ.session.configuree()) { KJ.dlg.info('Configuration Firebase absente.', { titre: 'Espace MJ indisponible' }); return; }
+    /* Une session peut déjà exister sur cette adresse sans que la page le sache
+       (le marqueur local est propre à chaque origine : 127.0.0.1 et le site publié
+       sont deux mondes séparés pour le navigateur). On vérifie avant de demander
+       des identifiants pour rien, et on recharge une fois si c'est le cas. */
+    var relance = false;
+    try { relance = sessionStorage.getItem('kj-relance-mj') === '1'; } catch (e) {}
+    if (!KJ.session.mjProbable() && !relance) {
+      KJ.session.quiEstConnecte().then(function (email) {
+        if (!email) { dialogueIdentifiants(); return; }
+        try { sessionStorage.setItem('kj-relance-mj', '1'); } catch (e) {}
+        KJ.dlg.info('Compte ' + email + ' déjà connecté sur cette adresse — la page va se recharger '
+          + 'pour retrouver tes cartes et tes images.', { titre: 'Espace MJ' })
+          .then(function () { location.reload(); });
+      }).catch(function () { dialogueIdentifiants(); });
+      return;
+    }
+    dialogueIdentifiants();
+  }
+  function dialogueIdentifiants() {
     ouvrirModale('Espace MJ', function (corps) {
       noteModale(corps, 'Ton compte garde tes cartes et tes parties privées. '
         + 'Les joueurs n’en ont pas besoin : un code de partie leur suffit.');

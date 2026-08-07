@@ -1601,6 +1601,19 @@
     if (!KJ.session || !KJ.session.configuree()) { toast('Configuration Firebase absente.'); return; }
     KJ.session.quiEstConnecte().then(email => {
       if (email) {
+        /* La page ignorait cette connexion : le marqueur local « un MJ est
+           connecté ici » manquait (il est propre à chaque adresse — 127.0.0.1 et
+           le site publié sont deux origines distinctes pour le navigateur). Sans
+           rechargement, ni la bibliothèque en ligne ni les images du compte ne
+           seraient chargées. Une seule fois, pour ne pas boucler. */
+        let dejaRecharge = false;
+        try { dejaRecharge = sessionStorage.getItem('kj-relance-mj') === '1'; } catch (e) {}
+        if (imgCompte === null && !dejaRecharge) {
+          try { sessionStorage.setItem('kj-relance-mj', '1'); } catch (e) {}
+          toast('Compte ' + email + ' détecté — rechargement pour retrouver tes cartes et tes images…');
+          setTimeout(() => location.reload(), 800);
+          return;
+        }
         KJ.dlg.confirmer('Connecté en tant que ' + email + '.',
           { titre: 'Se déconnecter ?', ok: 'Se déconnecter', danger: true })
           .then(oui => { if (oui) KJ.session.deconnexion().then(() => location.reload()); });
