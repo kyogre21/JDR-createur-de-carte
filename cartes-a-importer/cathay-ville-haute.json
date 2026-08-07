@@ -1,0 +1,865 @@
+{
+ "format": 1,
+ "id": "cathay-ville-haute",
+ "nom": "Cathay — Ville haute",
+ "campagne": "Roland",
+ "taille": {
+  "w": 1600,
+  "h": 1200
+ },
+ "grille": {
+  "cell": 40,
+  "metres": 1.5
+ },
+ "elements": [
+  {
+   "type": "voie",
+   "l": 150,
+   "sol": "dalle",
+   "x1": 0,
+   "y1": 600,
+   "x2": 1600,
+   "y2": 600,
+   "id": "voie_c2b"
+  },
+  {
+   "type": "voie",
+   "l": 90,
+   "sol": "dalle",
+   "x1": 500,
+   "y1": 600,
+   "x2": 500,
+   "y2": 0,
+   "id": "voie_c2c"
+  },
+  {
+   "type": "voie",
+   "l": 90,
+   "sol": "dalle",
+   "x1": 860,
+   "y1": 600,
+   "x2": 860,
+   "y2": 1200,
+   "id": "voie_c2d"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 640,
+   "y": 430,
+   "w": 340,
+   "h": 340,
+   "forme": "rond",
+   "sol": "dalle",
+   "id": "piece_c2e"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "fontaine",
+   "x": 810,
+   "y": 600,
+   "w": 130,
+   "h": 130,
+   "id": "objet_c2f"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 60,
+   "y": 200,
+   "w": 300,
+   "h": 300,
+   "nom": "Le Traiteur du Cygne",
+   "sol": "bois",
+   "id": "piece_c2g"
+  },
+  {
+   "type": "porte",
+   "o": "h",
+   "l": 40,
+   "style": "simple",
+   "sens": -1,
+   "x": 210,
+   "y": 500,
+   "id": "porte_c2h"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "enseigne",
+   "x": 280,
+   "y": 474,
+   "w": 34,
+   "h": 24,
+   "id": "objet_c2i"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 1020,
+   "y": 180,
+   "w": 260,
+   "h": 280,
+   "nom": "Herboristerie Belladone",
+   "sol": "bois",
+   "id": "piece_c2j"
+  },
+  {
+   "type": "porte",
+   "o": "h",
+   "l": 40,
+   "style": "simple",
+   "sens": -1,
+   "x": 1150,
+   "y": 460,
+   "id": "porte_c2k"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "enseigne",
+   "x": 1220,
+   "y": 434,
+   "w": 34,
+   "h": 24,
+   "id": "objet_c2l"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 1320,
+   "y": 180,
+   "w": 220,
+   "h": 280,
+   "nom": "Orfèvrerie Vandelle",
+   "id": "piece_c2m"
+  },
+  {
+   "type": "porte",
+   "o": "h",
+   "l": 40,
+   "style": "simple",
+   "sens": -1,
+   "x": 1430,
+   "y": 460,
+   "id": "porte_c2n"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "enseigne",
+   "x": 1500,
+   "y": 434,
+   "w": 34,
+   "h": 24,
+   "id": "objet_c2o"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 100,
+   "y": 760,
+   "w": 300,
+   "h": 300,
+   "nom": "Maison Ferrand",
+   "id": "piece_c2p"
+  },
+  {
+   "type": "porte",
+   "o": "h",
+   "l": 40,
+   "style": "simple",
+   "sens": 1,
+   "x": 250,
+   "y": 760,
+   "id": "porte_c2q"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 460,
+   "y": 780,
+   "w": 260,
+   "h": 260,
+   "nom": "Maison d’Aubigné",
+   "id": "piece_c2r"
+  },
+  {
+   "type": "porte",
+   "o": "h",
+   "l": 40,
+   "style": "simple",
+   "sens": 1,
+   "x": 590,
+   "y": 780,
+   "id": "porte_c2s"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 1000,
+   "y": 760,
+   "w": 280,
+   "h": 280,
+   "nom": "Soieries d’Orient",
+   "sol": "bois",
+   "id": "piece_c2t"
+  },
+  {
+   "type": "porte",
+   "o": "h",
+   "l": 40,
+   "style": "simple",
+   "sens": 1,
+   "x": 1140,
+   "y": 760,
+   "id": "porte_c2u"
+  },
+  {
+   "type": "objet",
+   "rot": 180,
+   "sym": "enseigne",
+   "x": 1210,
+   "y": 786,
+   "w": 34,
+   "h": 24,
+   "id": "objet_c2v"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 1340,
+   "y": 780,
+   "w": 200,
+   "h": 240,
+   "nom": "Parfumeur Lisandre",
+   "sol": "bois",
+   "id": "piece_c2w"
+  },
+  {
+   "type": "porte",
+   "o": "h",
+   "l": 40,
+   "style": "simple",
+   "sens": 1,
+   "x": 1440,
+   "y": 780,
+   "id": "porte_c2x"
+  },
+  {
+   "type": "objet",
+   "rot": 180,
+   "sym": "enseigne",
+   "x": 1510,
+   "y": 806,
+   "w": 34,
+   "h": 24,
+   "id": "objet_c2y"
+  },
+  {
+   "type": "piece",
+   "ep": 3,
+   "x": 620,
+   "y": 90,
+   "w": 340,
+   "h": 230,
+   "nom": "Hôtel de Rosemont",
+   "id": "piece_c2z"
+  },
+  {
+   "type": "porte",
+   "o": "h",
+   "l": 50,
+   "style": "double",
+   "sens": 1,
+   "x": 790,
+   "y": 320,
+   "id": "porte_c30"
+  },
+  {
+   "type": "piece",
+   "ep": 1,
+   "x": 600,
+   "y": 320,
+   "w": 380,
+   "h": 90,
+   "sol": "herbe",
+   "id": "piece_c31"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "grille",
+   "x": 640,
+   "y": 414,
+   "w": 62,
+   "h": 16,
+   "id": "objet_c32"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "grille",
+   "x": 700,
+   "y": 414,
+   "w": 62,
+   "h": 16,
+   "id": "objet_c33"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "grille",
+   "x": 760,
+   "y": 414,
+   "w": 62,
+   "h": 16,
+   "id": "objet_c34"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "grille",
+   "x": 820,
+   "y": 414,
+   "w": 62,
+   "h": 16,
+   "id": "objet_c35"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "grille",
+   "x": 880,
+   "y": 414,
+   "w": 62,
+   "h": 16,
+   "id": "objet_c36"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "grille",
+   "x": 940,
+   "y": 414,
+   "w": 62,
+   "h": 16,
+   "id": "objet_c37"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "parterre",
+   "x": 660,
+   "y": 360,
+   "w": 90,
+   "h": 46,
+   "id": "objet_c38"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "parterre",
+   "x": 920,
+   "y": 360,
+   "w": 90,
+   "h": 46,
+   "id": "objet_c39"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 790,
+   "y": 362,
+   "w": 66,
+   "h": 66,
+   "id": "objet_c3a"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "reverbere",
+   "x": 180,
+   "y": 500,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c3b"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "reverbere",
+   "x": 180,
+   "y": 700,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c3c"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "reverbere",
+   "x": 400,
+   "y": 500,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c3d"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "reverbere",
+   "x": 400,
+   "y": 700,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c3e"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "reverbere",
+   "x": 1120,
+   "y": 500,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c3f"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "reverbere",
+   "x": 1120,
+   "y": 700,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c3g"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "reverbere",
+   "x": 1340,
+   "y": 500,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c3h"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "reverbere",
+   "x": 1340,
+   "y": 700,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c3i"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "banc",
+   "x": 260,
+   "y": 504,
+   "w": 62,
+   "h": 20,
+   "id": "objet_c3j"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "banc",
+   "x": 260,
+   "y": 696,
+   "w": 62,
+   "h": 20,
+   "id": "objet_c3k"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "banc",
+   "x": 1220,
+   "y": 504,
+   "w": 62,
+   "h": 20,
+   "id": "objet_c3l"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "banc",
+   "x": 1220,
+   "y": 696,
+   "w": 62,
+   "h": 20,
+   "id": "objet_c3m"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 80,
+   "y": 60,
+   "w": 64,
+   "h": 64,
+   "id": "objet_c3n"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 320,
+   "y": 60,
+   "w": 64,
+   "h": 64,
+   "id": "objet_c3o"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 1040,
+   "y": 60,
+   "w": 64,
+   "h": 64,
+   "id": "objet_c3p"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 1280,
+   "y": 60,
+   "w": 64,
+   "h": 64,
+   "id": "objet_c3q"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 600,
+   "y": 460,
+   "w": 64,
+   "h": 64,
+   "id": "objet_c3r"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 480,
+   "y": 1100,
+   "w": 64,
+   "h": 64,
+   "id": "objet_c3s"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 720,
+   "y": 1100,
+   "w": 64,
+   "h": 64,
+   "id": "objet_c3t"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "arbre",
+   "x": 960,
+   "y": 1100,
+   "w": 64,
+   "h": 64,
+   "id": "objet_c3u"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "parterre",
+   "x": 560,
+   "y": 600,
+   "w": 86,
+   "h": 44,
+   "id": "objet_c3v"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "parterre",
+   "x": 1060,
+   "y": 600,
+   "w": 86,
+   "h": 44,
+   "id": "objet_c3w"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "kiosque",
+   "x": 700,
+   "y": 1120,
+   "w": 104,
+   "h": 104,
+   "id": "objet_c3x"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 706,
+   "y": 556,
+   "w": 28,
+   "h": 28,
+   "id": "objet_c3y"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 700,
+   "y": 606,
+   "w": 28,
+   "h": 28,
+   "id": "objet_c3z"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 726,
+   "y": 650,
+   "w": 28,
+   "h": 28,
+   "id": "objet_c40"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 240,
+   "y": 566,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c41"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 330,
+   "y": 636,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c42"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 1130,
+   "y": 566,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c43"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 1250,
+   "y": 640,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c44"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 620,
+   "y": 660,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c45"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 1040,
+   "y": 500,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c46"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 500,
+   "y": 340,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c47"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 900,
+   "y": 700,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c48"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 1400,
+   "y": 566,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c49"
+  },
+  {
+   "type": "objet",
+   "rot": 0,
+   "sym": "passant",
+   "x": 160,
+   "y": 640,
+   "w": 24,
+   "h": 24,
+   "id": "objet_c4a"
+  },
+  {
+   "type": "texte",
+   "taille": 22,
+   "x": 1480,
+   "y": 500,
+   "texte": "Marché →",
+   "id": "texte_c4b"
+  },
+  {
+   "type": "portail",
+   "x": 1500,
+   "y": 600,
+   "label": "Place du Marché",
+   "vers": "cathay-marche",
+   "id": "portail_c4c"
+  },
+  {
+   "type": "texte",
+   "taille": 28,
+   "x": 300,
+   "y": 1160,
+   "texte": "VILLE HAUTE — Cathay",
+   "id": "texte_c4d"
+  },
+  {
+   "type": "numero",
+   "x": 210,
+   "y": 470,
+   "num": 1,
+   "id": "numero_c4e"
+  },
+  {
+   "type": "numero",
+   "x": 1150,
+   "y": 440,
+   "num": 2,
+   "id": "numero_c4f"
+  },
+  {
+   "type": "numero",
+   "x": 1430,
+   "y": 440,
+   "num": 3,
+   "id": "numero_c4g"
+  },
+  {
+   "type": "numero",
+   "x": 1140,
+   "y": 1020,
+   "num": 4,
+   "id": "numero_c4h"
+  },
+  {
+   "type": "numero",
+   "x": 1440,
+   "y": 1000,
+   "num": 5,
+   "id": "numero_c4i"
+  },
+  {
+   "type": "numero",
+   "x": 790,
+   "y": 200,
+   "num": 6,
+   "id": "numero_c4j"
+  },
+  {
+   "type": "numero",
+   "x": 806,
+   "y": 660,
+   "num": 7,
+   "id": "numero_c4k"
+  },
+  {
+   "type": "numero",
+   "x": 400,
+   "y": 700,
+   "num": 8,
+   "id": "numero_c4l"
+  }
+ ],
+ "cle": [
+  {
+   "num": 1,
+   "titre": "Le Traiteur du Cygne",
+   "desc": "Maître Ombeline fournit les tables de la Ville haute. Cuisine ouverte sur la cour, six commis, un livre de commandes qui dit exactement qui reçoit qui, et quand — le document le plus indiscret du quartier. Elle le prête à qui la fait rire ; elle le vend à personne."
+  },
+  {
+   "num": 2,
+   "titre": "Herboristerie Belladone",
+   "desc": "Simples, onguents, et sous le comptoir de quoi faire dormir un cheval. Le vieil Absalon ne pose pas de questions mais note tout dans un registre chiffré. Vend un antidote universel hors de prix (40 po) qui fonctionne vraiment."
+  },
+  {
+   "num": 3,
+   "titre": "Orfèvrerie Vandelle",
+   "desc": "Pièce unique en vitrine, deux gardes en livrée, coffre scellé au sol. On n’entre que sur recommandation. Vandelle estime et rachète — sans certificat, à un cinquième du prix, et il se souvient des visages."
+  },
+  {
+   "num": 4,
+   "titre": "Soieries d’Orient",
+   "desc": "Étoffes venues par la Porte Nord. L’arrière-boutique sert de salon où l’on parle affaires à voix basse ; le patron loue la pièce à l’heure et ne veut rien savoir de ce qui s’y dit."
+  },
+  {
+   "num": 5,
+   "titre": "Parfumeur Lisandre",
+   "desc": "Sait reconnaître un parfum sur un vêtement et dire à qui on l’a vendu. Une piste vivante pour un enquêteur — Lisandre parle volontiers, par vanité."
+  },
+  {
+   "num": 6,
+   "titre": "Hôtel de Rosemont",
+   "desc": "La grille est fermée, la cour plantée, le logis en retrait. La baronne de Rosemont reçoit trois fois la semaine. Deux hommes d’armes privés, une porte de service au nord par la ruelle. Escalader la grille : DD moyen, et les voisins regardent toujours."
+  },
+  {
+   "num": 7,
+   "titre": "La fontaine et les dames",
+   "desc": "Trois dames de la haute s’y retrouvent chaque après-midi pour badiner : Ysolde de Marsan, la jeune veuve Célie, et une cousine dont personne ne retient le nom. Elles savent tout du quartier avant tout le monde et le racontent à qui les amuse. Un PJ bien mis en tire trois rumeurs vraies et une fausse ; un PJ mal mis se fait éconduire — et signaler."
+  },
+  {
+   "num": 8,
+   "titre": "Le guet privé",
+   "desc": "Le quartier paie sa propre patrouille : deux hommes, une ronde toutes les vingt minutes. Ils ne verbalisent pas, ils raccompagnent — fermement — quiconque n’a pas l’air d’avoir les moyens d’être là."
+  }
+ ],
+ "pins": [],
+ "maj": 1786105120375
+}

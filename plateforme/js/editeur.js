@@ -40,6 +40,7 @@
   const SOUS_CONSTRUIRE = [
     { id: 'piece',   ic: '▭', nom: 'Pièce' },
     { id: 'mur',     ic: '▬', nom: 'Mur / trait' },
+    { id: 'voie',    ic: '═', nom: 'Voie / rue' },
     { id: 'porte',   ic: '◠', nom: 'Porte' },
     { id: 'fenetre', ic: '▥', nom: 'Fenêtre' },
   ];
@@ -47,11 +48,16 @@
     { id: 'lumiere', ic: '✷', nom: 'Lumière' },
     { id: 'portail', ic: '◈', nom: 'Portail' },
   ];
-  const RACCOURCIS = { p: 'piece', m: 'mur', d: 'porte', f: 'fenetre', l: 'lumiere', w: 'portail' };
+  const RACCOURCIS = { p: 'piece', m: 'mur', v: 'voie', d: 'porte', f: 'fenetre', l: 'lumiere', w: 'portail' };
   // à quel bouton de la barre appartient l'outil réellement actif ?
   const groupeDe = (id) => SOUS_CONSTRUIRE.some(s => s.id === id) ? 'construire'
     : SOUS_OBJET.some(s => s.id === id) ? 'objet' : id;
   let dernierConstruire = 'piece';   // sous-outil retrouvé en revenant sur Construire
+  /* Réglages de voie mémorisés : une largeur EN CASES (et non en pixels) pour qu'une
+     rue reste large de deux cases même si on change la taille de case de la carte. */
+  let casesVoie = parseFloat(localStorage.getItem('kj-voie-cases')) || 1.5;
+  let dernierSol = localStorage.getItem('kj-voie-sol') || 'pave';
+  const largeurVoie = () => Math.max(8, Math.round((cell() || 40) * casesVoie));
 
   /* Cartes disponibles comme destinations de portail (bibliothèque + campagne). */
   let destinations = [];
@@ -317,11 +323,13 @@
         + `height="${Math.abs((depart.y2 || depart.y) - depart.y)}" style="stroke-width:${1.5 * k}"/>`;
       return;
     }
-    if (outil === 'mur') {
+    if (outil === 'mur' || outil === 'voie') {
       mode = 'trace-mur'; depart = { x: acc(pt.x), y: acc(pt.y) };
+      // une voie s'aperçoit à sa vraie largeur : c'est son emprise au sol qui compte
+      const ep = outil === 'voie' ? largeurVoie() : 0;
       apercu = (k) => `<line class="apercu" x1="${depart.x}" y1="${depart.y}" `
         + `x2="${depart.x2 == null ? depart.x : depart.x2}" y2="${depart.y2 == null ? depart.y : depart.y2}" `
-        + `style="stroke-width:${Math.max(5, 2 * k)}"/>`;
+        + `style="stroke-width:${ep || Math.max(5, 2 * k)}"/>`;
       return;
     }
     // pose immédiate
@@ -419,7 +427,11 @@
       }
     } else if (mode === 'trace-mur' && depart.x2 != null) {
       if (Math.hypot(depart.x2 - depart.x, depart.y2 - depart.y) >= 10) {
-        const el = M.ajouter(carte, M.nouvelElement('mur', { x1: depart.x, y1: depart.y, x2: depart.x2, y2: depart.y2 }));
+        const g = { x1: depart.x, y1: depart.y, x2: depart.x2, y2: depart.y2 };
+        // la largeur et la texture choisies sont reconduites d'une voie à la suivante :
+        // on trace un réseau de rues d'affilée, pas une rue puis un réglage
+        if (outil === 'voie') { g.l = largeurVoie(); g.sol = dernierSol; }
+        const el = M.ajouter(carte, M.nouvelElement(outil, g));
         heriterCache(el);
         sel = el.id; majPanneau(); apresModif();
       }
@@ -721,8 +733,18 @@
       p.appendChild(champCases('Largeur', el.w, v => el.w = v, 8));
       p.appendChild(champCases('Hauteur', el.h, v => el.h = v, 8));
       p.appendChild(champ('Murs (ép.)', inputNum(el.ep === undefined ? 2 : el.ep, v => el.ep = Math.max(1, v))));
+      p.appendChild(champ('Forme', select(el.forme || '',
+        [['', 'Rectangle'], ['rond', 'Ronde / ovale']], v => el.forme = v || undefined)));
+      p.appendChild(champ('Sol', select(el.sol || '',
+        M.SOLS.map(s => [s.id, s.nom]), v => el.sol = v || undefined)));
     } else if (el.type === 'mur') {
       p.appendChild(champ('Épaisseur', inputNum(el.ep, v => el.ep = Math.max(1, v))));
+    } else if (el.type === 'voie') {
+      p.appendChild(champCases('Largeur', el.l, v => el.l = Math.max(8, v), 8));
+      p.appendChild(champ('Sol', select(el.sol || '',
+        M.SOLS.map(s => [s.id, s.nom]), v => el.sol = v || undefined)));
+      p.appendChild(noteAide('Une voie est un décor au sol : elle passe sous les bâtiments '
+        + 'et ne bloque rien. Pour barrer le passage, pose un mur par-dessus.'));
     } else if (el.type === 'porte') {
       p.appendChild(champ('Style', select(el.style, [['simple', 'Simple'], ['double', 'Double'],
         ['passage', 'Passage ouvert'], ['secrete', 'Secrète']], v => el.style = v)));
@@ -885,6 +907,27 @@
       g.appendChild(b);
     }
     p.appendChild(g);
+    /* Réglages de la voie AVANT de tracer : régler la largeur après coup, rue par rue,
+       serait absurde quand on trace un réseau de rues. */
+    if (outil === 'voie') {
+      const cel = cell();
+      p.appendChild(champ(cel ? 'Largeur (cases)' : 'Largeur (px)',
+        inputNum(cel ? casesVoie : largeurVoie(), v => {
+          casesVoie = cel ? Math.max(.25, v) : Math.max(8, v) / (cell() || 40);
+          localStorage.setItem('kj-voie-cases', String(casesVoie));
+        }, .25)));
+      p.appendChild(champ('Sol', select(dernierSol, M.SOLS.map(s => [s.id, s.nom]), v => {
+        dernierSol = v; localStorage.setItem('kj-voie-sol', v);
+      })));
+      p.appendChild(noteAide('Trace la rue d’un point à l’autre, comme un mur. '
+        + 'Elle passe sous les bâtiments et ne bloque rien.'));
+    }
+  }
+
+  // petit paragraphe d'explication sous un réglage
+  function noteAide(txt) {
+    const e = document.createElement('p'); e.className = 'aide'; e.textContent = txt;
+    return e;
   }
 
   /* Palette d'illustrations (catalogue du dépôt, images/index.json). Sans onPick,
@@ -1241,7 +1284,7 @@
         const x2 = s(e.x + e.w), y2 = s(e.y + e.h);
         e.x = s(e.x); e.y = s(e.y);
         e.w = Math.max(cel, x2 - e.x); e.h = Math.max(cel, y2 - e.y);
-      } else if (e.type === 'mur') {
+      } else if (e.type === 'mur' || e.type === 'voie') {
         e.x1 = s(e.x1); e.y1 = s(e.y1); e.x2 = s(e.x2); e.y2 = s(e.y2);
       } else if (e.type === 'porte' || e.type === 'fenetre') {
         // l'axe posé SUR le mur rejoint la case entière (les murs y sont),

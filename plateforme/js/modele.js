@@ -39,6 +39,18 @@ KJ.modele = (function () {
     { id: 'statue',     nom: 'Statue',         w: 26, h: 34 },
     { id: 'tombe',      nom: 'Tombe',          w: 24, h: 30 },
     { id: 'pont',       nom: 'Pont / passerelle', w: 40, h: 80 },
+    /* ---- mobilier urbain : places, marchés, rues ---- */
+    { id: 'etal',       nom: 'Étal de marché',  w: 56, h: 36 },
+    { id: 'kiosque',    nom: 'Kiosque',         w: 56, h: 56 },
+    { id: 'fontaine',   nom: 'Fontaine',        w: 60, h: 60 },
+    { id: 'charrette',  nom: 'Charrette',       w: 56, h: 32 },
+    { id: 'caisses',    nom: 'Caisses / ballots', w: 26, h: 26 },
+    { id: 'banc',       nom: 'Banc',            w: 44, h: 14 },
+    { id: 'reverbere',  nom: 'Réverbère',       w: 16, h: 16 },
+    { id: 'enseigne',   nom: 'Enseigne de boutique', w: 26, h: 18 },
+    { id: 'parterre',   nom: 'Parterre de fleurs', w: 44, h: 22 },
+    { id: 'grille',     nom: 'Grille / clôture', w: 60, h: 10 },
+    { id: 'passant',    nom: 'Passant (silhouette)', w: 16, h: 16 },
     // formes libres : marquer une case sans nommer l'objet (repères abstraits)
     { id: 'frond',       nom: 'Rond',           w: 20, h: 20 },
     { id: 'frondplein',  nom: 'Rond plein',     w: 16, h: 16 },
@@ -55,10 +67,28 @@ KJ.modele = (function () {
   ];
   const symbole = (id) => SYMBOLES.find(s => s.id === id) || SYMBOLES[0];
 
+  /* ---------- textures de sol ----------
+     Utilisées par les voies et par le remplissage d'une pièce. Chaque id correspond
+     à un motif SVG défini dans rendu.js (defs) : ajouter une entrée ici suffit à la
+     proposer dans l'éditeur, à condition de définir le motif en face. */
+  const SOLS = [
+    { id: '',       nom: 'Aucun (uni)' },
+    { id: 'pave',   nom: 'Pavé' },
+    { id: 'dalle',  nom: 'Dalles' },
+    { id: 'terre',  nom: 'Terre battue' },
+    { id: 'herbe',  nom: 'Herbe' },
+    { id: 'eau',    nom: 'Eau' },
+    { id: 'bois',   nom: 'Planches' },
+  ];
+
   /* ---------- calques ----------
      Chaque type d'élément appartient à un calque, ce qui pilote
      l'ordre de rendu et la visibilité (et le masquage en vue joueurs). */
   const CALQUES = [
+    /* Les SOLS d'abord : une voie (rue, sentier, canal) est une surface, elle passe
+       SOUS les murs, le mobilier et les annotations. C'est ce qui permet de tracer
+       une rue en travers d'une carte de ville sans recouvrir les bâtiments. */
+    { id: 'sol',         nom: 'Sols & voies',  types: ['voie'] },
     { id: 'structure',   nom: 'Murs & pièces', types: ['piece', 'mur', 'porte', 'fenetre'] },
     { id: 'mobilier',    nom: 'Mobilier',      types: ['objet'] },
     { id: 'annotations', nom: 'Annotations',   types: ['numero', 'texte', 'lumiere'] },
@@ -96,8 +126,13 @@ KJ.modele = (function () {
     switch (type) {
       // ep : épaisseur des murs de la pièce (défaut 5). Un mur anormalement épais
       // est un indice narratif : il peut cacher un passage.
-      case 'piece':   return Object.assign(base, { x: 0, y: 0, w: 160, h: 120, nom: '', ep: 2 }, p);
+      /* forme : '' = rectangle (défaut), 'rond' = ellipse — une place de marché, une
+         tour, une salle circulaire. sol : texture de remplissage ('' = aucune). */
+      case 'piece':   return Object.assign(base, { x: 0, y: 0, w: 160, h: 120, nom: '', ep: 2, forme: '', sol: '' }, p);
       case 'mur':     return Object.assign(base, { x1: 0, y1: 0, x2: 100, y2: 0, ep: 2 }, p);
+      /* voie : une bande de sol entre deux points — rue, sentier, canal, quai. Tracée
+         comme un mur (deux clics), mais large et texturée, et sans rien bloquer. */
+      case 'voie':    return Object.assign(base, { x1: 0, y1: 0, x2: 160, y2: 0, l: 60, sol: 'pave' }, p);
       case 'porte':   return Object.assign(base, { x: 0, y: 0, o: 'h', l: 30, style: 'simple', sens: 1 }, p);
       case 'fenetre': return Object.assign(base, { x: 0, y: 0, o: 'h', l: 32 }, p);
       case 'objet': {
@@ -136,9 +171,11 @@ KJ.modele = (function () {
         return { x: el.x, y: el.y, w: el.w, h: el.h };
       case 'objet': case 'image':
         return { x: el.x - el.w / 2, y: el.y - el.h / 2, w: el.w, h: el.h };
-      case 'mur': {
+      case 'mur': case 'voie': {
+        // une voie est large : sa boîte doit couvrir la bande, pas seulement l'axe
+        const m = el.type === 'voie' ? (el.l || 60) / 2 : 4;
         const x = Math.min(el.x1, el.x2), y = Math.min(el.y1, el.y2);
-        return { x: x - 4, y: y - 4, w: Math.abs(el.x2 - el.x1) + 8, h: Math.abs(el.y2 - el.y1) + 8 };
+        return { x: x - m, y: y - m, w: Math.abs(el.x2 - el.x1) + m * 2, h: Math.abs(el.y2 - el.y1) + m * 2 };
       }
       case 'porte': case 'fenetre': {
         const l = el.l, e = 12;
@@ -156,7 +193,7 @@ KJ.modele = (function () {
 
   /* Déplacement relatif — chaque type a sa propre géométrie. */
   function deplacer(el, dx, dy) {
-    if (el.type === 'mur') { el.x1 += dx; el.y1 += dy; el.x2 += dx; el.y2 += dy; }
+    if (el.type === 'mur' || el.type === 'voie') { el.x1 += dx; el.y1 += dy; el.x2 += dx; el.y2 += dy; }
     else { el.x += dx; el.y += dy; }
   }
 
@@ -243,7 +280,7 @@ KJ.modele = (function () {
   }
 
   return {
-    FORMAT, SYMBOLES, CALQUES, symbole, calqueDe, estSecret,
+    FORMAT, SYMBOLES, SOLS, CALQUES, symbole, calqueDe, estSecret,
     nouvelleCarte, nouvelElement, ajouter, supprimer, trouver,
     boite, deplacer, redimensionnable, parCalque,
     versJSON, depuisJSON, snap, uid,

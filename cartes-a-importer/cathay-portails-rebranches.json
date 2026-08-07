@@ -1,0 +1,63 @@
+{
+ "format": 1,
+ "id": "carte_msiuuvfl1",
+ "nom": "Cathay",
+ "campagne": "Roland",
+ "taille": {
+  "w": 560,
+  "h": 466
+ },
+ "grille": {
+  "cell": 40,
+  "metres": 1.5
+ },
+ "elements": [
+  {
+   "id": "portail_msiuy4ff2",
+   "type": "portail",
+   "x": 280,
+   "y": 260,
+   "vers": "cathay-marche",
+   "label": "Marché"
+  },
+  {
+   "id": "portail_msiuy7bd3",
+   "type": "portail",
+   "x": 320,
+   "y": 140,
+   "vers": "cathay-ville-moyenne",
+   "label": "ville moyenne"
+  },
+  {
+   "id": "portail_msiuy9hw4",
+   "type": "portail",
+   "x": 400,
+   "y": 340,
+   "vers": "cathay-ville-basse",
+   "label": "ville basse"
+  },
+  {
+   "id": "portail_msiuyag45",
+   "type": "portail",
+   "x": 400,
+   "y": 280,
+   "vers": "cathay-caserne",
+   "label": "Caserne"
+  },
+  {
+   "id": "portail_msiuycef6",
+   "type": "portail",
+   "x": 120,
+   "y": 260,
+   "vers": "cathay-ville-haute",
+   "label": "Ville haute"
+  }
+ ],
+ "cle": [],
+ "pins": [],
+ "maj": 1786102834389,
+ "fond": {
+  "src": "img:-OzQxwGX5rCbnX_1JqiO",
+  "opacite": 1
+ }
+}

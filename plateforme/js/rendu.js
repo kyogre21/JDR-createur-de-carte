@@ -71,6 +71,51 @@ KJ.rendu = (function () {
     fpoint:       `<circle cx="50" cy="50" r="16" class="plein"/>`,
     fexclam:      `<path d="M50 8 L50 60"/><circle cx="50" cy="86" r="8" class="plein"/>`,
     fquest:       `<path d="M28 30 Q28 8 50 8 Q72 8 72 30 Q72 46 50 52 L50 62" fill="none"/><circle cx="50" cy="86" r="8" class="plein"/>`,
+
+    /* ---- mobilier urbain (places, marchés, rues) ----
+       Vus de dessus comme le reste : ce qu'on doit lire d'un coup d'œil, c'est
+       l'emprise au sol et la nature de l'objet, pas son élévation. */
+    /* étal : comptoir + auvent rayé qui déborde (le débord dit « c'est une échoppe »
+       et non une simple table) */
+    etal: `<rect x="4" y="34" width="92" height="46"/>
+      <path d="M0 34 L100 34 L92 12 L8 12 Z" fill="none"/>
+      <path d="M22 12 L16 34 M40 12 L36 34 M58 12 L58 34 M76 12 L80 34"/>`,
+    /* kiosque : pavillon octogonal, faîtage en étoile */
+    kiosque: `<polygon points="30,4 70,4 96,30 96,70 70,96 30,96 4,70 4,30" fill="none"/>
+      <path d="M30 4 L50 50 L70 4 M96 30 L50 50 L96 70 M70 96 L50 50 L30 96 M4 70 L50 50 L4 30"/>
+      <circle cx="50" cy="50" r="7" class="plein"/>`,
+    /* fontaine : vasque, margelle et gerbe centrale */
+    fontaine: `<circle cx="50" cy="50" r="46"/><circle cx="50" cy="50" r="34" fill="none"/>
+      <circle cx="50" cy="50" r="11" class="plein"/>
+      <path d="M50 39 Q38 26 42 12 M50 39 Q62 26 58 12 M50 39 L50 10" fill="none"/>`,
+    /* charrette : caisson, brancards, deux roues */
+    charrette: `<rect x="26" y="16" width="62" height="68"/>
+      <path d="M26 34 L2 26 M26 66 L2 74"/>
+      <circle cx="40" cy="8" r="8" fill="none"/><circle cx="40" cy="92" r="8" fill="none"/>`,
+    /* caisses / ballots empilés : marchandise au sol */
+    caisses: `<rect x="4" y="4" width="56" height="56"/><rect x="40" y="40" width="56" height="56"/>
+      <path d="M4 32 L60 32 M32 4 L32 60"/>`,
+    banc: `<rect x="2" y="24" width="96" height="52"/><line x1="2" y1="24" x2="98" y2="24"/>
+      <path d="M18 76 L18 92 M82 76 L82 92"/>`,
+    /* réverbère : fût et lanterne — un point lumineux bâti, à distinguer du calque Lumière */
+    reverbere: `<circle cx="50" cy="50" r="14" class="plein"/><circle cx="50" cy="50" r="30" fill="none"/>
+      <path d="M50 20 L50 4 M50 80 L50 96 M20 50 L4 50 M80 50 L96 50"/>`,
+    /* enseigne : potence scellée au mur + panneau suspendu */
+    enseigne: `<path d="M4 4 L4 96 M4 14 L54 14"/>
+      <rect x="30" y="14" width="52" height="56" fill="none"/><line x1="54" y1="4" x2="54" y2="14"/>`,
+    /* parterre : bac maçonné + massif */
+    parterre: `<rect x="2" y="2" width="96" height="96" rx="6" fill="none"/>
+      <circle cx="24" cy="30" r="11" class="plein"/><circle cx="56" cy="22" r="9" class="plein"/>
+      <circle cx="80" cy="40" r="11" class="plein"/><circle cx="34" cy="70" r="9" class="plein"/>
+      <circle cx="66" cy="74" r="11" class="plein"/>`,
+    /* grille : barreaux à pointes — clôture d'hôtel particulier, on voit à travers */
+    grille: `<path d="M2 50 L98 50"/>
+      <path d="M10 88 L10 12 M26 88 L26 12 M42 88 L42 12 M58 88 L58 12 M74 88 L74 12 M90 88 L90 12"/>
+      <path d="M10 12 L10 2 M26 12 L26 2 M42 12 L42 2 M58 12 L58 2 M74 12 L74 2 M90 12 L90 2"/>`,
+    /* passant : silhouette vue de dessus (tête + épaules). Décor : un habitant qui
+       n'a pas besoin d'un jeton. Pour un PNJ qui parle ou se bat, poser un jeton. */
+    passant: `<circle cx="50" cy="40" r="24" class="plein"/>
+      <path d="M18 82 Q50 62 82 82" fill="none"/>`,
   };
 
   /* Feuille de style embarquée : rend le SVG exporté autonome
@@ -86,6 +131,14 @@ KJ.rendu = (function () {
       .kj-fond{fill:${parchemin}}
       .kj-piece{fill:${salle};stroke:${encre};stroke-width:5;stroke-linejoin:miter}
       .kj-mur{stroke:${encre};fill:none;stroke-linecap:square}
+      /* SOLS & VOIES — un décor, pas de la structure : trait discret et sans
+         remplissage opaque, sinon une rue traversant la carte écrase tout le dessin.
+         Le motif de sol est tracé (stroke) et non rempli : il reste lisible sur un
+         parchemin sombre comme sur un fond d'image clair. */
+      .kj-sol{stroke:none}
+      .kj-sol-trait{stroke:${encre};stroke-width:.9;fill:none;opacity:.34}
+      .kj-voie-fond{stroke:${salle};fill:none;stroke-linecap:butt;opacity:.85}
+      .kj-voie-bord{stroke:${encre};fill:none;stroke-width:1.6;opacity:.55}
       .kj-coupe{stroke:${salle};fill:none;stroke-linecap:butt}
       .kj-porte{stroke:${encre};stroke-width:1.8;fill:none}
       .kj-porte-secrete{stroke:${encre};stroke-width:1.8;fill:none;stroke-dasharray:5 4}
@@ -149,8 +202,40 @@ KJ.rendu = (function () {
         // Le NOM de la pièce est dessiné à part, après toute la structure (voir corps) :
         // la découpe d'une porte ne doit pas le gommer.
         const ep = ` style="stroke-width:${el.ep || 2}"`;
-        return `<g${id} class="kj-el"><rect class="kj-piece"${ep} x="${el.x}" y="${el.y}" `
-              + `width="${el.w}" height="${el.h}"/></g>`;
+        /* forme ronde : une place, une tour, une salle circulaire. Le rectangle reste
+           le défaut — les cartes existantes n'ont pas de champ « forme ». */
+        const rond = el.forme === 'rond';
+        const cx = el.x + el.w / 2, cy = el.y + el.h / 2;
+        const forme = (cl, extra) => rond
+          ? `<ellipse class="${cl}" cx="${cx}" cy="${cy}" rx="${el.w / 2}" ry="${el.h / 2}"${extra}/>`
+          : `<rect class="${cl}" x="${el.x}" y="${el.y}" width="${el.w}" height="${el.h}"${extra}/>`;
+        /* Le motif de sol se dessine PAR-DESSUS la pièce, pas dessous : le remplissage
+           d'une pièce est opaque, il masquait entièrement son propre pavage. Le motif
+           n'étant qu'un réseau de traits fins, il ne cache rien des murs. */
+        const sol = remplissageSol(el.sol);
+        return `<g${id} class="kj-el">` + forme('kj-piece', ep)
+             + (sol ? forme('kj-sol', ` fill="${sol}"`) : '') + `</g>`;
+      }
+
+      /* Une VOIE est une bande de sol entre deux points : rue, sentier, quai, canal.
+         Bords tracés à la perpendiculaire de l'axe — c'est ce qui la fait lire comme
+         une rue quelle que soit son orientation, et pas comme un gros trait. */
+      case 'voie': {
+        const l = el.l || 60;
+        const dx = el.x2 - el.x1, dy = el.y2 - el.y1;
+        const n = Math.hypot(dx, dy) || 1;
+        const nx = -dy / n * (l / 2), ny = dx / n * (l / 2);
+        const sol = remplissageSol(el.sol);
+        const axe = `x1="${el.x1}" y1="${el.y1}" x2="${el.x2}" y2="${el.y2}"`;
+        let s = `<g${id} class="kj-el kj-voie">`
+              + `<line class="kj-voie-fond" style="stroke-width:${l}" ${axe}/>`;
+        if (sol) s += `<line style="stroke-width:${l};stroke:${sol}" ${axe}/>`;
+        // bords : deux lignes décalées de la demi-largeur, de part et d'autre
+        s += `<line class="kj-voie-bord" x1="${(el.x1 + nx).toFixed(1)}" y1="${(el.y1 + ny).toFixed(1)}" `
+           + `x2="${(el.x2 + nx).toFixed(1)}" y2="${(el.y2 + ny).toFixed(1)}"/>`
+           + `<line class="kj-voie-bord" x1="${(el.x1 - nx).toFixed(1)}" y1="${(el.y1 - ny).toFixed(1)}" `
+           + `x2="${(el.x2 - nx).toFixed(1)}" y2="${(el.y2 - ny).toFixed(1)}"/>`;
+        return s + `</g>`;
       }
 
       case 'mur':
@@ -401,10 +486,34 @@ KJ.rendu = (function () {
     return socle(carte, opts) + calquesSVG(carte, opts);
   }
 
+  /* Motifs de sol (voies et pièces). patternUnits en userSpaceOnUse : le motif est
+     ancré au repère de la carte et non à chaque forme, donc deux rues qui se croisent
+     ont leurs pavés alignés au lieu de former une couture visible. */
+  function motifsSol() {
+    return `
+      <pattern id="kjSolPave" patternUnits="userSpaceOnUse" width="20" height="14">
+        <path class="kj-sol-trait" d="M0 0h20M0 7h20M0 14h20M0 0v7M10 0v7M5 7v7M15 7v7"/></pattern>
+      <pattern id="kjSolDalle" patternUnits="userSpaceOnUse" width="26" height="26">
+        <path class="kj-sol-trait" d="M0 0h26v26H0z"/></pattern>
+      <pattern id="kjSolTerre" patternUnits="userSpaceOnUse" width="18" height="18">
+        <path class="kj-sol-trait" d="M3 4h2M11 3h2M6 11h2M14 13h2M2 15h1M9 16h2"/></pattern>
+      <pattern id="kjSolHerbe" patternUnits="userSpaceOnUse" width="18" height="18">
+        <path class="kj-sol-trait" d="M4 14 4 8M2 12 4 8 6 12M13 16 13 10M11 14 13 10 15 14"/></pattern>
+      <pattern id="kjSolEau" patternUnits="userSpaceOnUse" width="24" height="14">
+        <path class="kj-sol-trait" fill="none" d="M0 4q6-4 12 0t12 0M0 11q6-4 12 0t12 0"/></pattern>
+      <pattern id="kjSolBois" patternUnits="userSpaceOnUse" width="40" height="12">
+        <path class="kj-sol-trait" d="M0 0h40M0 12h40M0 0v12M20 0v12"/></pattern>`;
+  }
+  // '' → pas de remplissage ; un id inconnu ne doit pas produire une forme noire
+  const MOTIFS = { pave: 'kjSolPave', dalle: 'kjSolDalle', terre: 'kjSolTerre',
+                   herbe: 'kjSolHerbe', eau: 'kjSolEau', bois: 'kjSolBois' };
+  const remplissageSol = (sol) => (MOTIFS[sol] ? `url(#${MOTIFS[sol]})` : '');
+
   function defs(theme) {
     return `<defs>
       <filter id="kjGrain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2"/>
         <feColorMatrix type="matrix" values="0 0 0 0 .45  0 0 0 0 .38  0 0 0 0 .28  0 0 0 .09 0"/></filter>
+      ${motifsSol()}
     </defs><style>${styles(theme)}</style>`;
   }
 
