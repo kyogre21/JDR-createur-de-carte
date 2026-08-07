@@ -515,7 +515,8 @@
         vers: d ? d.id : '', label: d ? d.nom.replace(/^.*—\s*/, '') : 'Sortie',
       });
     } else if (outil === 'image') {
-      if (!imgChoisi) { toast('Choisis d’abord une image dans le panneau, à droite.'); return; }
+      // « à droite » serait faux sur tablette et téléphone, où le panneau est en bas
+      if (!imgChoisi) { toast('Choisis d’abord une image dans le panneau des outils.'); return; }
       el = M.nouvelElement('image', {
         x: acc(pt.x, true), y: acc(pt.y, true),
         src: srcPose(imgChoisi), nom: imgChoisi.nom || '',
@@ -674,7 +675,8 @@
     if (outil === 'image' && !el) { paletteImages(p); return; }
     if (!el) {
       p.innerHTML = '<p class="vide">Aucune sélection.</p>'
-        + '<p class="aide">Choisis un outil à gauche, puis trace ou pose sur le plan. '
+        // « à gauche » : vrai sur PC, mais la barre passe en haut sur tablette
+        + '<p class="aide">Choisis un outil dans la barre, puis trace ou pose sur le plan. '
         + 'Clic droit sur un élément pour le supprimer.</p>';
       if (outil === 'objet') palette(p);
       if (outil === 'image') paletteImages(p);
@@ -1642,7 +1644,7 @@
     const txt = blocScene();
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(txt)
-        .then(() => $('etat').textContent = 'Bloc de scène copié : collez-le dans la table de jeu.')
+        .then(() => $('etat').textContent = 'Bloc de scène copié : colle-le dans ta page de table.')
         .catch(() => S.telecharger(S.slug(carte.nom) + '-scene.html', txt, 'text/html'));
     } else S.telecharger(S.slug(carte.nom) + '-scene.html', txt, 'text/html');
   });

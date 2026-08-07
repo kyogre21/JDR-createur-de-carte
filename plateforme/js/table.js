@@ -1574,21 +1574,33 @@
   /* L'aide vivait en bandeau permanent au bas de l'écran : toujours sous les yeux,
      jamais lue, et elle mangeait la carte. Un « ? » l'ouvre à la demande. */
   if ($('b-aide')) $('b-aide').addEventListener('click', () => {
-    ouvrirModale('Aide — gestes et raccourcis', false, (corps) => {
+    ouvrirModale('Aide : gestes et raccourcis', false, (corps) => {
       const d = document.createElement('div');
       d.className = 'aide-jeu';
       d.innerHTML =
           '<p><b>Se déplacer</b> — molette : zoom · glisser le fond : déplacer · au doigt : pincer et glisser.</p>'
-        + '<p><b>Cartes</b> — clic sur un losange doré : changer de carte · un jeton PJ glissé sur un '
-        + 'losange change de carte tout seul.</p>'
-        + '<p><b>Jetons</b> — double-clic (ou double-tap) : modifier (étiquette, PJ, portrait, suppression) · '
+        + '<p><b>Brouillard</b> — outils ☀ Révéler et ☁ Cacher : glisser pour peindre, ou '
+        + '<b>un simple clic dans une pièce pour la dévoiler entièrement</b>. La taille du '
+        + 'pinceau se choisit à côté des outils.</p>'
+        + '<p><b>Cartes</b> — clic sur un losange doré : changer de carte · un jeton PJ posé sur un '
+        + 'losange fait passer tout le groupe.</p>'
+        + '<p><b>Jetons</b> — attraper un jeton fonctionne avec n’importe quel outil actif · '
+        + 'double-clic (ou double-tap) : modifier (nom, PJ, portrait, suppression) · '
         + 'clic droit (appui long) : retirer.</p>'
         + '<p><b>Révélations</b> — clic sur 🖼 : afficher l’image · clic droit sur 🖼 ou un secret : '
-        + 'le révéler ou le cacher aux joueurs · les objets à révélation automatique se dévoilent '
-        + 'quand un PJ entre dans la pièce.</p>'
-        + '<p><b>Divers</b> — double-clic sur le fond : ping « regardez ici » · Ctrl+Z : annuler le '
-        + 'dernier geste de brouillard · les ✳ dorés sont les sources de lumière posées dans l’éditeur.</p>'
-        + '<p><b>Fenêtre pour la TV</b> — ajouter <b>?vue=joueurs</b> à l’adresse.</p>';
+        + 'le révéler ou le cacher aux joueurs (une pièce cachée révèle son contenu avec elle) · '
+        + 'les éléments à révélation automatique se dévoilent quand un PJ entre dans la pièce, ou '
+        + 'passe à portée.</p>'
+        + '<p><b>Notes</b> — outil ✎ Note puis un clic sur la carte : ton message s’affiche pour '
+        + 'tous. Touche une note pour la corriger ou l’effacer. Tes joueurs peuvent en écrire aussi.</p>'
+        + '<p><b>Annuler</b> — ↶ ou Ctrl+Z : revient sur le dernier geste de brouillard '
+        + '<i>ou</i> la dernière action sur les jetons, carte par carte.</p>'
+        + '<p><b>Divers</b> — double-clic sur le fond : ping « regardez ici » · les ✳ dorés sont '
+        + 'les sources de lumière posées dans l’éditeur.</p>'
+        + '<p><b>Écran des joueurs</b> — bouton <b>🖥 Fenêtre TV</b> : ouvre une seconde fenêtre à '
+        + 'glisser sur la télévision (puis F11 pour le plein écran).</p>'
+        + '<p><b>Code de la partie</b> — clic sur le badge 📡 en haut : il affiche le code en grand '
+        + 'et le lien à donner aux joueurs.</p>';
       corps.appendChild(d);
     });
   });
