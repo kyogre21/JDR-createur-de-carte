@@ -9,6 +9,15 @@
 <link rel="apple-touch-icon" href="icone-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#221b11">
+<!-- Capté AU PLUS TÔT : le navigateur émet « beforeinstallprompt » dès qu'il a lu le
+     manifeste, souvent avant que le script de la page soit exécuté. L'événement ne se
+     rejoue pas — le manquer, c'est perdre la possibilité d'installer sur un clic. -->
+<script>window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();               // on garde la main : l'invite partira sur CLIC
+  window.__kjInvite = e;
+  var b = document.getElementById('b-installer');
+  if (b) b.hidden = false;
+});</script>
 </head>
 <body>
 
@@ -19,6 +28,10 @@
   <a class="btn" id="lien-table" href="table.html" title="Ouvrir la table de jeu">▶ Table de jeu</a>
   <button id="b-rejoindre" title="Rejoindre la partie ouverte par le MJ">📡 Rejoindre</button>
   <button id="b-mj" title="Compte MJ : cartes et parties privées">🛡 Espace MJ</button>
+  <!-- caché par défaut : révélé seulement si le navigateur sait vraiment installer
+       (voir « installation » dans le script) — un bouton qui ne fait rien est pire
+       que pas de bouton -->
+  <button id="b-installer" title="Installer Cartographie sur cet appareil" hidden>⤓ Installer l’appli</button>
   <span id="grp-edition" hidden>
     <button id="b-campagne" title="Créer un dossier de campagne">🗀 Nouvelle campagne</button>
     <a class="btn" id="b-nouveau" href="editeur.html?id=nouveau">＋ Nouvelle carte</a>
@@ -520,6 +533,56 @@
         + ((err && err.message) || err) + '</code>');
     });
   }
+
+  /* ---------- installer l'application ----------
+     Le manifeste, les icônes et le service worker existaient déjà : l'application
+     était installable, mais uniquement par le menu du navigateur — que personne ne va
+     chercher. Ce bouton déclenche la vraie invite quand le navigateur la propose, et
+     explique le geste sur iOS, qui ne la propose jamais. */
+  (function installation() {
+    const b = $('b-installer');
+    if (!b) return;
+    // déjà installée : on tourne dans la fenêtre autonome, le bouton n'a plus d'objet
+    const installee = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+      || navigator.standalone === true;
+    if (installee) return;
+    /* iOS/iPadOS n'émet jamais beforeinstallprompt : sans ce cas particulier, les
+       utilisateurs d'iPhone n'auraient simplement aucun bouton. */
+    const iOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (window.__kjInvite || iOS) b.hidden = false;
+    // l'écouteur de <head> a pu se déclencher avant que le bouton existe
+    window.addEventListener('beforeinstallprompt', function () { b.hidden = false; });
+    window.addEventListener('appinstalled', function () {
+      window.__kjInvite = null;
+      b.hidden = true;
+      KJ.dlg.info('Cartographie est installée : tu la retrouveras avec tes autres '
+        + 'applications, et elle s’ouvrira sans barre d’adresse.', { titre: 'Installée' });
+    });
+    b.addEventListener('click', function () {
+      const invite = window.__kjInvite;
+      if (invite) {
+        invite.prompt();
+        // l'invite ne se rejoue pas : une fois consommée, on l'oublie
+        Promise.resolve(invite.userChoice).then(function (r) {
+          window.__kjInvite = null;
+          if (r && r.outcome === 'accepted') b.hidden = true;
+        }).catch(function () { window.__kjInvite = null; });
+        return;
+      }
+      if (iOS) {
+        KJ.dlg.info('Sur iPhone et iPad, l’installation passe par Safari :\n\n'
+          + '1. Touche le bouton Partager (le carré avec une flèche vers le haut).\n'
+          + '2. Choisis « Sur l’écran d’accueil ».\n'
+          + '3. Valide avec « Ajouter ».', { titre: 'Installer sur iOS' });
+        return;
+      }
+      KJ.dlg.info('Ton navigateur ne propose pas l’installation pour l’instant. '
+        + 'Sur PC (Chrome, Edge, Brave), cherche l’icône d’installation dans la barre '
+        + 'd’adresse, ou « Installer Cartographie » dans le menu ⋮.',
+        { titre: 'Installation' });
+    });
+  })();
 
   $('b-campagne').addEventListener('click', function () {
     const connues = M.listeCampagnes(campLocales)
