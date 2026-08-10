@@ -628,6 +628,45 @@
     if (canal) { canal.postMessage({ t: 'demande', d: d }); return true; }
     return false;   // aucune fenêtre MJ joignable : l'appelant écrira localement
   }
+
+  /* ---------- déplacements en attente d'acquittement ----------
+     Le MJ ne publie son état qu'une fois par seconde (quota). Un état parti AVANT
+     qu'il reçoive la demande du joueur contient encore l'ANCIENNE position du jeton :
+     l'appliquer tel quel ramenait le jeton à son point de départ, avant de le voir
+     repartir à destination une seconde plus tard. On garde donc la position locale
+     jusqu'à ce que l'état officiel la confirme — ou qu'il devienne clair qu'elle a
+     été refusée (carte changée, demande perdue). */
+  const mvtEnAttente = new Map();
+  const ATTENTE_MAX = 4000;   // au-delà : le MJ a refusé ou le message est perdu
+  function noterMouvement(id, x, y, carteId) {
+    mvtEnAttente.set(id, { x: x, y: y, carte: carteId, t: Date.now() });
+  }
+  function reconcilierMouvements(etat) {
+    if (!mvtEnAttente.size || !etat) return;
+    // tolérance d'une demi-case : le MJ applique la position telle quelle, mais on
+    // ne veut pas rester bloqué sur un écart d'arrondi
+    const tol = Math.max((cellule() || 40) / 2, 4);
+    for (const [id, m] of [...mvtEnAttente]) {
+      const j = (etat.jetons || []).find(k => k.id === id);
+      /* Le MJ a changé de carte (passage d'un portail) ou le jeton a disparu :
+         c'est lui qui commande, on lâche notre position sans discuter. */
+      if (!j || (etat.carte && m.carte && etat.carte !== m.carte)) {
+        mvtEnAttente.delete(id); continue;
+      }
+      if (Math.abs(j.x - m.x) <= tol && Math.abs(j.y - m.y) <= tol) {
+        mvtEnAttente.delete(id); continue;   // acquitté : l'état officiel fait foi
+      }
+      /* Jamais acquitté : demande perdue, ou refusée parce qu'elle venait d'une carte
+         que le MJ n'affiche plus. Le jeton retourne où le MJ le voit — mais on le dit,
+         sinon il recule tout seul sans raison visible. */
+      if (Date.now() - m.t > ATTENTE_MAX) {
+        mvtEnAttente.delete(id);
+        toast('Déplacement non pris en compte par le MJ.');
+        continue;
+      }
+      j.x = m.x; j.y = m.y;   // état encore en retard : on conserve notre position
+    }
+  }
   function dessinerNotes() {
     if (!notesEl) return;
     notesEl.innerHTML = '';
@@ -1154,9 +1193,13 @@
         // en session réseau, le geste du joueur remonte au MJ, qui l'applique à
         // l'état officiel — y compris la révélation automatique, calculée chez lui
         const enReseau = KJ.session && KJ.session.active() && !KJ.session.estMJ();
-        if (enReseau)
+        if (enReseau) {
           KJ.session.envoyerMouvement({ id: jDrag.id, x: jDrag.x, y: jDrag.y, carte: carte.id,
             portail: portail ? portail.vers : null });
+          /* sur un portail, c'est le MJ qui traverse et repositionne tout le monde :
+             conserver notre position n'aurait aucun sens */
+          if (!portail) noterMouvement(jDrag.id, jDrag.x, jDrag.y, carte.id);
+        }
         // JAMAIS dans la fenêtre joueurs : un joueur seul (MJ absent) pouvait sinon
         // se révéler localement tous les secrets en promenant son jeton
         if (!vueJoueurs) verifierDeclencheurs();
@@ -1756,6 +1799,9 @@
     if (!partie.reveles) partie.reveles = {};
     if (!partie.masques) partie.masques = {};
     if (!partie.notes) partie.notes = [];
+    // AVANT tout redessin : un état plus vieux que notre dernier geste ne doit pas
+    // faire reculer notre jeton (voir reconcilierMouvements)
+    reconcilierMouvements(partie);
     viderAnnul();   // les index/instantanés de l'ancien état ne valent plus rien
     sauverPartieBientot(false);
     if (changeCarte) chargerCarte(partie.carte).catch(() => {});
@@ -2265,6 +2311,9 @@
   window.KJ_TABLE = {
     get catalogue() { return catalogue; },
     get carte() { return carte; },
+    // l'état EN MÉMOIRE : la sauvegarde locale étant lissée, localStorage est en
+    // retard de quelques centaines de ms — c'est ici qu'on lit la vérité courante
+    get partie() { return partie; },
     resoudre: resoudre,
   };
 })();
