@@ -1256,24 +1256,20 @@
     if (mode === 'jeton' && bouge > 2) return;
     const jet = e.target.closest('.jeton');
     if (jet) {
-      // au doigt, l'appui long part trop facilement tout seul : on confirme avant
-      // de supprimer (à la souris, le clic droit reste immédiat comme avant)
+      /* Suppression IMMÉDIATE, sans confirmation : en séance, on retire des jetons
+         sans arrêt et une boîte de dialogue à chaque fois coupe le rythme. Le filet
+         de sécurité est l'annulation, pas un clic de plus — avantJetons() empile
+         l'état, donc ↶ récupère le jeton. */
       const jNom = (partie.jetons.find(j => j.id === jet.dataset.id) || {}).nom;
       const idSup = jet.dataset.id;
-      // confirmation à la souris AUSSI : la suppression était immédiate et, avant
-      // l'historique des jetons, définitive
-      KJ.dlg.confirmer('Supprimer le jeton « ' + (jNom || '?') + ' » ?',
-        { titre: 'Supprimer un jeton', ok: 'Supprimer', danger: true }).then(oui => {
-        if (!oui) return;
-        avantJetons();
-        partie.jetons = partie.jetons.filter(j => j.id !== idSup);
-        mode = null; jDrag = null; jPointer = null; snapJetons = null;
-        dessinerJetons(); sauverPartie();
-      });
-      /* le geste en cours tenait ce jeton : couper tout de suite, sinon le
+      /* le geste en cours tenait ce jeton : couper AVANT de redessiner, sinon le
          relâchement du doigt rejouait un « lâcher sur portail » avec un jeton en
          cours de suppression → changement de carte fantôme pour toute la table */
       mode = null; jDrag = null; jPointer = null; snapJetons = null;
+      avantJetons();
+      partie.jetons = partie.jetons.filter(j => j.id !== idSup);
+      dessinerJetons(); sauverPartie();
+      toast('« ' + (jNom || '?') + ' » supprimé (↶ pour le récupérer).');
       return;
     }
     const imgPin = e.target.closest('.img-pin');
@@ -1461,15 +1457,13 @@
         });
         input.click();
       });
+      // « Supprimer » est déjà un choix explicite dans cette fenêtre : demander
+      // confirmation par-dessus faisait deux clics pour un seul geste voulu
       if (jetonExistant) $('j-supprimer').addEventListener('click', () => {
-        KJ.dlg.confirmer('Supprimer le jeton « ' + (jetonExistant.nom || '?') + ' » ?',
-          { titre: 'Supprimer un jeton', ok: 'Supprimer', danger: true }).then(oui => {
-          if (!oui) return;
-          avantJetons();
-          partie.jetons = partie.jetons.filter(j => j.id !== jetonExistant.id);
-          dessinerJetons(); sauverPartie(true); fermerModale();
-          toast('Jeton supprimé (↶ pour le récupérer).');
-        });
+        avantJetons();
+        partie.jetons = partie.jetons.filter(j => j.id !== jetonExistant.id);
+        dessinerJetons(); sauverPartie(true); fermerModale();
+        toast('« ' + (jetonExistant.nom || '?') + ' » supprimé (↶ pour le récupérer).');
       });
       $('j-annuler').addEventListener('click', fermerModale);
       $('j-creer').addEventListener('click', () => {
