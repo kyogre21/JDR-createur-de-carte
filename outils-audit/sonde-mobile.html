@@ -1,0 +1,78 @@
+<pre id="audit-sonde" style="position:fixed;left:0;top:0;z-index:99999;background:#000;color:#0f0;font:10px monospace;margin:0;padding:4px;white-space:pre-wrap;max-width:100vw"></pre>
+<script>
+(function () {
+  var out = [], W = innerWidth, H = innerHeight;
+  var sel = 'button,a,input,select,textarea,[role=button]';
+  function sig(e) {
+    var s = e.tagName.toLowerCase();
+    if (e.id) s += '#' + e.id;
+    else if (e.className && typeof e.className === 'string' && e.className.trim())
+      s += '.' + e.className.trim().split(/\s+/)[0];
+    var t = (e.textContent || '').trim().slice(0, 10);
+    if (t) s += '[' + t + ']';
+    return s;
+  }
+  function visibles(s) {
+    var r = [];
+    document.querySelectorAll(s).forEach(function (e) {
+      if (e.hidden || e.offsetParent === null) return;
+      if (e.closest('#audit-sonde')) return;
+      var b = e.getBoundingClientRect();
+      if (b.width > 0 && b.height > 0) r.push({ e: e, b: b });
+    });
+    return r;
+  }
+  out.push('VIEWPORT ' + W + 'x' + H);
+
+  // 1. debordement horizontal : provoque un balayage lateral parasite sur telephone
+  var large = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth);
+  out.push('SCROLLWIDTH ' + large + (large > W + 1 ? '  DEBORDE de ' + (large - W) + 'px' : '  ok'));
+  var dep = [];
+  document.querySelectorAll('*').forEach(function (e) {
+    if (e.closest('#audit-sonde')) return;
+    var b = e.getBoundingClientRect();
+    if (b.width > 0 && b.height > 0 && b.right > W + 2 && b.width < W * 3)
+      dep.push(sig(e) + '→' + Math.round(b.right));
+  });
+  out.push('DEBORDANTS(' + dep.length + ') ' + (dep.slice(0, 5).join(' ') || '-'));
+
+  // 2. cibles tactiles trop petites (44px recommande, 40 tolere)
+  var petits = visibles(sel).filter(function (x) { return x.b.height < 40 || x.b.width < 28; })
+    .map(function (x) { return sig(x.e) + ' ' + Math.round(x.b.width) + 'x' + Math.round(x.b.height); });
+  out.push('CIBLES<40(' + petits.length + ') ' + (petits.slice(0, 12).join(' ') || '-'));
+
+  // 3. champs sous 16px : iOS zoome la page au focus et ne la remet jamais
+  var zoom = [];
+  document.querySelectorAll('input,select,textarea').forEach(function (e) {
+    if (e.type === 'hidden' || e.type === 'file') return;
+    var t = parseFloat(getComputedStyle(e).fontSize);
+    if (t < 16) zoom.push(sig(e) + ' ' + t);
+  });
+  out.push('ZOOM-IOS(' + zoom.length + ') ' + (zoom.slice(0, 10).join(' ') || '-'));
+
+  // 4. elements interactifs qui se chevauchent : mauvais appui garanti
+  var v = visibles(sel), chev = [];
+  for (var i = 0; i < v.length; i++) for (var j = i + 1; j < v.length; j++) {
+    if (v[i].e.contains(v[j].e) || v[j].e.contains(v[i].e)) continue;
+    var a = v[i].b, b = v[j].b;
+    if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2
+        && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2)
+      chev.push(sig(v[i].e) + '/' + sig(v[j].e));
+  }
+  out.push('CHEVAUCH(' + chev.length + ') ' + (chev.slice(0, 5).join(' ') || '-'));
+
+  // 5. hauteur : height:100% se resout sur le viewport LARGE ; la barre d URL du
+  //    telephone masque alors le bas de l application
+  var hb = document.body.getBoundingClientRect().height;
+  out.push('BODY ' + Math.round(hb) + ' / vp ' + H + (hb > H + 1 ? '  DEPASSE de ' + Math.round(hb - H) : '  ok'));
+
+  // 6. reglages tactiles attendus
+  var cs = getComputedStyle(document.body);
+  out.push('OVERSCROLL ' + cs.overscrollBehaviorY + '   (auto = tirer vers le bas recharge la page)');
+  var zone = document.querySelector('#canevas,#scene');
+  out.push('TOUCH-ACTION-CARTE ' + (zone ? getComputedStyle(zone).touchAction : 'n/a'));
+  out.push('TAP-HIGHLIGHT ' + (cs.webkitTapHighlightColor || '(non gere)'));
+
+  document.getElementById('audit-sonde').textContent = out.join('\n');
+})();
+</script>

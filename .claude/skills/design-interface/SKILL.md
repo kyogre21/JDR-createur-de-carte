@@ -1,9 +1,9 @@
 ---
 name: design-interface
-description: Concevoir et améliorer l'interface du Cartographe Knight (bibliothèque, éditeur, table de jeu) — sur PC et surtout sur mobile. À charger pour tout travail d'ergonomie, de mise en page, de lisibilité ou d'habillage.
+description: Concevoir et améliorer l'interface du Cartographie (bibliothèque, éditeur, table de jeu) — sur PC et surtout sur mobile. À charger pour tout travail d'ergonomie, de mise en page, de lisibilité ou d'habillage.
 ---
 
-# Design d'interface — Cartographe Knight
+# Design d'interface — Cartographie
 
 Rôle : designer d'interface du projet. L'application a trois pages (`index.html` bibliothèque,
 `editeur.html` création, `table.html` jeu) et **trois publics** aux besoins très différents.

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="commun-copie.css">
+</head>
+<body>
+<div id="app"><div id="biblio"><div id="liste" style="display:contents"></div></div></div>
+<pre id="mesures" style="position:fixed;left:0;bottom:0;background:#000;color:#0f0;font:11px monospace;
+  margin:0;padding:6px;z-index:999;max-width:100%;white-space:pre-wrap"></pre>
+<script>
+/* Reproduit la structure exacte d'une fiche de bibliothèque, puis MESURE les cibles
+   tactiles telles que le navigateur les rend. Le CSS seul ne prouve rien : ce sont
+   les dimensions calculées qui décident si on peut viser au doigt. */
+const liste = document.getElementById('liste');
+const noms = ['Cathay — Place du Marché', 'Cathay — Ville basse', 'dungeon K'];
+let ouvertures = 0, actionsCliquees = [];
+for (const nom of noms) {
+  const d = document.createElement('div');
+  d.className = 'fiche'; d.dataset.carte = nom;
+  d.innerHTML = '<div class="apercu-img"><svg viewBox="0 0 100 75"><rect width="100" height="75" fill="#221b11"/></svg></div>'
+    + '<div class="txt"><b>' + nom + '</b><div>84 × 66 m · 91 éléments · 13/08/2026</div></div>';
+  const act = document.createElement('div'); act.className = 'actions';
+  const faire = (txt, cls) => {
+    const b = document.createElement('button');
+    b.textContent = txt; if (cls) b.className = cls;
+    b.addEventListener('click', () => actionsCliquees.push(txt));
+    act.appendChild(b); return b;
+  };
+  faire('Ouvrir'); faire('▶ Jouer'); faire('↓ SVG'); faire('✎ Renommer'); faire('✕', 'danger');
+  d.appendChild(act);
+  // le même gestionnaire que dans index.html
+  d.addEventListener('click', (e) => { if (!e.target.closest('.actions')) ouvertures++; });
+  liste.appendChild(d);
+}
+
+const out = [];
+const fiche = liste.querySelector('.fiche');
+const rf = fiche.getBoundingClientRect();
+out.push('VIEWPORT ' + innerWidth + 'x' + innerHeight);
+out.push('FICHE ' + Math.round(rf.width) + 'x' + Math.round(rf.height));
+const btns = [...fiche.querySelectorAll('.actions button')];
+for (const b of btns) {
+  const r = b.getBoundingClientRect();
+  out.push('BTN "' + b.textContent + '" ' + Math.round(r.width) + 'x' + Math.round(r.height));
+}
+// chevauchement entre boutons voisins (une cible qui mord sur l'autre = mauvais clic)
+let chev = 0;
+for (let i = 0; i < btns.length - 1; i++) {
+  const a = btns[i].getBoundingClientRect(), b = btns[i + 1].getBoundingClientRect();
+  if (a.right > b.left + 0.5 && Math.abs(a.top - b.top) < 2) chev++;
+}
+out.push('CHEVAUCHEMENTS ' + chev);
+// la zone tactile de la fiche hors actions (vignette + texte)
+const vign = fiche.querySelector('.apercu-img').getBoundingClientRect();
+const txt = fiche.querySelector('.txt').getBoundingClientRect();
+out.push('ZONE-OUVERTURE ' + Math.round(vign.height + txt.height) + ' px de haut');
+// simulation : un appui sur la vignette, puis sur le nom, puis sur un bouton
+fiche.querySelector('.apercu-img').click();
+fiche.querySelector('.txt b').click();
+btns[1].click();
+out.push('OUVERTURES ' + ouvertures);
+out.push('ACTIONS ' + JSON.stringify(actionsCliquees));
+document.getElementById('mesures').textContent = out.join('\n');
+</script>
+</body>
+</html>

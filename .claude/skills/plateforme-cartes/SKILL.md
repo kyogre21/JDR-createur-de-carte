@@ -1,12 +1,12 @@
 ---
 name: plateforme-cartes
-description: À utiliser pour TOUTE intervention sur Cartographe Knight, l'éditeur de cartes de JDR de ce projet — corrections, mais aussi nouvelles fonctionnalités, refontes de design/interaction, ajout d'un outil ou d'un type d'élément, symbole de mobilier, brouillard, portails, bibliothèque, stockage, publication. Déclencheurs : "ajoute un outil", "nouveau symbole", "l'éditeur/la table de jeu ne…", "le brouillard", "les portails", "publie la plateforme", "refonte", "nouvelle fonctionnalité", "change le design/l'interface/l'interaction", "grosse modification". Contient l'architecture, les invariants, une check-list avant un gros changement, le protocole de vérification obligatoire, et le journal des pièges déjà rencontrés — à consulter avant d'en refaire un.
+description: À utiliser pour TOUTE intervention sur Cartographie, l'éditeur de cartes de JDR de ce projet — corrections, mais aussi nouvelles fonctionnalités, refontes de design/interaction, ajout d'un outil ou d'un type d'élément, symbole de mobilier, brouillard, portails, bibliothèque, stockage, publication. Déclencheurs : "ajoute un outil", "nouveau symbole", "l'éditeur/la table de jeu ne…", "le brouillard", "les portails", "publie la plateforme", "refonte", "nouvelle fonctionnalité", "change le design/l'interface/l'interaction", "grosse modification". Contient l'architecture, les invariants, une check-list avant un gros changement, le protocole de vérification obligatoire, et le journal des pièges déjà rencontrés — à consulter avant d'en refaire un.
 ---
 
-# Cartographe Knight — développement de la plateforme
+# Cartographie — développement de la plateforme
 
 Application web **statique** (aucun serveur, aucune dépendance, aucun CDN) : éditeur de cartes
-de jeu de rôle et table de jeu, pour la campagne Knight « La Forêt Noire ».
+de jeu de rôle et table de jeu, pour la campagne Cartographie « La Forêt Noire ».
 Contexte fonctionnel et mode d'emploi : `plateforme/README.md`.
 
 ## Invariant central — le format avant le dessin

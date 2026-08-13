@@ -10,10 +10,20 @@
   --serif:"Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--fond);color:var(--encre);font-family:var(--ui);
-  font-size:14px;-webkit-text-size-adjust:100%}
-body{overflow:hidden;display:flex;flex-direction:column;
-  user-select:none;-webkit-user-select:none}
+/* 100dvh (« dynamic viewport height ») en plus de 100% : height:100% se résout sur le
+   viewport LARGE, celui qu'on aurait sans la barre d'URL du téléphone — le bas de
+   l'application passait donc sous cette barre. 100dvh suit la hauteur réellement
+   visible. Le 100% reste comme repli pour les navigateurs qui ignorent dvh. */
+html,body{margin:0;height:100%;height:100dvh;background:var(--fond);color:var(--encre);
+  font-family:var(--ui);font-size:14px;-webkit-text-size-adjust:100%}
+/* overscroll-behavior:none — LE correctif le plus important du tactile : par défaut,
+   tirer vers le bas déclenche le rechargement de la page (Android/Chrome). À la table,
+   déplacer la carte vers le bas faisait donc perdre la séance en cours. */
+body{overflow:hidden;overscroll-behavior:none;display:flex;flex-direction:column;
+  user-select:none;-webkit-user-select:none;
+  /* le voile d'appui par défaut est sombre, donc invisible sur ce thème : on le retire
+     et le retour au doigt est donné par les états :active ci-dessous */
+  -webkit-tap-highlight-color:transparent}
 
 /* ---------- en-tête ---------- */
 header{display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--panneau);
@@ -32,6 +42,9 @@ button,.btn{background:#2b241b;color:var(--encre);border:1px solid var(--bord-cl
   padding:6px 9px;font:600 12px var(--ui);letter-spacing:.03em;cursor:pointer;min-height:32px;
   display:inline-flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap}
 button:hover,.btn:hover{background:#3a3126}
+/* :active remplace le survol, qui n'existe pas au doigt — sans lui, aucun retour ne
+   dit que l'appui a été pris en compte */
+button:active,.btn:active{background:#4a4032;border-color:var(--or)}
 button.actif{background:var(--or);color:#161208;border-color:var(--or)}
 button.danger{border-color:#6a3a34}
 button.danger:hover{background:#4a2822}
@@ -184,6 +197,40 @@ footer{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:4px 10px;b
   .fiche .actions button.danger{flex:0 0 auto;min-width:46px;margin-left:auto}
   /* la fiche entière est tactile : un retour visuel à l'appui, faute de survol */
   .fiche:active{border-color:var(--or);background:#332a1e}
+
+  /* ZOOM D'iOS : tout champ sous 16 px fait zoomer la page au focus, et iOS ne
+     dézoome JAMAIS ensuite. Le panneau de l'éditeur en comptait une quinzaine à
+     13,3 px : saisir une largeur de mur laissait la carte zoomée de travers.
+     16 px partout, y compris les listes déroulantes. */
+  /* Les règles nommées (id, .champ) l'emportent sur un sélecteur de type : il faut les
+     viser explicitement, sinon la moitié des champs restent sous 16 px. */
+  input,select,textarea{font-size:16px}
+  #nom-carte,#filtre-campagne{font-size:16px}
+  .champ input,.champ select,.champ textarea{font-size:16px;min-height:40px}
+  /* cases à cocher : 15 px de côté au rendu natif, invisibles au doigt */
+  input[type="checkbox"],input[type="radio"]{width:22px;height:22px}
+  /* les sélecteurs étaient les plus petites cibles de toutes (19 à 26 px de haut) */
+  select{min-height:40px;padding:6px 8px}
+
+  /* Boutons-ICÔNES : une trentaine de pixels de large, c'était le vrai problème de
+     visée — bien plus que la hauteur des barres, qu'on garde basse pour laisser de
+     la place à la carte (retour utilisateur explicite). */
+  header button, header .btn{min-width:40px;justify-content:center}
+  /* La bibliothèque, elle, n'a aucune carte à ménager : ses boutons passent à 44 px.
+     Sur l'éditeur et la table on garde 32-34 px, parce que chaque pixel de barre est
+     pris à la carte — retour utilisateur explicite sur ce point. */
+  body.page-biblio header button, body.page-biblio header .btn,
+  body.page-biblio header select{min-height:44px}
+  /* le titre cliquable ramenait à la bibliothèque mais ne faisait que 19 px de haut */
+  header .marque{min-height:40px;display:inline-flex;align-items:center}
+
+  /* ENCOCHE ET BARRE GESTUELLE des iPhone : elles recouvrent ce qui touche les bords.
+     On décale l'en-tête sous l'encoche et on remonte le toast au-dessus de la barre
+     gestuelle, où il était à moitié masqué. */
+  header{padding-left:max(8px,env(safe-area-inset-left));
+    padding-right:max(8px,env(safe-area-inset-right));
+    padding-top:max(6px,env(safe-area-inset-top))}
+  #toast{bottom:calc(26px + env(safe-area-inset-bottom))}
 }
 
 /* ---------- petite boîte de dialogue (renommer, ranger) ---------- */

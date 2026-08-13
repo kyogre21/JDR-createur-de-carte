@@ -186,6 +186,10 @@
   .qr-boite{display:flex;justify-content:center;margin:2px 0 12px}
   .qr-boite canvas{background:#fff;border-radius:6px;display:block}
   /* seul élément resté en habillage natif (blanc éclatant) au milieu de la charte */
+  /* même habillage que le sélecteur de carte : il était resté en rendu natif, seul
+     élément blanc éclatant de la barre */
+  #taille-pinceau{background:#241d14;border:1px solid var(--bord-clair);border-radius:5px;
+    color:var(--encre);font:600 12px var(--ui);padding:5px 7px}
   #choix-carte{background:#241d14;border:1px solid var(--bord-clair);border-radius:5px;
     color:var(--encre);font:600 12.5px var(--ui);padding:5px 8px;max-width:38vw}
   /* chez les joueurs (session ou fenêtre séparée) : une étiquette du lieu, pas un menu —
@@ -209,9 +213,19 @@
   /* Téléphone / tablette : la barre d'outils défile horizontalement au lieu de
      s'empiler sur trois lignes et de manger la carte. */
   @media (max-width:820px){
-    header{flex-wrap:nowrap;gap:6px;padding:5px 6px}
+    /* le raccourci « padding » écrasait le décalage d'encoche posé dans commun.css :
+       on le réapplique ici, sinon la barre passe sous l'encoche en paysage — la
+       position de jeu la plus courante */
+    header{flex-wrap:nowrap;gap:6px;
+      padding:max(5px,env(safe-area-inset-top)) max(6px,env(safe-area-inset-right))
+              5px max(6px,env(safe-area-inset-left))}
     header .marque{display:none}
-    #choix-carte{flex:0 1 40vw;min-width:0;font-size:12px}
+    /* 16 px et non 12 : sous 16, iOS zoome la page au focus et ne dézoome jamais.
+       Le nom est tronqué par la largeur, ce qui est préférable à une carte de travers. */
+    #choix-carte{flex:0 1 40vw;min-width:0;font-size:16px;min-height:40px}
+    /* le sélecteur de pinceau n'avait AUCUN style : rendu natif, 19 px de haut et
+       13 px de texte — la plus petite cible de toute l'interface */
+    #taille-pinceau{font-size:16px;min-height:40px}
     /* La scrollbar est masquée (esthétique), donc rien d'autre n'indique que la barre
        défile : un dégradé sur le bord droit sert d'indice, sinon les boutons après
        « Tout révéler » (Jeton, réinitialiser, galerie, vue joueurs, éditer…) sont
