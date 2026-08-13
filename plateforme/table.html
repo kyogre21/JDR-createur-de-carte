@@ -181,6 +181,10 @@
     background:#241d14;border:1px solid var(--or);border-radius:8px;padding:14px 10px;margin:4px 0 12px}
   .lien-partie{width:100%;background:#241d14;border:1px solid var(--bord-clair);border-radius:5px;
     color:var(--encre);font:12px var(--ui);padding:8px 9px;margin-bottom:10px}
+  /* Le QR reste SOMBRE SUR CLAIR sur son cadre blanc, contre la charte sombre du
+     reste de l'application : beaucoup d'appareils photo refusent un code inversé. */
+  .qr-boite{display:flex;justify-content:center;margin:2px 0 12px}
+  .qr-boite canvas{background:#fff;border-radius:6px;display:block}
   /* seul élément resté en habillage natif (blanc éclatant) au milieu de la charte */
   #choix-carte{background:#241d14;border:1px solid var(--bord-clair);border-radius:5px;
     color:var(--encre);font:600 12.5px var(--ui);padding:5px 8px;max-width:38vw}
@@ -329,6 +333,7 @@
 </div>
 
 <script src="js/dialogue.js"></script>
+<script src="js/qr.js"></script>
 <script src="js/modele.js"></script>
 <script src="js/rendu.js"></script>
 <script src="js/stockage.js"></script>

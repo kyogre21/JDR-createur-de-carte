@@ -1819,22 +1819,30 @@
       + (KJ.session.estMJ() ? ' · ' + (nb || 0) + ' joueur' + (nb > 1 ? 's' : '')
         : (mjPresent === false ? ' · MJ absent' : ''));
   }
-  /* Le badge devient cliquable : re-montrer le code et le lien d'invitation était
-     impossible sans passer par « ▶ Reprendre » (qui rebranche la partie). */
-  const badge = $('badge-session');
-  if (badge) badge.addEventListener('click', () => {
-    if (!KJ.session || !KJ.session.active()) return;
-    const code = KJ.session.code();
+  /* Fenêtre d'invitation : QR, code à dicter, lien à envoyer. Trois façons de
+     rejoindre, une seule fenêtre — appelée au clic sur le badge ET à la création
+     ou reprise d'une partie (voir annoncerCode). */
+  function montrerCodePartie(code, titre) {
     const lien = location.origin + location.pathname + '?session=' + code;
-    if (vueJoueurs) { toast('Tu es dans la partie ' + code + '.'); return; }
-    ouvrirModale('Partie ' + code, false, (corps) => {
-      corps.innerHTML = '<p class="aide">À dicter aux joueurs (ils entrent le code depuis '
-        + 'l’accueil, ou ouvrent directement le lien) :</p>'
+    ouvrirModale(titre || ('Partie ' + code), false, (corps) => {
+      corps.innerHTML = '<p class="aide">Fais scanner le code : le joueur arrive '
+        + 'directement à la table. Sinon, dicte-lui les quatre chiffres (il les entre '
+        + 'depuis l’accueil) ou envoie-lui le lien.</p>'
+        + '<div class="qr-boite"><canvas id="qr-partie"></canvas></div>'
         + '<div class="code-partie">' + R.esc(code) + '</div>'
         + '<input class="lien-partie" id="lien-partie" readonly value="' + R.esc(lien) + '">'
         + '<div class="actions-modale">'
         + '<button id="copier-lien">⧉ Copier le lien</button>'
         + '<button id="fermer-code" class="primaire">Fermer</button></div>';
+      /* Le QR encode le LIEN, pas le code : scanner doit ouvrir la table, pas
+         obliger à ressaisir quatre chiffres. En cas d'échec on retire le cadre
+         plutôt que de laisser un carré vide — le code et le lien suffisent. */
+      try {
+        KJ.qr.dansCanvas($('qr-partie'), lien, { taille: 216 });
+      } catch (e) {
+        const boite = corps.querySelector('.qr-boite');
+        if (boite) boite.remove();
+      }
       $('copier-lien').addEventListener('click', () => {
         const inp = $('lien-partie');
         if (navigator.clipboard && navigator.clipboard.writeText)
@@ -1844,6 +1852,15 @@
       });
       $('fermer-code').addEventListener('click', fermerModale);
     });
+  }
+  /* Le badge devient cliquable : re-montrer le code et le lien d'invitation était
+     impossible sans passer par « ▶ Reprendre » (qui rebranche la partie). */
+  const badge = $('badge-session');
+  if (badge) badge.addEventListener('click', () => {
+    if (!KJ.session || !KJ.session.active()) return;
+    const code = KJ.session.code();
+    if (vueJoueurs) { toast('Tu es dans la partie ' + code + '.'); return; }
+    montrerCodePartie(code);
   });
   /* Fenêtre pour l'écran des joueurs (TV, vidéoprojecteur) : il fallait taper
      « ?vue=joueurs » à la main dans l'adresse. */
@@ -1977,14 +1994,14 @@
         KJ.session.publierCartePartie(carte.id, JSON.stringify(carte), imagesDeCarte(carte));   // compact
     });
   }
+  /* À la création d'une partie, le code n'était annoncé qu'en texte : c'est pourtant
+     LE moment où on le partage. On ouvre donc la même fenêtre d'invitation que le
+     badge, QR compris — une seule façon d'inviter, au lieu de deux. */
   function annoncerCode(code, reprise) {
     const lien = location.origin + location.pathname + '?session=' + code;
     if (navigator.clipboard && navigator.clipboard.writeText)
       navigator.clipboard.writeText(lien).catch(() => {});
-    KJ.dlg.info('Code : ' + code + '\n'
-      + 'Il ne changera plus. Le lien vient d’être copié — tes joueurs peuvent le garder '
-      + 'en favori pour toute la campagne :\n' + lien,
-      { titre: reprise ? 'Partie reprise' : 'Partie créée' });
+    montrerCodePartie(code, reprise ? 'Partie reprise' : 'Partie créée');
   }
 
   /* ---------------- écran « Partie » (MJ) ---------------- */

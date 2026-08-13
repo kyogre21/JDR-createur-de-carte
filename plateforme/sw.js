@@ -11,10 +11,15 @@
    indéfiniment l'ancien code, y compris celui qui réinstallait ce cache. Ne
    jamais revenir à cette stratégie pour le HTML et les scripts.
    ============================================================ */
-const CACHE = 'cartographe-6';
+/* Numéro à INCRÉMENTER dès que la liste ci-dessous change : c'est lui qui déclenche
+   la purge des anciens caches et un nouveau pré-chargement. */
+const CACHE = 'cartographe-7';
 const ESSENTIELS = [
   './', './index.html', './editeur.html', './table.html', './css/commun.css',
   './js/modele.js', './js/rendu.js', './js/stockage.js', './js/editeur.js', './js/table.js',
+  // dialogue.js manquait : les boîtes de dialogue internes remplacent toutes les
+  // popups du navigateur, une page qui s'ouvre sans lui ne peut plus rien demander
+  './js/dialogue.js', './js/qr.js',
   './manifest.webmanifest',
   './icone-192.png', './icone-512.png', './icone-32.png',
   './js/firebase-config.js', './js/session.js',
