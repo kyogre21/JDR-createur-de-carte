@@ -114,11 +114,18 @@
     const maj = carte.maj ? new Date(carte.maj).toLocaleDateString('fr-FR') : '';
     d.innerHTML = `<div class="apercu-img">${apercu(carte)}</div>`
       + `<div class="txt"><b>${R.esc(carte.nom)}</b><div>${dim} · ${nb} élément${nb > 1 ? 's' : ''}${maj ? ' · ' + maj : ''}</div></div>`;
+    /* TOUTE la fiche ouvre la carte. Elle affichait « cursor:pointer » — donc elle
+       promettait d'être cliquable — sans aucun gestionnaire : seuls les petits boutons
+       naviguaient. Au doigt, on touche la vignette ou le nom, et rien ne se passait.
+       La rangée d'actions est exclue, sinon chaque bouton déclencherait aussi ceci. */
+    const ouvrir = () => { location.href = 'editeur.html?id=' + encodeURIComponent(carte.id); };
+    d.addEventListener('click', (e) => { if (!e.target.closest('.actions')) ouvrir(); });
+
     const act = document.createElement('div'); act.className = 'actions';
     const lien = document.createElement('button');
     lien.textContent = modifiable ? 'Ouvrir' : 'Voir';
     lien.title = modifiable ? 'Ouvrir dans l’éditeur' : 'Ouvrir (lecture seule sur cet appareil)';
-    lien.addEventListener('click', () => location.href = 'editeur.html?id=' + encodeURIComponent(carte.id));
+    lien.addEventListener('click', ouvrir);
     act.appendChild(lien);
     const jouer = document.createElement('button');
     jouer.textContent = '▶ Jouer';
@@ -488,7 +495,13 @@
       S.avecDelai(S.listerCartes(), 12000, []),
       S.avecDelai(S.peutModifier(), 6000, false),   // ne jamais rester suspendu ici non plus
     ])).then(async ([connecte, cartes, editable]) => {
-      modifiable = editable;
+      /* « connecte » suffit : un compte MJ connecté peut toujours enregistrer et
+         supprimer ses cartes en ligne (voir stockage.enregistrerCarte). peutModifier()
+         refait pourtant la même vérification réseau, derrière un délai de 6 s — sur un
+         téléphone en réseau faible, ce délai expirait et faisait basculer un MJ pourtant
+         connecté en LECTURE SEULE : plus de « Nouvelle carte », et « Voir » au lieu
+         d'« Ouvrir ». On ne dépend donc plus de cette seconde réponse. */
+      modifiable = editable || !!connecte;
       majBoutonMJ(connecte);
       if (!modifiable && !connecte) { rendu = true; return porteEntree(); }
       campLocales = cartes;

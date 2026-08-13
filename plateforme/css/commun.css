@@ -173,6 +173,17 @@ footer{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:4px 10px;b
   header .marque{font-size:14px}
   #nom-carte{flex:1 1 100px;min-width:8ch}
   footer{display:none}
+  /* CIBLES TACTILES de la bibliothèque : à 26 px de haut et 10,5 px de texte, les
+     actions d'une fiche étaient presque impossibles à viser au doigt — et « ✕ »
+     (supprimer) touchait « ✎ Renommer ». 44 px est le minimum utilisable. */
+  .fiche .actions{gap:6px;padding:0 8px 10px}
+  .fiche .actions button{min-height:44px;font-size:12.5px;padding:8px 10px;flex:1 1 auto;
+    justify-content:center}
+  /* la suppression reste étroite et à part : on ne l'élargit pas au même titre que
+     les actions ordinaires */
+  .fiche .actions button.danger{flex:0 0 auto;min-width:46px;margin-left:auto}
+  /* la fiche entière est tactile : un retour visuel à l'appui, faute de survol */
+  .fiche:active{border-color:var(--or);background:#332a1e}
 }
 
 /* ---------- petite boîte de dialogue (renommer, ranger) ---------- */
